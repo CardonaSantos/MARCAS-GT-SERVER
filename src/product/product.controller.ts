@@ -60,7 +60,7 @@ export class ProductController {
       process.cwd(),
       'src',
       'assets',
-      'ProductosCaballerosBoutique.csv',
+      'Productos  MARCAS GT.csv',
     );
     return await this.productService.loadCSVandImportProducts(ruta);
   }
