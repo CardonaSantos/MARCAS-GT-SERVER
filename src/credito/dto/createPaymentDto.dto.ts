@@ -3,6 +3,9 @@ import { IsEnum, IsInt, IsString } from 'class-validator';
 
 export class createPaymentDto {
   @IsInt()
+  creditoID: number;
+
+  @IsInt()
   monto: number;
 
   @IsInt()
@@ -10,8 +13,12 @@ export class createPaymentDto {
 
   @IsInt()
   creditoId: number;
+
+  @IsInt()
+  cuotaId: number; // ✅ NUEVO
+
   @IsEnum(MetodoPago)
-  metodoPago: MetodoPago; // Cómo se realizó el pago
+  metodoPago: MetodoPago;
 
   @IsString()
   password: string;

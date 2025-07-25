@@ -466,6 +466,26 @@ model Credito {
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
   pagos               PagoCredito[] // Relación con los pagos realizados
+  cuotasCredito CuotaCredito[]
+}
+
+model CuotaCredito {
+  id               Int           @id @default(autoincrement())
+  creditoId        Int
+  credito          Credito       @relation(fields: [creditoId], references: [id], onDelete: Cascade)
+  montoEsperado    Float         // Cuánto debe pagar en esta cuota
+  montoPagado      Float         @default(0)
+  estado           EstadoPago    @default(PENDIENTE)
+  fechaVencimiento DateTime
+  fechaPago        DateTime?     // Solo si ya pagó
+  comentario       String?
+  creadoEn         DateTime      @default(now())
+  actualizadoEn    DateTime      @updatedAt
+}
+enum EstadoPago {
+  PENDIENTE
+  PAGADA
+  ATRASADA
 }
 
 model PagoCredito {

@@ -5,6 +5,7 @@ import { PrismaService } from 'src/prisma.service';
 import { createPaymentDto } from './dto/createPaymentDto.dto';
 import { deleteCreditDto } from './dto/delete-credit.dto';
 import * as bcrypt from 'bcrypt';
+import { DeletePaymentDto } from './dto/delete-payment-cuota.dto';
 
 @Injectable()
 export class CreditoService {
@@ -25,12 +26,17 @@ export class CreditoService {
             direccion: true,
           },
         },
-        pagos: {
+        cuotasCredito: {
           select: {
             id: true,
-            monto: true,
-            timestamp: true,
-            metodoPago: true,
+            montoEsperado: true,
+            montoPagado: true,
+            estado: true,
+            fechaVencimiento: true,
+            fechaPago: true,
+          },
+          orderBy: {
+            fechaVencimiento: 'asc',
           },
         },
         venta: {
@@ -100,159 +106,186 @@ export class CreditoService {
   }
 
   async createPaymetCredit(createPayment: createPaymentDto) {
-    // Crear el registro de pago
+    const { creditoId, cuotaId, monto, empresaId, metodoPago, ventaId } =
+      createPayment;
+
+    // 1. Validar cuota
+    const cuota = await this.prisma.cuotaCredito.findUnique({
+      where: { id: cuotaId },
+    });
+
+    if (!cuota) {
+      throw new Error(`La cuota con ID ${cuotaId} no existe.`);
+    }
+
+    if (cuota.estado === 'PAGADA') {
+      throw new Error(`La cuota ya fue pagada.`);
+    }
+
+    // 2. Registrar pago en la cuota
+    const montoPagadoTotal = cuota.montoPagado + monto;
+    const estadoActualizado =
+      montoPagadoTotal >= (cuota.montoEsperado || 0) ? 'PAGADA' : 'PENDIENTE';
+
+    await this.prisma.cuotaCredito.update({
+      where: { id: cuotaId },
+      data: {
+        montoPagado: montoPagadoTotal,
+        estado: estadoActualizado,
+        fechaPago: new Date(),
+      },
+    });
+
+    // 3. (Opcional) Registrar el historial del pago
     const pago = await this.prisma.pagoCredito.create({
       data: {
-        metodoPago: createPayment.metodoPago,
-        monto: Number(createPayment.monto),
-        creditoId: createPayment.creditoId,
+        metodoPago,
+        monto: monto,
+        creditoId: creditoId,
       },
     });
 
-    console.log('El pago creado es: ', pago);
-
-    // Obtener el crédito relacionado para calcular el nuevo saldo pendiente
+    // 4. Actualizar el crédito
     const credito = await this.prisma.credito.findUnique({
-      where: { id: createPayment.creditoId },
+      where: { id: creditoId },
     });
+    if (!credito) throw new Error('Crédito no encontrado');
 
-    if (!credito) {
-      throw new Error(
-        `El crédito con ID ${createPayment.creditoId} no existe.`,
-      );
-    }
+    const nuevoSaldoPendiente = credito.saldoPendiente - monto;
 
-    // Calcular el nuevo saldo pendiente
-    const nuevoSaldoPendiente = credito.saldoPendiente - createPayment.monto;
-
-    // Actualizar el crédito con el nuevo total pagado y saldo pendiente
-    const creditoActualizar = await this.prisma.credito.update({
-      where: {
-        id: createPayment.creditoId,
-      },
+    const creditoActualizado = await this.prisma.credito.update({
+      where: { id: creditoId },
       data: {
         totalPagado: {
-          increment: createPayment.monto, // Incrementar el total pagado
+          increment: monto,
         },
-        saldoPendiente: nuevoSaldoPendiente < 0 ? 0 : nuevoSaldoPendiente, // Asegurar que no sea negativo
+        saldoPendiente: nuevoSaldoPendiente < 0 ? 0 : nuevoSaldoPendiente,
       },
     });
 
-    console.log('El crédito actualizado es: ', creditoActualizar);
-
-    console.log('Actualizamos la venta');
-    const ventaUpdate = await this.prisma.venta.findUnique({
-      where: {
-        id: createPayment.ventaId,
-      },
-    });
-
-    if (!ventaUpdate) {
-      throw new BadRequestException('Faltan datos para el registro');
-    }
-
+    // 5. Actualizar la venta
     await this.prisma.venta.update({
-      where: {
-        id: ventaUpdate.id,
-      },
+      where: { id: ventaId },
       data: {
         monto: {
-          increment: createPayment.monto,
+          increment: monto,
         },
       },
     });
 
-    console.log('Actualizar los ingresos de la empresa...');
+    // 6. Actualizar ingresos de la empresa
     await this.prisma.ingresosEmpresa.update({
-      where: {
-        id: createPayment.empresaId,
-      },
+      where: { id: empresaId },
       data: {
-        ingresosTotales: {
-          increment: createPayment.monto,
-        },
-        saldoActual: {
-          increment: createPayment.monto,
-        },
+        ingresosTotales: { increment: monto },
+        saldoActual: { increment: monto },
       },
     });
 
-    return { pago, creditoActualizado: creditoActualizar };
+    return {
+      mensaje: 'Pago registrado correctamente',
+      cuotaActualizada: {
+        id: cuotaId,
+        montoPagado: montoPagadoTotal,
+        estado: estadoActualizado,
+      },
+      creditoActualizado,
+      pago,
+    };
   }
 
   //TERMINAR DE HACER LOS AJUSTES, PARA QUE EL PAGO ELIMINADO CUADRE CON EL CREDITO, Y LOS INGRESOS DE LA EMPRESA
-  async deletePaymetCredit(deletePaymentDTO: createPaymentDto) {
-    console.log('Los datos son: ', deletePaymentDTO);
+  // credito.service.ts
+  async deletePayment(dto: DeletePaymentDto) {
+    const { userId, password, empresaId, creditoId, cuotaId } = dto;
 
+    // 1. Validar administrador
     const admin = await this.prisma.usuario.findUnique({
-      where: {
-        id: deletePaymentDTO.userId,
-      },
+      where: { id: userId },
     });
+    if (!admin) throw new BadRequestException('Usuario no encontrado');
+    const ok = await bcrypt.compare(password, admin.contrasena);
+    if (!ok) throw new BadRequestException('Sin permiso para eliminar pago');
 
-    if (!admin) {
-      throw new BadRequestException('Usuario no encontrado');
+    // 2. Leer la cuota y asegurarnos de que haya un pago
+    const cuota = await this.prisma.cuotaCredito.findUnique({
+      where: { id: cuotaId },
+    });
+    if (!cuota) throw new BadRequestException('Cuota no encontrada');
+    if (cuota.montoPagado <= 0) {
+      throw new BadRequestException('Esta cuota no tiene pagos registrados');
     }
+    const monto = cuota.montoPagado;
 
-    // Validar la contraseña
-    const isValidPassword = await bcrypt.compare(
-      deletePaymentDTO.password,
-      admin.contrasena,
-    );
+    try {
+      // 3. Todo dentro de la transacción
+      const creditoActualizado = await this.prisma.$transaction(async (tx) => {
+        // 3.1 Revertir la cuota
+        await tx.cuotaCredito.update({
+          where: { id: cuotaId },
+          data: {
+            montoPagado: 0,
+            estado: 'PENDIENTE',
+            fechaPago: null,
+          },
+        });
 
-    if (!isValidPassword) {
-      throw new BadRequestException('Sin permiso para eliminar');
+        // 3.2 Actualizar el crédito: decrementamos totalPagado (solo si totalPagado >= monto),
+        //     incrementamos saldoPendiente
+        const creditoUpd = await tx.credito.update({
+          where: {
+            id: creditoId,
+            totalPagado: { gte: monto },
+          },
+          data: {
+            totalPagado: { decrement: monto },
+            saldoPendiente: { increment: monto },
+          },
+        });
+
+        // 3.3 Eliminar el pago histórico más reciente
+        const pagoHist = await tx.pagoCredito.findFirst({
+          where: { creditoId, monto },
+          orderBy: { timestamp: 'desc' },
+        });
+        if (pagoHist) {
+          await tx.pagoCredito.delete({ where: { id: pagoHist.id } });
+        }
+
+        // 3.4 Actualizar ingresos de la empresa: solo si saldoActual >= monto
+        await tx.ingresosEmpresa.update({
+          where: {
+            id: empresaId,
+            saldoActual: { gte: monto },
+          },
+          data: {
+            saldoActual: { decrement: monto },
+            egresosTotales: { increment: monto },
+          },
+        });
+
+        return creditoUpd;
+      });
+
+      return {
+        message: 'Pago eliminado y cuota revertida correctamente',
+        cuotaId,
+        creditoActualizado,
+      };
+    } catch (err: any) {
+      // Prisma lanza P2025 si no encuentra registros que cumplan el where (e.g., fondos insuficientes)
+      if (err.code === 'P2025') {
+        throw new BadRequestException(
+          'Fondos insuficientes para revertir esta operación',
+        );
+      }
+      // Re-lanzar cualquier otro error
+      throw err;
     }
+  }
 
-    const pago = await this.prisma.pagoCredito.findUnique({
-      where: {
-        id: deletePaymentDTO.creditoId,
-      },
-    });
-
-    if (!pago) {
-      throw new BadRequestException('El pago no existe');
-    }
-
-    // Eliminar el pago
-    const deletedPago = await this.prisma.pagoCredito.delete({
-      where: {
-        id: deletePaymentDTO.creditoId,
-      },
-    });
-
-    await this.prisma.credito.update({
-      where: {
-        id: pago.creditoId,
-      },
-      data: {
-        totalPagado: {
-          decrement: pago.monto,
-        },
-      },
-    });
-
-    console.log('El pago a eliminar es: ', deletedPago);
-
-    await this.prisma.ingresosEmpresa.update({
-      where: {
-        id: deletePaymentDTO.empresaId,
-      },
-      data: {
-        saldoActual: {
-          decrement: deletedPago.monto,
-        },
-        egresosTotales: {
-          decrement: deletedPago.monto,
-        },
-      },
-    });
-
-    // Retornar una respuesta más descriptiva
-    return {
-      message: 'Pago eliminado con éxito',
-      deletedPago,
-    };
+  async deleteMany() {
+    return this.prisma.credito.deleteMany({});
   }
 
   async deleteCreditRegist(deleteCreditDto: deleteCreditDto) {

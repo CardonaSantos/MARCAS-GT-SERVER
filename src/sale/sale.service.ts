@@ -15,6 +15,18 @@ import { Venta } from '@prisma/client';
 //
 import { PrismaClient, Prisma } from '@prisma/client';
 
+import * as dayjs from 'dayjs';
+import 'dayjs/locale/es';
+import * as utc from 'dayjs/plugin/utc';
+import * as timezone from 'dayjs/plugin/timezone';
+import * as isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+import * as isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(isSameOrBefore);
+dayjs.extend(isSameOrAfter);
+dayjs.locale('es');
+
 // type PrismaTransaction = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use'>;
 type PrismaTransaction = Omit<
   PrismaClient,
@@ -28,329 +40,6 @@ export class SaleService {
     // private readonly creditoService: CreditoService,
   ) {}
 
-  // async createSale(createSaleDto: CreateSaleDto) {
-  //   console.log('Datos llegando son: ' + JSON.stringify(createSaleDto));
-
-  //   try {
-  //     return await this.prisma.$transaction(async (prisma) => {
-  //       // Verificar stock de cada producto
-  //       for (const producto of createSaleDto.productos) {
-  //         const productoEncontrado = await prisma.producto.findUnique({
-  //           where: { id: producto.productoId },
-  //         });
-
-  //         if (!productoEncontrado) {
-  //           throw new Error(
-  //             `No se encontró el producto con ID: ${producto.productoId}`,
-  //           );
-  //         }
-
-  //         const stockDeProducto = await prisma.stock.findUnique({
-  //           where: { productoId: productoEncontrado.id },
-  //         });
-
-  //         if (
-  //           !stockDeProducto ||
-  //           stockDeProducto.cantidad < producto.cantidad
-  //         ) {
-  //           throw new Error(
-  //             `Stock insuficiente para el producto con ID: ${productoEncontrado.id}`,
-  //           );
-  //         }
-  //       }
-
-  //       // Crear la venta
-  //       const newSale = await prisma.venta.create({
-  //         data: {
-  //           clienteId: createSaleDto.clienteId,
-  //           usuarioId: createSaleDto.vendedorId,
-  //           descuento: createSaleDto.descuento || null,
-  //           metodoPago: createSaleDto.metodoPago,
-  //           monto: createSaleDto.monto,
-  //           montoConDescuento: createSaleDto.montoConDescuento,
-  //           productos: {
-  //             create: createSaleDto.productos.map((prod) => ({
-  //               producto: { connect: { id: prod.productoId } },
-  //               cantidad: prod.cantidad,
-  //               precio: prod.precio,
-  //             })),
-  //           },
-  //         },
-  //         include: {
-  //           productos: { include: { producto: true } },
-  //         },
-  //       });
-
-  //       if (!newSale || !newSale.id) {
-  //         throw new Error('La venta no se creó correctamente.');
-  //       }
-
-  //       // Validar cliente
-  //       const cliente = await prisma.cliente.findUnique({
-  //         where: { id: createSaleDto.clienteId },
-  //       });
-  //       if (!cliente) {
-  //         throw new Error(
-  //           `El cliente con ID ${createSaleDto.clienteId} no existe.`,
-  //         );
-  //       }
-
-  //       // Inicializar variables para actualizar ingresos
-  //       let ingresoIncrement = 0;
-
-  //       // Si es un crédito, manejar la lógica específica
-  //       if (createSaleDto.metodoPago === 'CREDITO') {
-  //         const creditoInicial = createSaleDto.creditoInicial || 0;
-  //         const interes = createSaleDto.interes || 0;
-  //         const numeroCuotas = createSaleDto.numeroCuotas || 0;
-
-  //         // Validar número de cuotas
-  //         if (numeroCuotas <= 0) {
-  //           throw new Error('El número de cuotas debe ser mayor a 0.');
-  //         }
-
-  //         // Calcular el monto de interés
-  //         const montoInteres =
-  //           createSaleDto.montoConDescuento * (interes / 100);
-
-  //         // Calcular el monto total con interés
-  //         const montoTotalConInteres =
-  //           createSaleDto.montoConDescuento + montoInteres;
-
-  //         // Calcular el saldo pendiente
-  //         const saldoPendiente = montoTotalConInteres - creditoInicial;
-
-  //         if (saldoPendiente < 0) {
-  //           throw new Error(
-  //             'El crédito inicial no puede ser mayor que el monto total con interés.',
-  //           );
-  //         }
-
-  //         // Crear el registro del crédito
-  //         await prisma.credito.create({
-  //           data: {
-  //             // ventaId: newSale.id,
-  //             venta: { connect: { id: newSale.id } }, // <-- Conexión correcta
-  //             cliente: { connect: { id: createSaleDto.clienteId } }, // Relación en lugar de clienteId
-  //             empresa: { connect: { id: createSaleDto.empresaId } }, // Solo relación, quita empresaId
-  //             montoTotal: createSaleDto.montoConDescuento,
-  //             // Monto y pagos
-  //             cuotaInicial: createSaleDto.creditoInicial ?? 0,
-  //             totalPagado: createSaleDto.creditoInicial ?? 0,
-
-  //             // Información del crédito
-  //             numeroCuotas: createSaleDto.numeroCuotas ?? 0,
-  //             interes: createSaleDto.interes ?? 0,
-
-  //             // Monto con interés
-  //             montoConInteres: montoInteres,
-  //             montoTotalConInteres: montoTotalConInteres ?? montoInteres,
-
-  //             // Saldo pendiente después del pago inicial
-  //             saldoPendiente:
-  //               (montoTotalConInteres ?? montoInteres) -
-  //               (createSaleDto.creditoInicial ?? 0),
-
-  //             // Datos adicionales
-  //             dpi: createSaleDto.dpi || '',
-  //             comentario: createSaleDto.comentario || null,
-  //             testigos: createSaleDto.testigos ?? {}, // Objeto vacío en caso de `undefined`
-  //             estado: 'ACTIVO',
-
-  //             // Configuración de pagos
-  //             diasEntrePagos: createSaleDto.diasEntrePagos ?? 30, // Default si no se envía
-  //           },
-  //         });
-
-  //         // Incrementar ingresos solo con el pago inicial en caso de crédito
-  //         ingresoIncrement = creditoInicial;
-
-  //         // Actualizar la venta con el total con interés
-  //         await prisma.venta.update({
-  //           where: { id: newSale.id },
-  //           data: {
-  //             monto: montoTotalConInteres,
-  //           },
-  //         });
-  //       } else {
-  //         // Si es una venta normal, incrementar con el monto total con descuento
-  //         ingresoIncrement = newSale.montoConDescuento;
-  //       }
-
-  //       // Actualizar ingresos de la empresa
-  //       if (ingresoIncrement > 0) {
-  //         await prisma.ingresosEmpresa.update({
-  //           where: { id: createSaleDto.empresaId },
-  //           data: {
-  //             ingresosTotales: { increment: ingresoIncrement },
-  //             saldoActual: { increment: ingresoIncrement },
-  //             numeroVentas: { increment: 1 },
-  //           },
-  //         });
-  //       }
-
-  //       // Actualizar stock de los productos
-  //       for (const producto of createSaleDto.productos) {
-  //         await prisma.stock.update({
-  //           where: { productoId: producto.productoId },
-  //           data: { cantidad: { decrement: producto.cantidad } },
-  //         });
-  //       }
-
-  //       const vendedor = await this.prisma.usuario.findUnique({
-  //         where: {
-  //           id: createSaleDto.vendedorId,
-  //         },
-  //       });
-
-  //       // Crear la notificación relacionada con la solicitud de descuento
-  //       const notify = await this.notificationService.createNotification({
-  //         mensaje: `${vendedor.nombre} ha registrado una venta de ${new Intl.NumberFormat(
-  //           'es-GT',
-  //           {
-  //             style: 'currency',
-  //             currency: 'GTQ',
-  //           },
-  //         ).format(
-  //           newSale.montoConDescuento,
-  //         )} para el cliente ${cliente.nombre}.`,
-  //         remitenteId: vendedor.id,
-  //       });
-
-  //       console.log('La nueva venta es: ', newSale);
-  //       console.log('Lo que retorna el createnotification: ', notify);
-
-  //       return newSale;
-  //     });
-  //   } catch (error) {
-  //     console.error(error);
-  //     throw new Error('Error al crear la venta: ' + error.message);
-  //   }
-  // }
-
-  // createSaleForRegist
-  // async createSaleForRegist(createSaleDto: CreateSaleDto) {
-  //   console.log('los datos llegando son: ' + createSaleDto);
-  //   console.log(
-  //     'El id de la visita abierta es: ',
-  //     createSaleDto.registroVisitaId,
-  //   );
-
-  //   try {
-  //     return await this.prisma.$transaction(async (prisma) => {
-  //       for (const producto of createSaleDto.productos) {
-  //         const productoEncontrado = await prisma.producto.findUnique({
-  //           where: { id: producto.productoId },
-  //         });
-  //         if (!productoEncontrado) {
-  //           throw new Error(
-  //             `No se encontró el producto con ID: ${producto.productoId}`,
-  //           );
-  //         }
-  //         const stockDeProducto = await prisma.stock.findUnique({
-  //           where: { productoId: productoEncontrado.id },
-  //         });
-  //         if (
-  //           !stockDeProducto ||
-  //           stockDeProducto.cantidad < producto.cantidad
-  //         ) {
-  //           throw new Error(
-  //             `Stock insuficiente para el producto con ID: ${productoEncontrado.id}`,
-  //           );
-  //         }
-  //       }
-
-  //       const newSale = await prisma.venta.create({
-  //         data: {
-  //           clienteId: createSaleDto.clienteId,
-  //           usuarioId: createSaleDto.vendedorId,
-  //           descuento: createSaleDto.descuento || null, // nuevo para meter el descuento
-  //           metodoPago: createSaleDto.metodoPago, // ENUM
-  //           monto: createSaleDto.monto, // CAMPO PARA LA VENTA EN TOTAL SIN APLICAR EL DESCUENTO
-  //           montoConDescuento: createSaleDto.montoConDescuento, // VENTA TOTAL APLICANDO EL DESCUENTO
-  //           productos: {
-  //             create: createSaleDto.productos.map((prod) => ({
-  //               producto: { connect: { id: prod.productoId } },
-  //               cantidad: prod.cantidad,
-  //               precio: prod.precio,
-  //             })),
-  //           },
-  //         },
-  //         include: {
-  //           productos: {
-  //             include: { producto: true }, // incluir detalles del producto
-  //           },
-  //         },
-  //       });
-
-  //       console.log('La venta hecha es: ', newSale);
-
-  //       // Actualizar el stock
-  //       for (const producto of createSaleDto.productos) {
-  //         await prisma.stock.update({
-  //           where: { productoId: producto.productoId },
-  //           data: {
-  //             cantidad: { decrement: producto.cantidad },
-  //           },
-  //         });
-  //       }
-
-  //       console.log(
-  //         'El id del registro de visita es: ',
-  //         createSaleDto.registroVisitaId,
-  //       );
-
-  //       // ACTUALIZAR REGISTRO DE VISITA
-  //       const registroVisitaActual = await prisma.visita.findFirst({
-  //         where: {
-  //           id: createSaleDto.registroVisitaId,
-  //           fin: null,
-  //         },
-  //         include: { ventas: true },
-  //       });
-
-  //       console.log(
-  //         'El registro de visita encontrado y abierto es: ',
-  //         registroVisitaActual,
-  //       );
-
-  //       if (!registroVisitaActual) {
-  //         throw new Error('No se encontró un registro de visita abierto.');
-  //       }
-
-  //       await prisma.visita.update({
-  //         where: { id: registroVisitaActual.id },
-  //         data: {
-  //           ventas: { connect: { id: newSale.id } },
-  //         },
-  //       });
-
-  //       //LANZAR NOTIFICACION
-  //       const vendedor = await this.prisma.usuario.findUnique({
-  //         where: {
-  //           id: createSaleDto.vendedorId,
-  //         },
-  //       });
-  //       const cliente = await this.prisma.cliente.findUnique({
-  //         where: {
-  //           id: createSaleDto.clienteId,
-  //         },
-  //       });
-
-  //       // Enviar notificación
-  //       await this.notificationService.createNotification({
-  //         mensaje: `El vendedor ${vendedor.nombre} ha registrado una venta para el cliente ${cliente.nombre}`,
-  //         remitenteId: vendedor.id, // EL REMITENTE ES EL CREADOR DEL EVENTO, ACCIONADOR
-  //       });
-
-  //       return newSale;
-  //     });
-  //   } catch (error) {
-  //     console.error(error);
-  //     throw new Error('Error al crear la venta: ' + error.message);
-  //   }
-  // }
-
   async createSale(createSaleDto: CreateSaleDto) {
     console.log('Datos recibidos:', JSON.stringify(createSaleDto));
     console.log('LA DATA RECIBIDA ES:::::::::::');
@@ -358,15 +47,12 @@ export class SaleService {
 
     return await this.prisma
       .$transaction(async (prisma) => {
-        // 1. Validación inicial
         if (!createSaleDto.empresaId) {
           throw new Error('El ID de empresa es requerido');
         }
 
-        // 2. Verificar stock y actualizar en una sola operación
         await this.handleStockValidation(prisma, createSaleDto.productos);
 
-        // 3. Crear la venta
         const newSale = await this.createSaleRecord(prisma, createSaleDto);
 
         const ingresoIncrement =
@@ -376,14 +62,12 @@ export class SaleService {
 
         console.log('Ingreso Incrementado:', ingresoIncrement);
 
-        // 5. Actualizar ingresos de la empresa
         await this.updateCompanyIncome(
           prisma,
           createSaleDto.empresaId,
           ingresoIncrement,
         );
 
-        // 6. Crear notificación
         await this.createSaleNotification(newSale, createSaleDto);
 
         return newSale;
@@ -512,16 +196,22 @@ export class SaleService {
       throw new Error('Crédito inicial requerido para ventas a crédito');
     }
 
+    const fechaInicioCredito = dayjs()
+      .tz('America/Guatemala')
+      .startOf('day')
+      .toDate();
+
     const montoInteres = dto.montoConDescuento * (dto.interes / 100);
     const montoTotalConInteres = dto.montoConDescuento + montoInteres;
     const creditoInicial = dto.creditoInicial || 0;
+    const numeroCuotas = dto.numeroCuotas;
 
     if (creditoInicial > montoTotalConInteres) {
       throw new Error('El crédito inicial excede el monto total');
     }
 
-    // Crear registro de crédito
-    await prisma.credito.create({
+    // 1. Crear registro de crédito
+    const nuevoCredito = await prisma.credito.create({
       data: {
         venta: { connect: { id: sale.id } },
         cliente: { connect: { id: dto.clienteId } },
@@ -529,7 +219,7 @@ export class SaleService {
         montoTotal: dto.montoConDescuento,
         cuotaInicial: creditoInicial,
         totalPagado: creditoInicial,
-        numeroCuotas: dto.numeroCuotas,
+        numeroCuotas: numeroCuotas,
         interes: dto.interes,
         montoConInteres: montoInteres,
         montoTotalConInteres: montoTotalConInteres,
@@ -539,14 +229,38 @@ export class SaleService {
         dpi: dto.dpi || '',
         comentario: dto.comentario,
         testigos: dto.testigos ?? {},
+        fechaInicio: fechaInicioCredito,
+        fechaContrato: fechaInicioCredito,
       },
     });
 
-    // Actualizar monto total de la venta con interés
+    // 2. Crear cuotas individuales
+    const montoPorCuota =
+      (montoTotalConInteres - creditoInicial) / numeroCuotas;
+    const fechaInicio = dayjs(fechaInicioCredito);
+
+    for (let i = 1; i <= numeroCuotas; i++) {
+      const fechaVencimiento = fechaInicio
+        .add(dto.diasEntrePagos * i, 'day')
+        .toDate();
+
+      await prisma.cuotaCredito.create({
+        data: {
+          creditoId: nuevoCredito.id,
+          montoEsperado: montoPorCuota,
+          montoPagado: 0,
+          estado: 'PENDIENTE',
+          fechaVencimiento,
+        },
+      });
+    }
+
+    // 3. Actualizar monto registrado en la venta
     await prisma.venta.update({
       where: { id: sale.id },
-      // data: { monto: montoTotalConInteres },
-      data: { monto: creditoInicial },
+      data: {
+        monto: creditoInicial, // Solo el enganche contado como ingreso inmediato
+      },
     });
 
     return creditoInicial;

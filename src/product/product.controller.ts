@@ -56,12 +56,7 @@ export class ProductController {
 
   @Get('/carga-masiva')
   async makeCargaMasiva() {
-    const ruta = join(
-      process.cwd(),
-      'src',
-      'assets',
-      'Productos  MARCAS GT.csv',
-    );
+    const ruta = join(process.cwd(), 'src', 'assets', 'ProductosMARCASGT.csv');
     return await this.productService.loadCSVandImportProducts(ruta);
   }
   // @Get('/formatear-productos-trim')

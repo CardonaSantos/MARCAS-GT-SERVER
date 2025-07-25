@@ -13,6 +13,7 @@ import { CreateCreditoDto } from './dto/create-credito.dto';
 import { UpdateCreditoDto } from './dto/update-credito.dto';
 import { createPaymentDto } from './dto/createPaymentDto.dto';
 import { deleteCreditDto } from './dto/delete-credit.dto';
+import { DeletePaymentDto } from './dto/delete-payment-cuota.dto';
 
 @Controller('credito')
 export class CreditoController {
@@ -39,7 +40,12 @@ export class CreditoController {
   }
 
   @Post('/delete-payment-regist')
-  deletePaymentRegist(@Body() deletePaymentDto: createPaymentDto) {
-    return this.creditoService.deletePaymetCredit(deletePaymentDto);
+  deletePaymentRegist(@Body() deletePaymentDto: DeletePaymentDto) {
+    return this.creditoService.deletePayment(deletePaymentDto);
   }
+
+  // @Delete('/delete-all')
+  // deleteMany() {
+  //   return this.creditoService.deleteMany();
+  // }
 }
