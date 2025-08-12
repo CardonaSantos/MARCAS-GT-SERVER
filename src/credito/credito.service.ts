@@ -26,19 +26,6 @@ export class CreditoService {
             direccion: true,
           },
         },
-        cuotasCredito: {
-          select: {
-            id: true,
-            montoEsperado: true,
-            montoPagado: true,
-            estado: true,
-            fechaVencimiento: true,
-            fechaPago: true,
-          },
-          orderBy: {
-            fechaVencimiento: 'asc',
-          },
-        },
         venta: {
           select: {
             id: true,
@@ -289,85 +276,64 @@ export class CreditoService {
   }
 
   async deleteCreditRegist(deleteCreditDto: deleteCreditDto) {
-    try {
-      console.log('Los datos entrantes al service son: ', deleteCreditDto);
-
-      // Verificar que el usuario administrador existe
-      const admin = await this.prisma.usuario.findUnique({
-        where: {
-          id: deleteCreditDto.userId,
-        },
+    return this.prisma.$transaction(async (prisma) => {
+      // 1) Autenticación
+      const admin = await prisma.usuario.findUnique({
+        where: { id: deleteCreditDto.userId },
       });
+      if (!admin) throw new BadRequestException('Usuario no encontrado');
 
-      // Validar la contraseña del administrador
-      const contraseñaValida = await bcrypt.compare(
+      const ok = await bcrypt.compare(
         deleteCreditDto.adminPassword,
         admin.contrasena,
       );
+      if (!ok) throw new BadRequestException('Usuario no autenticado');
 
-      if (!contraseñaValida) {
-        throw new BadRequestException('Usuario no autenticado');
+      // 2) Cargar crédito con ventaId
+      const credito = await prisma.credito.findUnique({
+        where: { id: deleteCreditDto.creditoId },
+        include: { venta: true },
+      });
+      if (!credito) throw new BadRequestException('Crédito no encontrado');
+
+      // 3) Calcular total pagado (lo que sí impactó ingresos)
+      const agg = await prisma.pagoCredito.aggregate({
+        where: { creditoId: deleteCreditDto.creditoId },
+        _sum: { monto: true },
+      });
+      const totalPagos = agg._sum.monto ?? 0;
+
+      // 4) Revertir contabilidad de la empresa (solo lo cobrado)
+      if (totalPagos > 0) {
+        await prisma.ingresosEmpresa.update({
+          where: { id: deleteCreditDto.empresaId },
+          data: {
+            ingresosTotales: { decrement: totalPagos },
+            saldoActual: { decrement: totalPagos },
+          },
+        });
       }
 
-      // Obtener la venta asociada al crédito
-      const creditToDelete = await this.prisma.credito.findUnique({
-        where: {
-          id: deleteCreditDto.creditoId,
-        },
-        include: {
-          venta: true, // Asegurarnos de que obtenemos la venta asociada al crédito
-        },
-      });
-
-      if (!creditToDelete || !creditToDelete.venta) {
-        throw new BadRequestException(
-          'Error al encontrar el registro de crédito o la venta asociada',
-        );
+      // 5) Borrar la venta (esto CASCADE borra el crédito)
+      if (credito.ventaId) {
+        await prisma.venta.delete({ where: { id: credito.ventaId } });
+      } else {
+        // fallback por si no hay venta enlazada
+        await prisma.credito.delete({
+          where: { id: deleteCreditDto.creditoId },
+        });
       }
 
-      // Obtener el monto pagado de la venta
-      const montoPagado = creditToDelete.venta.monto; // En este caso, monto pagado es 150
-      console.log(`Monto pagado por la venta: Q${montoPagado}`);
-
-      // Eliminar el crédito
-      await this.prisma.credito.delete({
-        where: {
-          id: deleteCreditDto.creditoId,
-        },
+      // 6) Ajustar número de ventas
+      await prisma.ingresosEmpresa.update({
+        where: { id: deleteCreditDto.empresaId },
+        data: { numeroVentas: { decrement: 1 } },
       });
 
-      console.log(
-        `Crédito con ID ${creditToDelete.id} eliminado correctamente`,
-      );
-
-      // Actualizar los saldos de la empresa
-      await this.prisma.ingresosEmpresa.update({
-        where: {
-          id: deleteCreditDto.empresaId,
-        },
-        data: {
-          saldoActual: {
-            // Decrementar solo el monto pagado en la venta
-            decrement: montoPagado,
-          },
-          egresosTotales: {
-            // Decrementar solo el monto pagado en la venta
-            increment: montoPagado,
-          },
-          numeroVentas: {
-            // Decrementar el número de ventas
-            decrement: 1,
-          },
-        },
-      });
-
-      console.log('Saldo de la empresa actualizado correctamente');
-      return creditToDelete;
-    } catch (error) {
-      console.log(error);
-      throw new BadRequestException(
-        'Error al procesar la eliminación del crédito',
-      );
-    }
+      return {
+        message: 'Crédito y venta eliminados',
+        creditoId: deleteCreditDto.creditoId,
+      };
+    });
   }
 }
