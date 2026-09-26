@@ -26,6 +26,8 @@ import { CreditoModule } from './credito/credito.module';
 import { SaldosModule } from './saldos/saldos.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { CloudinaryProvider } from './cloudinary/config/cloudinaryConfig';
+import { BodegaModule } from './modules/bodegas';
+import { InventarioModule } from './modules/inventario';
 
 @Module({
   imports: [
@@ -56,6 +58,8 @@ import { CloudinaryProvider } from './cloudinary/config/cloudinaryConfig';
     CreditoModule,
     SaldosModule,
     CloudinaryModule,
+    BodegaModule,
+    InventarioModule,
   ],
   controllers: [],
   providers: [LocationGateway, CloudinaryProvider], //PONER EL CLOUDINARY PROVIDER PORQUE LLEVA LAS CONFIG

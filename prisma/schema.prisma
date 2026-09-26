@@ -18,53 +18,49 @@ datasource db {
 //   // optional config
 // }
 
-
 model IngresosEmpresa {
-  id            Int      @id @default(autoincrement())
-  empresaId     Int      @unique // Relación con la tabla Empresa (única)
-  empresa       Empresa  @relation(fields: [empresaId], references: [id])
-  saldoActual    Float   @default(0)
-  ingresosTotales Float   @default(0) // Total acumulado de ingresos
-  egresosTotales Float   @default(0) // Total acumulado de egresos
-  numeroVentas   Int      @default(0) // Número de ventas realizadas
-  updatedAt      DateTime @updatedAt  // Fecha de última actualización
-  createdAt      DateTime @default(now()) // Fecha de creación
+  id              Int      @id @default(autoincrement())
+  empresaId       Int      @unique // Relación con la tabla Empresa (única)
+  empresa         Empresa  @relation(fields: [empresaId], references: [id])
+  saldoActual     Float    @default(0)
+  ingresosTotales Float    @default(0) // Total acumulado de ingresos
+  egresosTotales  Float    @default(0) // Total acumulado de egresos
+  numeroVentas    Int      @default(0) // Número de ventas realizadas
+  updatedAt       DateTime @updatedAt // Fecha de última actualización
+  createdAt       DateTime @default(now()) // Fecha de creación
 }
 
 model Empresa {
-  id        Int      @id @default(autoincrement())
-  nombre    String   // Nombre de la empresa
-  telefono  String   // Teléfono principal
-  pbx       String?  // PBX (opcional)
-  direccion String   // Dirección de la empresa
-  email     String   @unique // Correo electrónico único
-  website   String?  // Página web de la empresa (opcional)
-  createdAt DateTime @default(now())   // Fecha de creación
-  updatedAt DateTime @updatedAt        // Fecha de última actualización
+  id              Int              @id @default(autoincrement())
+  nombre          String // Nombre de la empresa
+  telefono        String // Teléfono principal
+  pbx             String? // PBX (opcional)
+  direccion       String // Dirección de la empresa
+  email           String           @unique // Correo electrónico único
+  website         String? // Página web de la empresa (opcional)
+  createdAt       DateTime         @default(now()) // Fecha de creación
+  updatedAt       DateTime         @updatedAt // Fecha de última actualización
   //
   ingresosEmpresa IngresosEmpresa? // Relación 1:1
   //
-  Usuario Usuario[]
+  Usuario         Usuario[]
 
   Credito Credito[]
 
-  bodegas             Bodega[]
-  requisiciones       Requisicion[]
-  bancos              Banco[]
-  transportistas      Transportista[]
-  vehiculos           Vehiculo[]
-  conductores         Conductor[]
-  envios              Envio[]
-  politicasCredito    PoliticaCredito[]
-  solicitudesCredito  SolicitudCredito[]
-  pedidos             Pedido[]
-  pagos               Pago[]
-  cuentasPorCobrar    CuentaPorCobrar[]
-  facturas            Factura[]
-
+  bodegas            Bodega[]
+  requisiciones      Requisicion[]
+  bancos             Banco[]
+  transportistas     Transportista[]
+  vehiculos          Vehiculo[]
+  conductores        Conductor[]
+  envios             Envio[]
+  politicasCredito   PoliticaCredito[]
+  solicitudesCredito SolicitudCredito[]
+  pedidos            Pedido[]
+  pagos              Pago[]
+  cuentasPorCobrar   CuentaPorCobrar[]
+  facturas           Factura[]
 }
-
-
 
 model Ubicacion {
   id        Int      @id @default(autoincrement())
@@ -74,146 +70,142 @@ model Ubicacion {
   usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   usuarioId Int
 }
-model Categoria {
-  id         Int                 @id @default(autoincrement())
-  nombre     String
-  productos  ProductoCategoria[] // Relación a la tabla intermedia ProductoCategoria
 
-  creadoEn   DateTime            @default(now())
-  actualizadoEn DateTime         @updatedAt
+model Categoria {
+  id        Int                 @id @default(autoincrement())
+  nombre    String
+  productos ProductoCategoria[] // Relación a la tabla intermedia ProductoCategoria
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 }
 
 model Producto {
-  id          Int                @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   nombre      String
   descripcion String?
-  precio      Float              // Precio de venta del producto
-  costo       Float?   @default(0)           // Precio de venta del producto
+  precio      Float // Precio de venta del producto
+  costo       Float?  @default(0) // Precio de venta del producto
 
-  stock       Stock?             // Relación uno a uno con Stock
-  categorias  ProductoCategoria[] // Relación a la tabla intermedia ProductoCategoria
-  ventas      VentaProducto[]    // Relación a la tabla intermedia VentaProducto
-  entregas    EntregaStockProducto[] // Relación a la tabla intermedia EntregaStockProducto
+  stock      Stock? // Relación uno a uno con Stock
+  categorias ProductoCategoria[] // Relación a la tabla intermedia ProductoCategoria
+  ventas     VentaProducto[] // Relación a la tabla intermedia VentaProducto
+  entregas   EntregaStockProducto[] // Relación a la tabla intermedia EntregaStockProducto
 
-  codigoProducto String          @unique// NUEVO A APLICAR
-  creadoEn    DateTime           @default(now())
-  actualizadoEn DateTime         @updatedAt
+  codigoProducto String           @unique // NUEVO A APLICAR
+  creadoEn       DateTime         @default(now())
+  actualizadoEn  DateTime         @updatedAt
   //
-  imagenes    ImagenProducto[]    // Relación con las imágenes
+  imagenes       ImagenProducto[] // Relación con las imágenes
 
-  stocksBodega           StockBodega[]
-  movimientosInventario  MovimientoInventario[]
-  requisicionDetalles    RequisicionDetalle[]
-  transferenciaDetalles  TransferenciaBodegaDetalle[]
-  pedidoDetalles         PedidoDetalle[]
-  despachoDetalles       OrdenDespachoDetalle[]
-  entregaDetalles        EntregaDetalle[]
-  facturaDetalles        FacturaDetalle[]
-
+  stocksBodega          StockBodega[]
+  movimientosInventario MovimientoInventario[]
+  requisicionDetalles   RequisicionDetalle[]
+  transferenciaDetalles TransferenciaBodegaDetalle[]
+  pedidoDetalles        PedidoDetalle[]
+  despachoDetalles      OrdenDespachoDetalle[]
+  entregaDetalles       EntregaDetalle[]
+  facturaDetalles       FacturaDetalle[]
 }
-
 
 model ImagenProducto {
   id         Int      @id @default(autoincrement())
-  url        String   // URL de la imagen (Cloudinary, S3, etc.)
+  url        String // URL de la imagen (Cloudinary, S3, etc.)
   producto   Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
-  productoId Int      // ID del producto al que pertenece
+  productoId Int // ID del producto al que pertenece
   creadoEn   DateTime @default(now())
 }
 
 model ProductoCategoria {
-  id          Int        @id @default(autoincrement())
-  producto    Producto    @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  id          Int       @id @default(autoincrement())
+  producto    Producto  @relation(fields: [productoId], references: [id], onDelete: Cascade)
   productoId  Int
-  categoria   Categoria   @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+  categoria   Categoria @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
   categoriaId Int
 
-  creadoEn    DateTime    @default(now())
-  actualizadoEn DateTime  @updatedAt
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 }
 
 model EntregaStock {
-  id           Int                    @id @default(autoincrement())
-  proveedor    Proveedor?               @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
-  proveedorId  Int?
-  timestamp    DateTime                @default(now()) // Fecha de la entrega
-  productos    EntregaStockProducto[]  // Relación con los productos entregados
+  id          Int                    @id @default(autoincrement())
+  proveedor   Proveedor?             @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+  proveedorId Int?
+  timestamp   DateTime               @default(now()) // Fecha de la entrega
+  productos   EntregaStockProducto[] // Relación con los productos entregados
 
-  creadoEn     DateTime                @default(now())
-  actualizadoEn DateTime               @updatedAt
-  total_pagado Int//NUEVO PARA SABER CUANTO FUE EL TOTAL DE LA ENTREGA
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+  total_pagado  Int //NUEVO PARA SABER CUANTO FUE EL TOTAL DE LA ENTREGA
 }
 
 model EntregaStockProducto {
-  id           Int        @id @default(autoincrement())
-  producto     Producto    @relation(fields: [productoId], references: [id], onDelete: Cascade)
-  productoId   Int
-  entregaStock EntregaStock @relation(fields: [entregaStockId], references: [id], onDelete: Cascade)
+  id             Int          @id @default(autoincrement())
+  producto       Producto     @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  productoId     Int
+  entregaStock   EntregaStock @relation(fields: [entregaStockId], references: [id], onDelete: Cascade)
   entregaStockId Int
-  cantidad     Int         // Cantidad de este producto en esta entrega
-  costoUnitario Float      // Costo por unidad de este producto en esta entrega
+  cantidad       Int // Cantidad de este producto en esta entrega
+  costoUnitario  Float // Costo por unidad de este producto en esta entrega
 }
 
 model Stock {
-  id          Int       @id @default(autoincrement())
-  producto    Producto   @relation(fields: [productoId], references: [id], onDelete: Cascade)
-  productoId  Int        @unique
-  proveedor   Proveedor?  @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
-  proveedorId Int?
-  cantidad    Int        // Cantidad total de este producto en stock
-  costoTotal  Float      // Costo total de adquisición de todos los productos en stock  creadoEn    DateTime   @default(now())
-  actualizadoEn DateTime @updatedAt
+  id            Int        @id @default(autoincrement())
+  producto      Producto   @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  productoId    Int        @unique
+  proveedor     Proveedor? @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+  proveedorId   Int?
+  cantidad      Int // Cantidad total de este producto en stock
+  costoTotal    Float // Costo total de adquisición de todos los productos en stock  creadoEn    DateTime   @default(now())
+  actualizadoEn DateTime   @updatedAt
 }
 
-
 model Proveedor {
-  id             Int              @id @default(autoincrement())
-  nombre         String
-  correo         String?           
-  telefono       String?
-  direccion      String?
-  razonSocial    String?
-  rfc            String?
-  nombreContacto String?
+  id               Int            @id @default(autoincrement())
+  nombre           String
+  correo           String?
+  telefono         String?
+  direccion        String?
+  razonSocial      String?
+  rfc              String?
+  nombreContacto   String?
   telefonoContacto String?
-  emailContacto  String?
-  pais           String?
-  ciudad         String?
-  codigoPostal   String?
-  activo         Boolean          @default(true)
-  notas          String?
-  productos      Stock[]
-  entregas       EntregaStock[]
-  creadoEn       DateTime         @default(now())
-  actualizadoEn  DateTime         @updatedAt
+  emailContacto    String?
+  pais             String?
+  ciudad           String?
+  codigoPostal     String?
+  activo           Boolean        @default(true)
+  notas            String?
+  productos        Stock[]
+  entregas         EntregaStock[]
+  creadoEn         DateTime       @default(now())
+  actualizadoEn    DateTime       @updatedAt
 
-  requisiciones          Requisicion[]
-  movimientosInventario  MovimientoInventario[]
-
+  requisiciones         Requisicion[]
+  movimientosInventario MovimientoInventario[]
 }
 
 model VentaProducto {
-  id          Int      @id @default(autoincrement())
-  producto    Producto  @relation(fields: [productoId], references: [id], onDelete: Cascade) // Añadir Cascade aquí
-  productoId  Int
-  venta       Venta     @relation(fields: [ventaId], references: [id], onDelete: Cascade) // Si también necesitas eliminar las ventas asociadas
-  ventaId     Int
-  cantidad    Int
-  precio      Float
-  creadoEn    DateTime  @default(now())
+  id         Int      @id @default(autoincrement())
+  producto   Producto @relation(fields: [productoId], references: [id], onDelete: Cascade) // Añadir Cascade aquí
+  productoId Int
+  venta      Venta    @relation(fields: [ventaId], references: [id], onDelete: Cascade) // Si también necesitas eliminar las ventas asociadas
+  ventaId    Int
+  cantidad   Int
+  precio     Float
+  creadoEn   DateTime @default(now())
 }
 
 model Descuento {
-  id          Int      @id @default(autoincrement())
-  porcentaje  Float    // Descuento en porcentaje (ej. 6.0 para un 6%)
-  cliente     Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  clienteId   Int
-  activo      Boolean  @default(true) // Si el descuento está activo y puede ser aplicado
-  creadoEn    DateTime @default(now())
+  id            Int      @id @default(autoincrement())
+  porcentaje    Float // Descuento en porcentaje (ej. 6.0 para un 6%)
+  cliente       Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  clienteId     Int
+  activo        Boolean  @default(true) // Si el descuento está activo y puede ser aplicado
+  creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
-  usado Boolean  @default(false) // Si el descuento está activo y puede ser aplicado
-  dePedido      Boolean   @default(false) // Si el descuento fue solicitado
-
+  usado         Boolean  @default(false) // Si el descuento está activo y puede ser aplicado
+  dePedido      Boolean  @default(false) // Si el descuento fue solicitado
 }
 
 enum EstadoSolicitud {
@@ -223,50 +215,48 @@ enum EstadoSolicitud {
 }
 
 model SolicitudDescuento {
-  id           Int      @id @default(autoincrement())
-  porcentaje   Float    // Porcentaje solicitado
-  estado       EstadoSolicitud @default(PENDIENTE) // Establecer PENDIENTE como valor predeterminado
-  vendedor     Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  usuarioId    Int
-  cliente      Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  clienteId    Int
-  creadoEn     DateTime @default(now())
+  id            Int             @id @default(autoincrement())
+  porcentaje    Float // Porcentaje solicitado
+  estado        EstadoSolicitud @default(PENDIENTE) // Establecer PENDIENTE como valor predeterminado
+  vendedor      Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId     Int
+  cliente       Cliente         @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  clienteId     Int
+  creadoEn      DateTime        @default(now())
   justificacion String
 }
 
 model Notificacion {
-  id               Int                    @id @default(autoincrement())
-  mensaje          String
-  leido            Boolean                @default(false) // Control a nivel general
-  remitenteId      Int?
-  remitente        Usuario?               @relation("NotificacionesEnviadas", fields: [remitenteId], references: [id], onDelete: Cascade)
-  creadoEn         DateTime               @default(now())
-  destinatarios    NotificacionesLeidas[] // Para manejar destinatarios y si leyeron
+  id            Int                    @id @default(autoincrement())
+  mensaje       String
+  leido         Boolean                @default(false) // Control a nivel general
+  remitenteId   Int?
+  remitente     Usuario?               @relation("NotificacionesEnviadas", fields: [remitenteId], references: [id], onDelete: Cascade)
+  creadoEn      DateTime               @default(now())
+  destinatarios NotificacionesLeidas[] // Para manejar destinatarios y si leyeron
 }
 
 model NotificacionesLeidas {
-  id               Int                    @id @default(autoincrement())
-  notificacion     Notificacion           @relation(fields: [notificacionId], references: [id], onDelete: Cascade)
-  notificacionId   Int
-  usuario          Usuario                @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  usuarioId        Int
-  leido            Boolean                @default(false)
-  leidoEn          DateTime?
-  timestamp          DateTime  @default(now())
-
+  id             Int          @id @default(autoincrement())
+  notificacion   Notificacion @relation(fields: [notificacionId], references: [id], onDelete: Cascade)
+  notificacionId Int
+  usuario        Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId      Int
+  leido          Boolean      @default(false)
+  leidoEn        DateTime?
+  timestamp      DateTime     @default(now())
 }
 
 model Asistencia {
-  id              Int      @id @default(autoincrement())
-  fecha           DateTime 
-  entrada         DateTime
-  salida          DateTime? // Puede estar en null si aún no ha salido
-  usuario         Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  usuarioId       Int
-  creadoEn        DateTime  @default(now())
+  id        Int       @id @default(autoincrement())
+  fecha     DateTime
+  entrada   DateTime
+  salida    DateTime? // Puede estar en null si aún no ha salido
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId Int
+  creadoEn  DateTime  @default(now())
 
   sesionesTracking SesionTrackingUsuario[]
-
 }
 
 //-----------------------------------------------
@@ -289,13 +279,13 @@ enum TipoVisita {
 }
 
 enum EstadoVisita {
-  INICIADA      // Cuando la visita ha comenzado
-  FINALIZADA    // Cuando se ha completado exitosamente
-  CANCELADA     // Cuando el cliente no está disponible o no quiere la visita
+  INICIADA // Cuando la visita ha comenzado
+  FINALIZADA // Cuando se ha completado exitosamente
+  CANCELADA // Cuando el cliente no está disponible o no quiere la visita
 }
 
 model Visita {
-  id            Int          @id @default(autoincrement())
+  id            Int           @id @default(autoincrement())
   inicio        DateTime
   fin           DateTime?
   vendedor      Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
@@ -303,7 +293,7 @@ model Visita {
   cliente       Cliente       @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   clienteId     Int
   observaciones String?
-  ventas        Venta[]       // Una visita puede tener múltiples ventas
+  ventas        Venta[] // Una visita puede tener múltiples ventas
   motivoVisita  MotivoVisita?
   tipoVisita    TipoVisita?
   estadoVisita  EstadoVisita  @default(INICIADA)
@@ -311,78 +301,72 @@ model Visita {
   actualizadoEn DateTime      @updatedAt
 
   pedidos Pedido[]
-
 }
 
 model Venta {
-  id                 Int      @id @default(autoincrement())
-  monto              Float
-  montoConDescuento  Float
-  descuento          Int?
-  metodoPago         MetodoPago
-  timestamp          DateTime  @default(now())
-  vendedor           Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  usuarioId          Int
-  cliente            Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  clienteId          Int
-  visita             Visita?   @relation(fields: [visitaId], references: [id]) // Relación con Visita
-  visitaId           Int?      // Quita @unique aquí
-  productos          VentaProducto[]
+  id                Int             @id @default(autoincrement())
+  monto             Float
+  montoConDescuento Float
+  descuento         Int?
+  metodoPago        MetodoPago
+  timestamp         DateTime        @default(now())
+  vendedor          Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId         Int
+  cliente           Cliente         @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  clienteId         Int
+  visita            Visita?         @relation(fields: [visitaId], references: [id]) // Relación con Visita
+  visitaId          Int? // Quita @unique aquí
+  productos         VentaProducto[]
   //
-  Credito Credito[]
+  Credito           Credito[]
 
   facturas Factura[]
-
 }
 
-
-
 model Prospecto {
-  id                  Int              @id @default(autoincrement())
-  inicio              DateTime         @default(now()) // Se establece automáticamente al crear el prospecto
-  fin                 DateTime?        // Se establece cuando se finaliza el prospecto
-  vendedor            Usuario          @relation("ProspectosVendedor", fields: [usuarioId], references: [id], onDelete: Cascade)
+  id                  Int                 @id @default(autoincrement())
+  inicio              DateTime            @default(now()) // Se establece automáticamente al crear el prospecto
+  fin                 DateTime? // Se establece cuando se finaliza el prospecto
+  vendedor            Usuario             @relation("ProspectosVendedor", fields: [usuarioId], references: [id], onDelete: Cascade)
   usuarioId           Int
-  cliente             Cliente?         @relation(fields: [clienteId], references: [id],  onDelete: SetNull) // Relación opcional con cliente
+  cliente             Cliente?            @relation(fields: [clienteId], references: [id], onDelete: SetNull) // Relación opcional con cliente
   clienteId           Int?
-  nombreCompleto      String?           // Agregado para capturar el nombre completo
+  nombreCompleto      String? // Agregado para capturar el nombre completo
   apellido            String?
-  empresaTienda       String?          // Agregado para capturar el nombre de la empresa o tienda
-  telefono            String?          // Mapeado desde el formulario, opcional
-  correo              String?          // Mapeado desde el formulario, opcional
-  direccion           String?          // Dirección del negocio o lugar visitado
-  tipoCliente         TipoCliente?     // Mapeado desde tipoCliente en el formulario
-  categoriasInteres   String[]         // Mapeado desde el formulario
-  volumenCompra       String?          // Mapeado desde el formulario, opcional
-  presupuestoMensual  String?          // Mapeado desde el formulario, opcional
-  preferenciaContacto String?          // Mapeado desde el formulario, opcional
-  comentarios         String?          // Comentarios u observaciones del prospecto
-  creadoEn            DateTime         @default(now()) // Se establece automáticamente
-  actualizadoEn       DateTime         @updatedAt       // Se actualiza automáticamente
-  estado              EstadoProspecto   @default(EN_PROSPECTO) // Usar solo el valor sin el nombre del enum
+  empresaTienda       String? // Agregado para capturar el nombre de la empresa o tienda
+  telefono            String? // Mapeado desde el formulario, opcional
+  correo              String? // Mapeado desde el formulario, opcional
+  direccion           String? // Dirección del negocio o lugar visitado
+  tipoCliente         TipoCliente? // Mapeado desde tipoCliente en el formulario
+  categoriasInteres   String[] // Mapeado desde el formulario
+  volumenCompra       String? // Mapeado desde el formulario, opcional
+  presupuestoMensual  String? // Mapeado desde el formulario, opcional
+  preferenciaContacto String? // Mapeado desde el formulario, opcional
+  comentarios         String? // Comentarios u observaciones del prospecto
+  creadoEn            DateTime            @default(now()) // Se establece automáticamente
+  actualizadoEn       DateTime            @updatedAt // Se actualiza automáticamente
+  estado              EstadoProspecto     @default(EN_PROSPECTO) // Usar solo el valor sin el nombre del enum
   //--RELACIONES CON UBICACIONES:
-  municipio           Municipio?       @relation(fields: [municipioId], references: [id]) // Relación con el municipio
+  municipio           Municipio?          @relation(fields: [municipioId], references: [id]) // Relación con el municipio
   municipioId         Int?
-  departamento        Departamento?    @relation(fields: [departamentoId], references: [id]) // Relación con el departamento
+  departamento        Departamento?       @relation(fields: [departamentoId], references: [id]) // Relación con el departamento
   departamentoId      Int?
   //----------------------------
-    //-- Relación uno a uno con UbicacionProspecto
+  //-- Relación uno a uno con UbicacionProspecto
   //-- Relación uno a uno con UbicacionProspecto
   ubicacion           UbicacionProspecto? @relation(fields: [ubicacionId], references: [id])
-  ubicacionId         Int?  @unique  // Mantener @unique aquí para relación uno a uno
+  ubicacionId         Int?                @unique // Mantener @unique aquí para relación uno a uno
   //----------------
-  
 }
 
 model UbicacionProspecto {
-  id         Int        @id @default(autoincrement())
-  latitud    Float
-  longitud   Float
-  prospecto  Prospecto?  @relation  // Eliminar los atributos `fields` y `references`
-  prospectoId Int       // No necesita ser único aquí
-  creadoEn   DateTime   @default(now())
+  id          Int        @id @default(autoincrement())
+  latitud     Float
+  longitud    Float
+  prospecto   Prospecto? @relation // Eliminar los atributos `fields` y `references`
+  prospectoId Int // No necesita ser único aquí
+  creadoEn    DateTime   @default(now())
 }
-
 
 enum EstadoProspecto {
   EN_PROSPECTO
@@ -390,75 +374,68 @@ enum EstadoProspecto {
   CERRADO
 }
 
-
 model Cliente {
-  id                   Int                 @id @default(autoincrement())//-
-  nombre               String//-
+  id                   Int                  @id @default(autoincrement()) //-
+  nombre               String //-
   apellido             String?
-  correo               String?              
-  telefono             String//-
-  direccion            String              // DIRECCIÓN TIPO STRING DESCRITO//-
-  ventas               Venta[]//-
-  solicitudesDescuento SolicitudDescuento[]//(?)
-  descuentos           Descuento[]//-
-  prospectos           Prospecto[]//-
-  creadoEn             DateTime            @default(now())//-
-  actualizadoEn        DateTime            @updatedAt//-
-  visitas              Visita[]//-
-  municipio            Municipio?          @relation(fields: [municipioId], references: [id])//EN UBICACION TABLA
-  municipioId          Int?//EN UBICACION TABLA
-  departamento         Departamento?       @relation(fields: [departamentoId], references: [id])//EN UBICACION TABLA
-  departamentoId       Int?//EN UBICACION TABLA
-  ubicacion            UbicacionCliente?   @relation(name: "ClienteToUbicacionCliente")
-  ubicacionId          Int? @unique        // Clave foránea única para uno-a-uno
-  tipoCliente String?
-  categoriasInteres   String[]         // Mapeado desde el formulario
-  volumenCompra String?
-  presupuestoMensual String?
-  preferenciaContacto String?
-  comentarios String?
+  correo               String?
+  telefono             String //-
+  direccion            String // DIRECCIÓN TIPO STRING DESCRITO//-
+  ventas               Venta[] //-
+  solicitudesDescuento SolicitudDescuento[] //(?)
+  descuentos           Descuento[] //-
+  prospectos           Prospecto[] //-
+  creadoEn             DateTime             @default(now()) //-
+  actualizadoEn        DateTime             @updatedAt //-
+  visitas              Visita[] //-
+  municipio            Municipio?           @relation(fields: [municipioId], references: [id]) //EN UBICACION TABLA
+  municipioId          Int? //EN UBICACION TABLA
+  departamento         Departamento?        @relation(fields: [departamentoId], references: [id]) //EN UBICACION TABLA
+  departamentoId       Int? //EN UBICACION TABLA
+  ubicacion            UbicacionCliente?    @relation(name: "ClienteToUbicacionCliente")
+  ubicacionId          Int?                 @unique // Clave foránea única para uno-a-uno
+  tipoCliente          String?
+  categoriasInteres    String[] // Mapeado desde el formulario
+  volumenCompra        String?
+  presupuestoMensual   String?
+  preferenciaContacto  String?
+  comentarios          String?
 
   Credito Credito[]
 
-  pedidos             Pedido[]
-  solicitudesCredito  SolicitudCredito[]
-  pagos               Pago[]
-  cuentasPorCobrar    CuentaPorCobrar[]
-  facturas            Factura[]
-  entregas            Entrega[]
-
+  pedidos            Pedido[]
+  solicitudesCredito SolicitudCredito[]
+  pagos              Pago[]
+  cuentasPorCobrar   CuentaPorCobrar[]
+  facturas           Factura[]
+  entregas           Entrega[]
 }
-
 
 model UbicacionCliente {
-  id         Int      @id @default(autoincrement())
-  latitud    Float    // Latitud geográfica
-  longitud   Float    // Longitud geográfica
-  
-  cliente    Cliente? @relation(name: "ClienteToUbicacionCliente", fields: [clienteId], references: [id], onDelete: Cascade)//DELETE CASCADA CLIENTE
-  clienteId  Int?     @unique             // Clave foránea única para uno-a-uno
-}
+  id       Int   @id @default(autoincrement())
+  latitud  Float // Latitud geográfica
+  longitud Float // Longitud geográfica
 
+  cliente   Cliente? @relation(name: "ClienteToUbicacionCliente", fields: [clienteId], references: [id], onDelete: Cascade) //DELETE CASCADA CLIENTE
+  clienteId Int?     @unique // Clave foránea única para uno-a-uno
+}
 
 model Departamento {
   id         Int         @id @default(autoincrement())
   nombre     String      @unique
   municipios Municipio[] // Relación con municipios
   prospectos Prospecto[] // Relación con los prospectos
-  clientes   Cliente[]   // Relación con los clientes
+  clientes   Cliente[] // Relación con los clientes
 }
-
 
 model Municipio {
-  id             Int         @id @default(autoincrement())
-  nombre         String      @unique
+  id             Int          @id @default(autoincrement())
+  nombre         String       @unique
   departamento   Departamento @relation(fields: [departamentoId], references: [id], onDelete: Cascade)
   departamentoId Int
-  prospectos     Prospecto[]  // Relación con los prospectos
-  clientes       Cliente[]    // Relación con los clientes
+  prospectos     Prospecto[] // Relación con los prospectos
+  clientes       Cliente[] // Relación con los clientes
 }
-
-
 
 model Usuario {
   id                     Int                    @id @default(autoincrement())
@@ -469,7 +446,7 @@ model Usuario {
   ubicaciones            Ubicacion[]
   ventas                 Venta[]
   solicitudesDescuento   SolicitudDescuento[]
-  notificacionesEnviadas Notificacion[]          @relation("NotificacionesEnviadas")
+  notificacionesEnviadas Notificacion[]         @relation("NotificacionesEnviadas")
   registrosAsistencia    Asistencia[]
   prospectos             Prospecto[]            @relation("ProspectosVendedor")
   creadoEn               DateTime               @default(now())
@@ -478,77 +455,79 @@ model Usuario {
   activo                 Boolean                @default(true)
   NotificacionesLeidas   NotificacionesLeidas[] // Solo esta relación para manejar las notificaciones leídas
 
-    // Campos para la recuperación de contraseña
-  tokenRecuperacion      String?   // Token generado para restablecer contraseña
-  expiracionToken        DateTime? // Fecha de expiración del token
+  // Campos para la recuperación de contraseña
+  tokenRecuperacion String? // Token generado para restablecer contraseña
+  expiracionToken   DateTime? // Fecha de expiración del token
   //
-  empresaId   Int?        // FK opcional, en caso de que un usuario no tenga empresa
-  empresa     Empresa?    @relation(fields: [empresaId], references: [id])
+  empresaId         Int? // FK opcional, en caso de que un usuario no tenga empresa
+  empresa           Empresa?  @relation(fields: [empresaId], references: [id])
 
-  sesionesTracking           SesionTrackingUsuario[]
-  ubicacionActualTracking    UbicacionUsuarioActual?
-  movimientosInventario      MovimientoInventario[] @relation("MovimientoInventarioCreadoPor")
-  requisicionesSolicitadas   Requisicion[] @relation("RequisicionSolicitante")
-  transferenciasCreadas      TransferenciaBodega[] @relation("TransferenciaCreadaPor")
-  pedidosCreados             Pedido[] @relation("PedidoVendedor")
-  eventosPedido              PedidoEvento[] @relation("PedidoEventoUsuario")
-  pagosRegistrados           Pago[] @relation("PagoRegistradoPor")
-  solicitudesCreditoCreadas  SolicitudCredito[] @relation("SolicitudCreditoSolicitante")
-  decisionesCredito          DecisionCredito[] @relation("DecisionCreditoUsuario")
-  ordenesDespachoPreparadas  OrdenDespacho[] @relation("OrdenDespachoPreparadoPor")
-  eventosOrdenDespacho       OrdenDespachoEvento[] @relation("OrdenDespachoEventoUsuario")
-  entregasRegistradas        Entrega[] @relation("EntregaRegistradaPor")
-  enviosResponsable          Envio[] @relation("EnvioResponsable")
-  eventosEnvio               EnvioEvento[] @relation("EnvioEventoUsuario")
+  bodegasResponsable Bodega[] @relation("BodegaResponsable")
 
+  eventosBodega BodegaEvento[] @relation("BodegaEventoUsuario")
+
+  sesionesTracking          SesionTrackingUsuario[]
+  ubicacionActualTracking   UbicacionUsuarioActual?
+  movimientosInventario     MovimientoInventario[]  @relation("MovimientoInventarioCreadoPor")
+  requisicionesSolicitadas  Requisicion[]           @relation("RequisicionSolicitante")
+  transferenciasCreadas     TransferenciaBodega[]   @relation("TransferenciaCreadaPor")
+  pedidosCreados            Pedido[]                @relation("PedidoVendedor")
+  eventosPedido             PedidoEvento[]          @relation("PedidoEventoUsuario")
+  pagosRegistrados          Pago[]                  @relation("PagoRegistradoPor")
+  solicitudesCreditoCreadas SolicitudCredito[]      @relation("SolicitudCreditoSolicitante")
+  decisionesCredito         DecisionCredito[]       @relation("DecisionCreditoUsuario")
+  ordenesDespachoPreparadas OrdenDespacho[]         @relation("OrdenDespachoPreparadoPor")
+  eventosOrdenDespacho      OrdenDespachoEvento[]   @relation("OrdenDespachoEventoUsuario")
+  entregasRegistradas       Entrega[]               @relation("EntregaRegistradaPor")
+  enviosResponsable         Envio[]                 @relation("EnvioResponsable")
+  eventosEnvio              EnvioEvento[]           @relation("EnvioEventoUsuario")
 }
 
-
 model Credito {
-  id                  Int          @id @default(autoincrement())
-  venta               Venta?       @relation(fields: [ventaId], references: [id], onDelete: Cascade)
-  ventaId             Int?
-  cliente             Cliente?     @relation(fields: [clienteId], references: [id])
-  clienteId           Int?
-  empresaId           Int?
-  empresa             Empresa?     @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  montoTotal          Float?        // Monto total del crédito antes de interés
-  cuotaInicial        Float?        // Monto inicial pagado
-  totalPagado         Float?        @default(0) // Total pagado hasta ahora
-  numeroCuotas        Int?          // Número total de cuotas
-  estado              EstadoCredito // Enum para saber si está activo, cerrado, etc.
-  interes             Float?        // Nivel de interés en porcentaje (ej: 10 para 10%)
-  montoConInteres     Float?        // Monto total después de aplicar el interés
-  montoTotalConInteres Float?      // Monto total del crédito después de interés
-  saldoPendiente      Float?        // Saldo restante después del pago inicial
-  fechaInicio         DateTime?     @default(now()) // Fecha en que inició el 
-  fechaFin            DateTime?     
-  diasEntrePagos      Float?        //NUEVA PROPIEDAD
-  fechaContrato       DateTime?     @default(now()) // Fecha del contrato
-  dpi                 String?       // DPI del cliente
-  comentario          String?      // Observaciones del crédito
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
-  pagos               PagoCredito[] // Relación con los pagos realizados
+  id                   Int           @id @default(autoincrement())
+  venta                Venta?        @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  ventaId              Int?
+  cliente              Cliente?      @relation(fields: [clienteId], references: [id])
+  clienteId            Int?
+  empresaId            Int?
+  empresa              Empresa?      @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  montoTotal           Float? // Monto total del crédito antes de interés
+  cuotaInicial         Float? // Monto inicial pagado
+  totalPagado          Float?        @default(0) // Total pagado hasta ahora
+  numeroCuotas         Int? // Número total de cuotas
+  estado               EstadoCredito // Enum para saber si está activo, cerrado, etc.
+  interes              Float? // Nivel de interés en porcentaje (ej: 10 para 10%)
+  montoConInteres      Float? // Monto total después de aplicar el interés
+  montoTotalConInteres Float? // Monto total del crédito después de interés
+  saldoPendiente       Float? // Saldo restante después del pago inicial
+  fechaInicio          DateTime?     @default(now()) // Fecha en que inició el 
+  fechaFin             DateTime?
+  diasEntrePagos       Float? //NUEVA PROPIEDAD
+  fechaContrato        DateTime?     @default(now()) // Fecha del contrato
+  dpi                  String? // DPI del cliente
+  comentario           String? // Observaciones del crédito
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  pagos                PagoCredito[] // Relación con los pagos realizados
 
-  solicitudOrigen   SolicitudCredito?
-  cuentasPorCobrar  CuentaPorCobrar[]
-
+  solicitudOrigen  SolicitudCredito?
+  cuentasPorCobrar CuentaPorCobrar[]
 }
 
 model CuotaCredito {
-  id               Int           @id @default(autoincrement())
+  id               Int        @id @default(autoincrement())
   // creditoId        Int
   // credito          Credito       @relation(fields: [creditoId], references: [id], onDelete: Cascade)
-  montoEsperado    Float         // Cuánto debe pagar en esta cuota
-  montoPagado      Float         @default(0)
-  estado           EstadoPago    @default(PENDIENTE)
+  montoEsperado    Float // Cuánto debe pagar en esta cuota
+  montoPagado      Float      @default(0)
+  estado           EstadoPago @default(PENDIENTE)
   fechaVencimiento DateTime
-  fechaPago        DateTime?     // Solo si ya pagó
+  fechaPago        DateTime? // Solo si ya pagó
   comentario       String?
-  creadoEn         DateTime      @default(now())
-  actualizadoEn    DateTime      @updatedAt
+  creadoEn         DateTime   @default(now())
+  actualizadoEn    DateTime   @updatedAt
 }
+
 enum EstadoPago {
   PENDIENTE
   PAGADA
@@ -556,12 +535,12 @@ enum EstadoPago {
 }
 
 model PagoCredito {
-  id             Int      @id @default(autoincrement())
-  credito        Credito  @relation(fields: [creditoId], references: [id], onDelete: Cascade)
-  creditoId      Int      // Relación con la tabla Credito
-  monto          Float    // Monto del pago
-  timestamp      DateTime @default(now()) // Fecha del pago
-  metodoPago     MetodoPago // Cómo se realizó el pago
+  id         Int        @id @default(autoincrement())
+  credito    Credito    @relation(fields: [creditoId], references: [id], onDelete: Cascade)
+  creditoId  Int // Relación con la tabla Credito
+  monto      Float // Monto del pago
+  timestamp  DateTime   @default(now()) // Fecha del pago
+  metodoPago MetodoPago // Cómo se realizó el pago
 }
 
 enum FrecuenciaPago {
@@ -589,8 +568,9 @@ enum MetodoPago {
   TRANSFERENCIA_BANCO
   CREDITO
 }
+
 // Enums añadidos
-   
+
 enum TipoCliente {
   Minorista
   Mayorista
@@ -626,22 +606,41 @@ enum EstadoSesionTracking {
 }
 
 enum TipoMovimientoInventario {
+  MIGRACION_INICIAL
+
   ENTRADA_RECEPCION
   SALIDA_DESPACHO
+
   RESERVA
   LIBERACION_RESERVA
+
   AJUSTE_ENTRADA
   AJUSTE_SALIDA
+
   TRANSFERENCIA_SALIDA
   TRANSFERENCIA_ENTRADA
+
   DEVOLUCION
 }
 
 enum EstadoReservaInventario {
   ACTIVA
+
+  // Hubo una aplicación o liberación parcial,
+  // pero todavía queda cantidad pendiente.
+  PARCIAL
+
+  // Toda la cantidad terminó aplicada a una salida/despacho.
   APLICADA
+
+  // Toda la cantidad volvió a disponibilidad sin ser despachada.
   LIBERADA
+
+  // La reserva fue cancelada antes de completarse.
   CANCELADA
+
+  // Una parte fue aplicada y otra parte liberada.
+  FINALIZADA_MIXTA
 }
 
 enum EstadoRequisicion {
@@ -843,23 +842,23 @@ enum EstadoEnvio {
 // ============================================================================
 
 model SesionTrackingUsuario {
-  id                 Int                  @id @default(autoincrement())
-  usuarioId          Int
-  asistenciaId       Int?
-  estado             EstadoSesionTracking @default(ACTIVA)
-  iniciadaEn         DateTime             @default(now())
-  finalizadaEn       DateTime?
-  ultimoHeartbeatEn  DateTime             @default(now())
-  motivoCierre       String?
-  dispositivoId      String?
-  plataforma         String?
-  creadoEn           DateTime             @default(now())
-  actualizadoEn      DateTime             @updatedAt
+  id                Int                  @id @default(autoincrement())
+  usuarioId         Int
+  asistenciaId      Int?
+  estado            EstadoSesionTracking @default(ACTIVA)
+  iniciadaEn        DateTime             @default(now())
+  finalizadaEn      DateTime?
+  ultimoHeartbeatEn DateTime             @default(now())
+  motivoCierre      String?
+  dispositivoId     String?
+  plataforma        String?
+  creadoEn          DateTime             @default(now())
+  actualizadoEn     DateTime             @updatedAt
 
-  usuario            Usuario              @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  asistencia         Asistencia?          @relation(fields: [asistenciaId], references: [id], onDelete: SetNull)
-  ubicaciones        UbicacionUsuarioHistorial[]
-  ubicacionActual    UbicacionUsuarioActual?
+  usuario         Usuario                     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  asistencia      Asistencia?                 @relation(fields: [asistenciaId], references: [id], onDelete: SetNull)
+  ubicaciones     UbicacionUsuarioHistorial[]
+  ubicacionActual UbicacionUsuarioActual?
 
   @@index([usuarioId, estado])
   @@index([asistenciaId])
@@ -867,36 +866,36 @@ model SesionTrackingUsuario {
 }
 
 model UbicacionUsuarioHistorial {
-  id             Int                   @id @default(autoincrement())
-  sesionId       Int
-  latitud        Decimal               @db.Decimal(10, 7)
-  longitud       Decimal               @db.Decimal(10, 7)
-  precisionM     Decimal?              @db.Decimal(10, 2)
-  velocidadMps   Decimal?              @db.Decimal(10, 2)
-  bateriaPct     Int?
-  capturadoEn    DateTime
-  persistidoEn   DateTime              @default(now())
+  id           Int      @id @default(autoincrement())
+  sesionId     Int
+  latitud      Decimal  @db.Decimal(10, 7)
+  longitud     Decimal  @db.Decimal(10, 7)
+  precisionM   Decimal? @db.Decimal(10, 2)
+  velocidadMps Decimal? @db.Decimal(10, 2)
+  bateriaPct   Int?
+  capturadoEn  DateTime
+  persistidoEn DateTime @default(now())
 
-  sesion         SesionTrackingUsuario @relation(fields: [sesionId], references: [id], onDelete: Cascade)
+  sesion SesionTrackingUsuario @relation(fields: [sesionId], references: [id], onDelete: Cascade)
 
   @@index([sesionId, capturadoEn])
 }
 
 model UbicacionUsuarioActual {
-  id             Int                   @id @default(autoincrement())
-  sesionId       Int                   @unique
-  usuarioId      Int                   @unique
-  latitud        Decimal               @db.Decimal(10, 7)
-  longitud       Decimal               @db.Decimal(10, 7)
-  precisionM     Decimal?              @db.Decimal(10, 2)
-  velocidadMps   Decimal?              @db.Decimal(10, 2)
-  bateriaPct     Int?
-  capturadoEn    DateTime
-  persistidoEn   DateTime              @default(now())
-  actualizadoEn  DateTime              @updatedAt
+  id            Int      @id @default(autoincrement())
+  sesionId      Int      @unique
+  usuarioId     Int      @unique
+  latitud       Decimal  @db.Decimal(10, 7)
+  longitud      Decimal  @db.Decimal(10, 7)
+  precisionM    Decimal? @db.Decimal(10, 2)
+  velocidadMps  Decimal? @db.Decimal(10, 2)
+  bateriaPct    Int?
+  capturadoEn   DateTime
+  persistidoEn  DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
-  sesion         SesionTrackingUsuario @relation(fields: [sesionId], references: [id], onDelete: Cascade)
-  usuario        Usuario               @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  sesion  SesionTrackingUsuario @relation(fields: [sesionId], references: [id], onDelete: Cascade)
+  usuario Usuario               @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 }
 
 // ============================================================================
@@ -904,44 +903,96 @@ model UbicacionUsuarioActual {
 // ============================================================================
 
 model Bodega {
-  id                    Int      @id @default(autoincrement())
-  empresaId             Int
-  codigo                String
-  nombre                String
-  direccion             String?
-  activo                Boolean  @default(true)
-  creadoEn              DateTime @default(now())
-  actualizadoEn         DateTime @updatedAt
+  id          Int     @id @default(autoincrement())
+  empresaId   Int
+  codigo      String  @unique
+  nombre      String
+  descripcion String?
+  direccion   String?
+  telefono    String?
 
-  empresa               Empresa  @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  esPrincipal   Boolean @default(false)
+  responsableId Int?
+
+  activo             Boolean   @default(true)
+  motivoInactivacion String?
+  inactivadaEn       DateTime?
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  empresa     Empresa  @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  responsable Usuario? @relation("BodegaResponsable", fields: [responsableId], references: [id], onDelete: SetNull)
+
   stocks                StockBodega[]
   movimientos           MovimientoInventario[]
   requisiciones         Requisicion[]
-  transferenciasOrigen  TransferenciaBodega[] @relation("TransferenciaBodegaOrigen")
-  transferenciasDestino TransferenciaBodega[] @relation("TransferenciaBodegaDestino")
+  transferenciasOrigen  TransferenciaBodega[]  @relation("TransferenciaBodegaOrigen")
+  transferenciasDestino TransferenciaBodega[]  @relation("TransferenciaBodegaDestino")
   ordenesDespacho       OrdenDespacho[]
 
-  @@unique([empresaId, codigo])
-  @@index([empresaId, activo])
+  eventos BodegaEvento[]
+
+  @@index([activo])
+  @@index([esPrincipal])
+  @@index([responsableId])
+}
+
+model BodegaEvento {
+  id        Int              @id @default(autoincrement())
+  bodegaId  Int
+  usuarioId Int?
+  tipo      TipoEventoBodega
+  detalle   String?
+  metadata  Json?
+  creadoEn  DateTime         @default(now())
+
+  bodega  Bodega   @relation(fields: [bodegaId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation("BodegaEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([bodegaId, creadoEn])
+  @@index([usuarioId])
+}
+
+enum TipoEventoBodega {
+  CREADA
+  ACTUALIZADA
+  ACTIVADA
+  DESACTIVADA
+  RESPONSABLE_ASIGNADO
+  RESPONSABLE_REMOVIDO
+  ESTABLECIDA_PRINCIPAL
 }
 
 model StockBodega {
-  id                  Int      @id @default(autoincrement())
-  bodegaId            Int
-  productoId          Int
-  cantidadReal        Int      @default(0)
-  cantidadReservada   Int      @default(0)
-  cantidadDisponible  Int      @default(0)
-  costoPromedio       Decimal  @default(0) @db.Decimal(12, 2)
-  creadoEn            DateTime @default(now())
-  actualizadoEn       DateTime @updatedAt
+  id         Int @id @default(autoincrement())
+  bodegaId   Int
+  productoId Int
 
-  bodega              Bodega   @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
-  producto            Producto @relation(fields: [productoId], references: [id], onDelete: Restrict)
-  reservas            ReservaInventario[]
+  cantidadReal       Int @default(0)
+  cantidadReservada  Int @default(0)
+  cantidadDisponible Int @default(0)
+
+  costoPromedio Decimal @default(0) @db.Decimal(14, 4)
+
+  // Control de concurrencia optimista.
+  // Cada operación que modifique existencias incrementa la versión.
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  bodega Bodega @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Restrict)
+
+  reservas ReservaInventario[]
 
   @@unique([bodegaId, productoId])
-  @@index([productoId])
+  // Consultas de inventario por bodega.
+  @@index([bodegaId, cantidadDisponible])
+  // Disponibilidad de un producto en todas las bodegas.
+  @@index([productoId, cantidadDisponible])
 }
 
 model Requisicion {
@@ -958,110 +1009,177 @@ model Requisicion {
   creadoEn        DateTime          @default(now())
   actualizadoEn   DateTime          @updatedAt
 
-  empresa         Empresa           @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  bodegaDestino   Bodega            @relation(fields: [bodegaDestinoId], references: [id], onDelete: Restrict)
-  proveedor       Proveedor?        @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
-  solicitante     Usuario           @relation("RequisicionSolicitante", fields: [solicitanteId], references: [id], onDelete: Restrict)
-  detalles        RequisicionDetalle[]
+  empresa       Empresa              @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  bodegaDestino Bodega               @relation(fields: [bodegaDestinoId], references: [id], onDelete: Restrict)
+  proveedor     Proveedor?           @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+  solicitante   Usuario              @relation("RequisicionSolicitante", fields: [solicitanteId], references: [id], onDelete: Restrict)
+  detalles      RequisicionDetalle[]
 
   @@index([empresaId, estado])
   @@index([bodegaDestinoId])
 }
 
 model RequisicionDetalle {
-  id                 Int         @id @default(autoincrement())
+  id                 Int      @id @default(autoincrement())
   requisicionId      Int
   productoId         Int
   cantidadSolicitada Int
-  cantidadRecibida   Int         @default(0)
-  costoEstimado      Decimal?    @db.Decimal(12, 2)
-  creadoEn           DateTime    @default(now())
-  actualizadoEn      DateTime    @updatedAt
+  cantidadRecibida   Int      @default(0)
+  costoEstimado      Decimal? @db.Decimal(12, 2)
+  creadoEn           DateTime @default(now())
+  actualizadoEn      DateTime @updatedAt
 
-  requisicion        Requisicion @relation(fields: [requisicionId], references: [id], onDelete: Cascade)
-  producto           Producto    @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  requisicion Requisicion @relation(fields: [requisicionId], references: [id], onDelete: Cascade)
+  producto    Producto    @relation(fields: [productoId], references: [id], onDelete: Restrict)
 
   @@unique([requisicionId, productoId])
 }
 
 model TransferenciaBodega {
-  id               Int                       @id @default(autoincrement())
-  bodegaOrigenId   Int
-  bodegaDestinoId  Int
-  creadoPorId      Int
-  estado           EstadoTransferenciaBodega @default(BORRADOR)
-  observaciones    String?
-  enviadaEn        DateTime?
-  recibidaEn       DateTime?
-  creadoEn         DateTime                  @default(now())
-  actualizadoEn    DateTime                  @updatedAt
+  id              Int                       @id @default(autoincrement())
+  bodegaOrigenId  Int
+  bodegaDestinoId Int
+  creadoPorId     Int
+  estado          EstadoTransferenciaBodega @default(BORRADOR)
+  observaciones   String?
+  enviadaEn       DateTime?
+  recibidaEn      DateTime?
+  creadoEn        DateTime                  @default(now())
+  actualizadoEn   DateTime                  @updatedAt
 
-  bodegaOrigen     Bodega                    @relation("TransferenciaBodegaOrigen", fields: [bodegaOrigenId], references: [id], onDelete: Restrict)
-  bodegaDestino    Bodega                    @relation("TransferenciaBodegaDestino", fields: [bodegaDestinoId], references: [id], onDelete: Restrict)
-  creadoPor        Usuario                   @relation("TransferenciaCreadaPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
-  detalles         TransferenciaBodegaDetalle[]
+  bodegaOrigen  Bodega                       @relation("TransferenciaBodegaOrigen", fields: [bodegaOrigenId], references: [id], onDelete: Restrict)
+  bodegaDestino Bodega                       @relation("TransferenciaBodegaDestino", fields: [bodegaDestinoId], references: [id], onDelete: Restrict)
+  creadoPor     Usuario                      @relation("TransferenciaCreadaPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  detalles      TransferenciaBodegaDetalle[]
 
   @@index([bodegaOrigenId, estado])
   @@index([bodegaDestinoId, estado])
 }
 
 model TransferenciaBodegaDetalle {
-  id                    Int                 @id @default(autoincrement())
-  transferenciaId       Int
-  productoId            Int
-  cantidadSolicitada    Int
-  cantidadEnviada       Int                 @default(0)
-  cantidadRecibida      Int                 @default(0)
+  id                 Int @id @default(autoincrement())
+  transferenciaId    Int
+  productoId         Int
+  cantidadSolicitada Int
+  cantidadEnviada    Int @default(0)
+  cantidadRecibida   Int @default(0)
 
-  transferencia         TransferenciaBodega @relation(fields: [transferenciaId], references: [id], onDelete: Cascade)
-  producto              Producto            @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  transferencia TransferenciaBodega @relation(fields: [transferenciaId], references: [id], onDelete: Cascade)
+  producto      Producto            @relation(fields: [productoId], references: [id], onDelete: Restrict)
 
   @@unique([transferenciaId, productoId])
 }
 
 model MovimientoInventario {
-  id                   Int                       @id @default(autoincrement())
-  bodegaId             Int
-  productoId           Int
-  proveedorId          Int?
-  creadoPorId          Int?
-  tipo                 TipoMovimientoInventario
-  cantidad             Int
-  costoUnitario        Decimal?                  @db.Decimal(12, 2)
-  cantidadRealAntes    Int
-  cantidadRealDespues  Int
-  reservadaAntes       Int
-  reservadaDespues     Int
-  referenciaTipo       String?
-  referenciaId         Int?
-  observaciones        String?
-  creadoEn             DateTime                  @default(now())
+  id Int @id @default(autoincrement())
 
-  bodega               Bodega                    @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
-  producto             Producto                  @relation(fields: [productoId], references: [id], onDelete: Restrict)
-  proveedor            Proveedor?                @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
-  creadoPor            Usuario?                  @relation("MovimientoInventarioCreadoPor", fields: [creadoPorId], references: [id], onDelete: SetNull)
+  bodegaId   Int
+  productoId Int
+
+  proveedorId Int?
+  creadoPorId Int?
+
+  // Relación interna directa cuando el movimiento
+  // pertenece a una reserva.
+  reservaInventarioId Int?
+
+  tipo TipoMovimientoInventario
+
+  // Siempre positiva.
+  // El tipo determina si entra, sale, reserva o libera.
+  cantidad Int
+
+  costoUnitario Decimal? @db.Decimal(14, 4)
+
+  // Auditoría del costo promedio.
+  costoPromedioAntes   Decimal @default(0) @db.Decimal(14, 4)
+  costoPromedioDespues Decimal @default(0) @db.Decimal(14, 4)
+
+  cantidadRealAntes   Int
+  cantidadRealDespues Int
+
+  reservadaAntes   Int
+  reservadaDespues Int
+
+  // Permite vincular el movimiento con otros dominios
+  // sin acoplar Inventario directamente a ellos.
+  referenciaTipo String?
+  referenciaId   Int?
+
+  // Protege contra reintentos de la misma operación.
+  claveIdempotencia String? @unique
+
+  observaciones String?
+
+  creadoEn DateTime @default(now())
+
+  bodega Bodega @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Restrict)
+
+  proveedor Proveedor? @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+
+  creadoPor Usuario? @relation("MovimientoInventarioCreadoPor", fields: [creadoPorId], references: [id], onDelete: SetNull)
+
+  reservaInventario ReservaInventario? @relation(fields: [reservaInventarioId], references: [id], onDelete: Restrict)
 
   @@index([bodegaId, productoId, creadoEn])
+  @@index([productoId, creadoEn])
+  @@index([bodegaId, creadoEn])
   @@index([referenciaTipo, referenciaId])
+  @@index([reservaInventarioId, creadoEn])
+  @@index([creadoPorId, creadoEn])
 }
 
 model ReservaInventario {
-  id               Int                     @id @default(autoincrement())
-  pedidoDetalleId  Int
-  stockBodegaId    Int
-  cantidad         Int
-  estado           EstadoReservaInventario @default(ACTIVA)
-  aplicadaEn       DateTime?
-  liberadaEn       DateTime?
-  creadoEn         DateTime                @default(now())
-  actualizadoEn    DateTime                @updatedAt
+  id Int @id @default(autoincrement())
 
-  pedidoDetalle    PedidoDetalle           @relation(fields: [pedidoDetalleId], references: [id], onDelete: Cascade)
-  stockBodega      StockBodega             @relation(fields: [stockBodegaId], references: [id], onDelete: Restrict)
+  pedidoDetalleId Int
+  stockBodegaId   Int
+
+  // Cantidad que se reservó originalmente.
+  cantidadOriginal Int
+
+  // Cantidad que todavía sigue apartada físicamente.
+  cantidadPendiente Int
+
+  // Cantidad de la reserva que ya terminó en despacho/salida.
+  cantidadAplicada Int @default(0)
+
+  // Cantidad que dejó de estar reservada sin salir del inventario.
+  cantidadLiberada Int @default(0)
+
+  estado EstadoReservaInventario @default(ACTIVA)
+
+  // Se establece cuando toda la reserva terminó aplicada.
+  aplicadaEn DateTime?
+
+  // Se establece cuando toda la reserva terminó liberada.
+  liberadaEn DateTime?
+
+  // Cualquier forma de cierre definitivo:
+  // aplicada, liberada, cancelada o mixta.
+  cerradaEn DateTime?
+
+  // Permite distinguir un cierre provocado por cancelación.
+  canceladaEn DateTime?
+
+  // También necesitamos concurrencia sobre operaciones parciales.
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  pedidoDetalle PedidoDetalle @relation(fields: [pedidoDetalleId], references: [id], onDelete: Restrict)
+
+  stockBodega StockBodega @relation(fields: [stockBodegaId], references: [id], onDelete: Restrict)
+
+  movimientos MovimientoInventario[]
 
   @@unique([pedidoDetalleId, stockBodegaId])
   @@index([stockBodegaId, estado])
+  @@index([pedidoDetalleId, estado])
+  @@index([estado, actualizadoEn])
 }
 
 // ============================================================================
@@ -1069,28 +1187,28 @@ model ReservaInventario {
 // ============================================================================
 
 model Pedido {
-  id                 Int                 @id @default(autoincrement())
-  empresaId          Int
-  clienteId          Int
-  vendedorId         Int
-  visitaId           Int?
-  estado             EstadoPedido        @default(BORRADOR)
-  condicionPago      CondicionPago
-  estadoPago         EstadoPagoComercial @default(PENDIENTE)
-  moneda             String              @default("GTQ")
-  subtotal           Decimal             @default(0) @db.Decimal(12, 2)
-  descuentoTotal     Decimal             @default(0) @db.Decimal(12, 2)
-  total              Decimal             @default(0) @db.Decimal(12, 2)
-  observaciones      String?
-  confirmadoEn       DateTime?
-  canceladoEn        DateTime?
-  creadoEn           DateTime            @default(now())
-  actualizadoEn      DateTime            @updatedAt
+  id             Int                 @id @default(autoincrement())
+  empresaId      Int
+  clienteId      Int
+  vendedorId     Int
+  visitaId       Int?
+  estado         EstadoPedido        @default(BORRADOR)
+  condicionPago  CondicionPago
+  estadoPago     EstadoPagoComercial @default(PENDIENTE)
+  moneda         String              @default("GTQ")
+  subtotal       Decimal             @default(0) @db.Decimal(12, 2)
+  descuentoTotal Decimal             @default(0) @db.Decimal(12, 2)
+  total          Decimal             @default(0) @db.Decimal(12, 2)
+  observaciones  String?
+  confirmadoEn   DateTime?
+  canceladoEn    DateTime?
+  creadoEn       DateTime            @default(now())
+  actualizadoEn  DateTime            @updatedAt
 
-  empresa            Empresa             @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  cliente            Cliente             @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  vendedor           Usuario             @relation("PedidoVendedor", fields: [vendedorId], references: [id], onDelete: Restrict)
-  visita             Visita?             @relation(fields: [visitaId], references: [id], onDelete: SetNull)
+  empresa            Empresa            @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  cliente            Cliente            @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  vendedor           Usuario            @relation("PedidoVendedor", fields: [vendedorId], references: [id], onDelete: Restrict)
+  visita             Visita?            @relation(fields: [visitaId], references: [id], onDelete: SetNull)
   detalles           PedidoDetalle[]
   eventos            PedidoEvento[]
   solicitudesCredito SolicitudCredito[]
@@ -1119,27 +1237,27 @@ model PedidoDetalle {
   creadoEn           DateTime @default(now())
   actualizadoEn      DateTime @updatedAt
 
-  pedido             Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  producto           Producto @relation(fields: [productoId], references: [id], onDelete: Restrict)
-  reservas           ReservaInventario[]
-  despachoDetalles   OrdenDespachoDetalle[]
-  entregaDetalles    EntregaDetalle[]
-  facturaDetalles    FacturaDetalle[]
+  pedido           Pedido                 @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  producto         Producto               @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  reservas         ReservaInventario[]
+  despachoDetalles OrdenDespachoDetalle[]
+  entregaDetalles  EntregaDetalle[]
+  facturaDetalles  FacturaDetalle[]
 
   @@unique([pedidoId, productoId])
 }
 
 model PedidoEvento {
-  id          Int              @id @default(autoincrement())
-  pedidoId    Int
-  usuarioId   Int?
-  tipo        TipoEventoPedido
-  detalle     String?
-  metadata    Json?
-  creadoEn    DateTime         @default(now())
+  id        Int              @id @default(autoincrement())
+  pedidoId  Int
+  usuarioId Int?
+  tipo      TipoEventoPedido
+  detalle   String?
+  metadata  Json?
+  creadoEn  DateTime         @default(now())
 
-  pedido      Pedido           @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  usuario     Usuario?         @relation("PedidoEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+  pedido  Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation("PedidoEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@index([pedidoId, creadoEn])
 }
@@ -1160,23 +1278,23 @@ model PoliticaCredito {
   creadoEn           DateTime @default(now())
   actualizadoEn      DateTime @updatedAt
 
-  empresa            Empresa  @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  requisitos         PoliticaCreditoRequisito[]
-  solicitudes        SolicitudCredito[]
+  empresa     Empresa                    @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  requisitos  PoliticaCreditoRequisito[]
+  solicitudes SolicitudCredito[]
 
   @@index([empresaId, activo])
 }
 
 model PoliticaCreditoRequisito {
-  id          Int             @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   politicaId  Int
   codigo      String
   nombre      String
   descripcion String?
-  obligatorio Boolean         @default(true)
-  orden       Int             @default(0)
+  obligatorio Boolean @default(true)
+  orden       Int     @default(0)
 
-  politica    PoliticaCredito @relation(fields: [politicaId], references: [id], onDelete: Cascade)
+  politica PoliticaCredito @relation(fields: [politicaId], references: [id], onDelete: Cascade)
 
   @@unique([politicaId, codigo])
 }
@@ -1198,15 +1316,15 @@ model SolicitudCredito {
   resueltaEn        DateTime?
   actualizadoEn     DateTime               @updatedAt
 
-  empresa           Empresa                @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  pedido            Pedido                 @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  cliente           Cliente                @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  solicitante       Usuario                @relation("SolicitudCreditoSolicitante", fields: [solicitanteId], references: [id], onDelete: Restrict)
-  politica          PoliticaCredito?       @relation(fields: [politicaId], references: [id], onDelete: SetNull)
-  credito           Credito?               @relation(fields: [creditoId], references: [id], onDelete: SetNull)
-  referencias       ReferenciaCredito[]
-  documentos        DocumentoCredito[]
-  decisiones        DecisionCredito[]
+  empresa     Empresa             @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  pedido      Pedido              @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  cliente     Cliente             @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  solicitante Usuario             @relation("SolicitudCreditoSolicitante", fields: [solicitanteId], references: [id], onDelete: Restrict)
+  politica    PoliticaCredito?    @relation(fields: [politicaId], references: [id], onDelete: SetNull)
+  credito     Credito?            @relation(fields: [creditoId], references: [id], onDelete: SetNull)
+  referencias ReferenciaCredito[]
+  documentos  DocumentoCredito[]
+  decisiones  DecisionCredito[]
 
   @@index([empresaId, estado, solicitadaEn])
   @@index([pedidoId])
@@ -1214,18 +1332,18 @@ model SolicitudCredito {
 }
 
 model ReferenciaCredito {
-  id             Int                          @id @default(autoincrement())
-  solicitudId    Int
-  tipo           TipoReferenciaCredito
-  nombre         String
-  telefono       String
-  relacion       String?
-  resultado      EstadoVerificacionReferencia @default(PENDIENTE)
-  verificadoEn   DateTime?
-  observaciones  String?
-  creadoEn       DateTime                     @default(now())
+  id            Int                          @id @default(autoincrement())
+  solicitudId   Int
+  tipo          TipoReferenciaCredito
+  nombre        String
+  telefono      String
+  relacion      String?
+  resultado     EstadoVerificacionReferencia @default(PENDIENTE)
+  verificadoEn  DateTime?
+  observaciones String?
+  creadoEn      DateTime                     @default(now())
 
-  solicitud      SolicitudCredito             @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  solicitud SolicitudCredito @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
 
   @@index([solicitudId, resultado])
 }
@@ -1242,24 +1360,24 @@ model DocumentoCredito {
   observaciones String?
   creadoEn      DateTime               @default(now())
 
-  solicitud     SolicitudCredito       @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  solicitud SolicitudCredito @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
 
   @@index([solicitudId, tipo])
 }
 
 model DecisionCredito {
-  id                  Int                  @id @default(autoincrement())
+  id                  Int                 @id @default(autoincrement())
   solicitudId         Int
   decididoPorId       Int
   tipo                TipoDecisionCredito
-  montoAutorizado     Decimal?             @db.Decimal(12, 2)
+  montoAutorizado     Decimal?            @db.Decimal(12, 2)
   plazoAutorizadoDias Int?
-  anticipoRequerido   Decimal?             @db.Decimal(12, 2)
+  anticipoRequerido   Decimal?            @db.Decimal(12, 2)
   observaciones       String?
-  creadoEn            DateTime             @default(now())
+  creadoEn            DateTime            @default(now())
 
-  solicitud           SolicitudCredito     @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
-  decididoPor         Usuario              @relation("DecisionCreditoUsuario", fields: [decididoPorId], references: [id], onDelete: Restrict)
+  solicitud   SolicitudCredito @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  decididoPor Usuario          @relation("DecisionCreditoUsuario", fields: [decididoPorId], references: [id], onDelete: Restrict)
 
   @@index([solicitudId, creadoEn])
 }
@@ -1269,120 +1387,120 @@ model DecisionCredito {
 // ============================================================================
 
 model OrdenDespacho {
-  id              Int                 @id @default(autoincrement())
-  pedidoId        Int
-  bodegaId        Int
-  preparadoPorId  Int?
-  numero          String?
-  estado          EstadoOrdenDespacho @default(PENDIENTE)
-  programadoEn    DateTime?
-  preparadoEn     DateTime?
-  despachadoEn    DateTime?
-  observaciones   String?
-  creadoEn        DateTime            @default(now())
-  actualizadoEn   DateTime            @updatedAt
+  id             Int                 @id @default(autoincrement())
+  pedidoId       Int
+  bodegaId       Int
+  preparadoPorId Int?
+  numero         String?
+  estado         EstadoOrdenDespacho @default(PENDIENTE)
+  programadoEn   DateTime?
+  preparadoEn    DateTime?
+  despachadoEn   DateTime?
+  observaciones  String?
+  creadoEn       DateTime            @default(now())
+  actualizadoEn  DateTime            @updatedAt
 
-  pedido          Pedido              @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
-  bodega          Bodega              @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
-  preparadoPor    Usuario?            @relation("OrdenDespachoPreparadoPor", fields: [preparadoPorId], references: [id], onDelete: SetNull)
-  detalles        OrdenDespachoDetalle[]
-  eventos         OrdenDespachoEvento[]
-  envios          EnvioDespacho[]
-  entregas        Entrega[]
+  pedido       Pedido                 @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+  bodega       Bodega                 @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
+  preparadoPor Usuario?               @relation("OrdenDespachoPreparadoPor", fields: [preparadoPorId], references: [id], onDelete: SetNull)
+  detalles     OrdenDespachoDetalle[]
+  eventos      OrdenDespachoEvento[]
+  envios       EnvioDespacho[]
+  entregas     Entrega[]
 
   @@index([pedidoId, estado])
   @@index([bodegaId, estado])
 }
 
 model OrdenDespachoDetalle {
-  id                  Int           @id @default(autoincrement())
-  ordenDespachoId     Int
-  pedidoDetalleId     Int
-  productoId          Int
-  cantidadPreparada   Int           @default(0)
-  cantidadDespachada  Int           @default(0)
+  id                 Int @id @default(autoincrement())
+  ordenDespachoId    Int
+  pedidoDetalleId    Int
+  productoId         Int
+  cantidadPreparada  Int @default(0)
+  cantidadDespachada Int @default(0)
 
-  ordenDespacho       OrdenDespacho @relation(fields: [ordenDespachoId], references: [id], onDelete: Cascade)
-  pedidoDetalle       PedidoDetalle @relation(fields: [pedidoDetalleId], references: [id], onDelete: Restrict)
-  producto            Producto      @relation(fields: [productoId], references: [id], onDelete: Restrict)
-  entregaDetalles     EntregaDetalle[]
+  ordenDespacho   OrdenDespacho    @relation(fields: [ordenDespachoId], references: [id], onDelete: Cascade)
+  pedidoDetalle   PedidoDetalle    @relation(fields: [pedidoDetalleId], references: [id], onDelete: Restrict)
+  producto        Producto         @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  entregaDetalles EntregaDetalle[]
 
   @@unique([ordenDespachoId, pedidoDetalleId])
 }
 
 model OrdenDespachoEvento {
-  id               Int                      @id @default(autoincrement())
-  ordenDespachoId  Int
-  usuarioId        Int?
-  tipo             TipoEventoOrdenDespacho
-  detalle          String?
-  creadoEn         DateTime                 @default(now())
+  id              Int                     @id @default(autoincrement())
+  ordenDespachoId Int
+  usuarioId       Int?
+  tipo            TipoEventoOrdenDespacho
+  detalle         String?
+  creadoEn        DateTime                @default(now())
 
-  ordenDespacho    OrdenDespacho            @relation(fields: [ordenDespachoId], references: [id], onDelete: Cascade)
-  usuario          Usuario?                 @relation("OrdenDespachoEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+  ordenDespacho OrdenDespacho @relation(fields: [ordenDespachoId], references: [id], onDelete: Cascade)
+  usuario       Usuario?      @relation("OrdenDespachoEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@index([ordenDespachoId, creadoEn])
 }
 
 model Entrega {
-  id                 Int           @id @default(autoincrement())
-  ordenDespachoId    Int
-  pedidoId           Int
-  clienteId          Int
-  registradoPorId    Int?
-  estado             EstadoEntrega @default(PENDIENTE)
-  receptorNombre     String?
-  receptorDocumento  String?
-  firmaUrl           String?
-  latitud            Decimal?      @db.Decimal(10, 7)
-  longitud           Decimal?      @db.Decimal(10, 7)
-  entregadoEn        DateTime?
-  observaciones      String?
-  creadoEn           DateTime      @default(now())
-  actualizadoEn      DateTime      @updatedAt
+  id                Int           @id @default(autoincrement())
+  ordenDespachoId   Int
+  pedidoId          Int
+  clienteId         Int
+  registradoPorId   Int?
+  estado            EstadoEntrega @default(PENDIENTE)
+  receptorNombre    String?
+  receptorDocumento String?
+  firmaUrl          String?
+  latitud           Decimal?      @db.Decimal(10, 7)
+  longitud          Decimal?      @db.Decimal(10, 7)
+  entregadoEn       DateTime?
+  observaciones     String?
+  creadoEn          DateTime      @default(now())
+  actualizadoEn     DateTime      @updatedAt
 
-  ordenDespacho      OrdenDespacho @relation(fields: [ordenDespachoId], references: [id], onDelete: Restrict)
-  pedido             Pedido        @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
-  cliente            Cliente       @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  registradoPor      Usuario?      @relation("EntregaRegistradaPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
-  detalles           EntregaDetalle[]
-  evidencias         EntregaEvidencia[]
-  factura            Factura?
+  ordenDespacho OrdenDespacho      @relation(fields: [ordenDespachoId], references: [id], onDelete: Restrict)
+  pedido        Pedido             @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+  cliente       Cliente            @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  registradoPor Usuario?           @relation("EntregaRegistradaPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
+  detalles      EntregaDetalle[]
+  evidencias    EntregaEvidencia[]
+  factura       Factura?
 
   @@index([pedidoId, estado])
   @@index([ordenDespachoId])
 }
 
 model EntregaDetalle {
-  id                     Int                  @id @default(autoincrement())
+  id                     Int     @id @default(autoincrement())
   entregaId              Int
   ordenDespachoDetalleId Int
   pedidoDetalleId        Int
   productoId             Int
   cantidadEntregada      Int
-  cantidadRechazada      Int                  @default(0)
+  cantidadRechazada      Int     @default(0)
   motivoRechazo          String?
 
-  entrega                Entrega              @relation(fields: [entregaId], references: [id], onDelete: Cascade)
-  ordenDespachoDetalle   OrdenDespachoDetalle @relation(fields: [ordenDespachoDetalleId], references: [id], onDelete: Restrict)
-  pedidoDetalle          PedidoDetalle        @relation(fields: [pedidoDetalleId], references: [id], onDelete: Restrict)
-  producto               Producto             @relation(fields: [productoId], references: [id], onDelete: Restrict)
-  facturaDetalles        FacturaDetalle[]
+  entrega              Entrega              @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+  ordenDespachoDetalle OrdenDespachoDetalle @relation(fields: [ordenDespachoDetalleId], references: [id], onDelete: Restrict)
+  pedidoDetalle        PedidoDetalle        @relation(fields: [pedidoDetalleId], references: [id], onDelete: Restrict)
+  producto             Producto             @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  facturaDetalles      FacturaDetalle[]
 
   @@unique([entregaId, ordenDespachoDetalleId])
 }
 
 model EntregaEvidencia {
-  id          Int                  @id @default(autoincrement())
-  entregaId   Int
-  tipo        TipoEvidenciaEntrega
-  url         String
-  key         String?
-  mimeType    String?
-  size        Int?
-  creadoEn    DateTime             @default(now())
+  id        Int                  @id @default(autoincrement())
+  entregaId Int
+  tipo      TipoEvidenciaEntrega
+  url       String
+  key       String?
+  mimeType  String?
+  size      Int?
+  creadoEn  DateTime             @default(now())
 
-  entrega     Entrega              @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+  entrega Entrega @relation(fields: [entregaId], references: [id], onDelete: Cascade)
 
   @@index([entregaId, tipo])
 }
@@ -1392,20 +1510,20 @@ model EntregaEvidencia {
 // ============================================================================
 
 model Transportista {
-  id             Int               @id @default(autoincrement())
-  empresaId      Int
-  tipo           TipoTransportista
-  nombre         String
-  telefono       String?
-  correo         String?
-  activo         Boolean           @default(true)
-  creadoEn       DateTime          @default(now())
-  actualizadoEn  DateTime          @updatedAt
+  id            Int               @id @default(autoincrement())
+  empresaId     Int
+  tipo          TipoTransportista
+  nombre        String
+  telefono      String?
+  correo        String?
+  activo        Boolean           @default(true)
+  creadoEn      DateTime          @default(now())
+  actualizadoEn DateTime          @updatedAt
 
-  empresa        Empresa           @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  vehiculos      Vehiculo[]
-  conductores    Conductor[]
-  envios         Envio[]
+  empresa     Empresa     @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  vehiculos   Vehiculo[]
+  conductores Conductor[]
+  envios      Envio[]
 
   @@index([empresaId, tipo, activo])
 }
@@ -1423,71 +1541,71 @@ model Vehiculo {
   creadoEn        DateTime       @default(now())
   actualizadoEn   DateTime       @updatedAt
 
-  empresa         Empresa        @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  transportista   Transportista? @relation(fields: [transportistaId], references: [id], onDelete: SetNull)
-  envios          Envio[]
+  empresa       Empresa        @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  transportista Transportista? @relation(fields: [transportistaId], references: [id], onDelete: SetNull)
+  envios        Envio[]
 
   @@unique([empresaId, placa])
   @@index([empresaId, estado, activo])
 }
 
 model Conductor {
-  id              Int            @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   empresaId       Int
   transportistaId Int?
   nombre          String
   telefono        String?
   licencia        String?
-  activo          Boolean        @default(true)
-  creadoEn        DateTime       @default(now())
-  actualizadoEn   DateTime       @updatedAt
+  activo          Boolean  @default(true)
+  creadoEn        DateTime @default(now())
+  actualizadoEn   DateTime @updatedAt
 
-  empresa         Empresa        @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  transportista   Transportista? @relation(fields: [transportistaId], references: [id], onDelete: SetNull)
-  envios          Envio[]
+  empresa       Empresa        @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  transportista Transportista? @relation(fields: [transportistaId], references: [id], onDelete: SetNull)
+  envios        Envio[]
 
   @@index([empresaId, activo])
 }
 
 model Envio {
-  id                        Int          @id @default(autoincrement())
-  empresaId                 Int
-  transportistaId           Int?
-  vehiculoId                Int?
-  conductorId               Int?
-  responsableId             Int?
-  estado                    EstadoEnvio  @default(PROGRAMADO)
-  guia                      String?
-  costo                     Decimal?     @db.Decimal(12, 2)
-  trackingUrl               String?
-  comprobanteUrl            String?
-  entregadoTransportistaEn  DateTime?
-  salidaEn                  DateTime?
-  completadoEn              DateTime?
-  observaciones             String?
-  creadoEn                  DateTime     @default(now())
-  actualizadoEn             DateTime     @updatedAt
+  id                       Int         @id @default(autoincrement())
+  empresaId                Int
+  transportistaId          Int?
+  vehiculoId               Int?
+  conductorId              Int?
+  responsableId            Int?
+  estado                   EstadoEnvio @default(PROGRAMADO)
+  guia                     String?
+  costo                    Decimal?    @db.Decimal(12, 2)
+  trackingUrl              String?
+  comprobanteUrl           String?
+  entregadoTransportistaEn DateTime?
+  salidaEn                 DateTime?
+  completadoEn             DateTime?
+  observaciones            String?
+  creadoEn                 DateTime    @default(now())
+  actualizadoEn            DateTime    @updatedAt
 
-  empresa                   Empresa      @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  transportista             Transportista? @relation(fields: [transportistaId], references: [id], onDelete: SetNull)
-  vehiculo                  Vehiculo?    @relation(fields: [vehiculoId], references: [id], onDelete: SetNull)
-  conductor                 Conductor?   @relation(fields: [conductorId], references: [id], onDelete: SetNull)
-  responsable               Usuario?     @relation("EnvioResponsable", fields: [responsableId], references: [id], onDelete: SetNull)
-  despachos                 EnvioDespacho[]
-  eventos                   EnvioEvento[]
+  empresa       Empresa         @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  transportista Transportista?  @relation(fields: [transportistaId], references: [id], onDelete: SetNull)
+  vehiculo      Vehiculo?       @relation(fields: [vehiculoId], references: [id], onDelete: SetNull)
+  conductor     Conductor?      @relation(fields: [conductorId], references: [id], onDelete: SetNull)
+  responsable   Usuario?        @relation("EnvioResponsable", fields: [responsableId], references: [id], onDelete: SetNull)
+  despachos     EnvioDespacho[]
+  eventos       EnvioEvento[]
 
   @@index([empresaId, estado, creadoEn])
   @@index([guia])
 }
 
 model EnvioDespacho {
-  id               Int           @id @default(autoincrement())
-  envioId          Int
-  ordenDespachoId  Int
-  creadoEn         DateTime      @default(now())
+  id              Int      @id @default(autoincrement())
+  envioId         Int
+  ordenDespachoId Int
+  creadoEn        DateTime @default(now())
 
-  envio            Envio         @relation(fields: [envioId], references: [id], onDelete: Cascade)
-  ordenDespacho    OrdenDespacho @relation(fields: [ordenDespachoId], references: [id], onDelete: Restrict)
+  envio         Envio         @relation(fields: [envioId], references: [id], onDelete: Cascade)
+  ordenDespacho OrdenDespacho @relation(fields: [ordenDespachoId], references: [id], onDelete: Restrict)
 
   @@unique([envioId, ordenDespachoId])
   @@index([ordenDespachoId])
@@ -1503,8 +1621,8 @@ model EnvioEvento {
   longitud    Decimal?    @db.Decimal(10, 7)
   creadoEn    DateTime    @default(now())
 
-  envio       Envio       @relation(fields: [envioId], references: [id], onDelete: Cascade)
-  usuario     Usuario?    @relation("EnvioEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+  envio   Envio    @relation(fields: [envioId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation("EnvioEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@index([envioId, creadoEn])
 }
@@ -1523,8 +1641,8 @@ model Banco {
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 
-  empresa       Empresa  @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  pagos         Pago[]
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  pagos   Pago[]
 
   @@index([empresaId, activo])
 }
@@ -1546,28 +1664,28 @@ model Pago {
   creadoEn        DateTime              @default(now())
   actualizadoEn   DateTime              @updatedAt
 
-  empresa         Empresa               @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  cliente         Cliente               @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  pedido          Pedido?               @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
-  banco           Banco?                @relation(fields: [bancoId], references: [id], onDelete: SetNull)
-  registradoPor   Usuario?              @relation("PagoRegistradoPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
-  comprobantes    PagoComprobante[]
-  aplicaciones    PagoAplicacion[]
+  empresa       Empresa           @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  cliente       Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  pedido        Pedido?           @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
+  banco         Banco?            @relation(fields: [bancoId], references: [id], onDelete: SetNull)
+  registradoPor Usuario?          @relation("PagoRegistradoPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
+  comprobantes  PagoComprobante[]
+  aplicaciones  PagoAplicacion[]
 
   @@index([empresaId, estado, fechaPago])
   @@index([clienteId, fechaPago])
 }
 
 model PagoComprobante {
-  id          Int      @id @default(autoincrement())
-  pagoId      Int
-  url         String
-  key         String?
-  mimeType    String?
-  size        Int?
-  creadoEn    DateTime @default(now())
+  id       Int      @id @default(autoincrement())
+  pagoId   Int
+  url      String
+  key      String?
+  mimeType String?
+  size     Int?
+  creadoEn DateTime @default(now())
 
-  pago        Pago     @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  pago Pago @relation(fields: [pagoId], references: [id], onDelete: Cascade)
 
   @@index([pagoId])
 }
@@ -1591,76 +1709,75 @@ model Factura {
   creadoEn         DateTime      @default(now())
   actualizadoEn    DateTime      @updatedAt
 
-  empresa          Empresa       @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  cliente          Cliente       @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  pedido           Pedido?       @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
-  entrega          Entrega?      @relation(fields: [entregaId], references: [id], onDelete: SetNull)
-  venta            Venta?        @relation(fields: [ventaId], references: [id], onDelete: SetNull)
-  detalles         FacturaDetalle[]
-  cuentaPorCobrar  CuentaPorCobrar?
+  empresa         Empresa          @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  cliente         Cliente          @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  pedido          Pedido?          @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
+  entrega         Entrega?         @relation(fields: [entregaId], references: [id], onDelete: SetNull)
+  venta           Venta?           @relation(fields: [ventaId], references: [id], onDelete: SetNull)
+  detalles        FacturaDetalle[]
+  cuentaPorCobrar CuentaPorCobrar?
 
+  @@unique([empresaId, serie, numero])
   @@index([empresaId, estado, creadoEn])
   @@index([clienteId, creadoEn])
-  @@unique([empresaId, serie, numero])
 }
 
 model FacturaDetalle {
-  id               Int             @id @default(autoincrement())
+  id               Int     @id @default(autoincrement())
   facturaId        Int
   productoId       Int
   pedidoDetalleId  Int?
   entregaDetalleId Int?
   cantidad         Int
-  precioUnitario   Decimal         @db.Decimal(12, 2)
-  descuento        Decimal         @default(0) @db.Decimal(12, 2)
-  subtotal         Decimal         @db.Decimal(12, 2)
+  precioUnitario   Decimal @db.Decimal(12, 2)
+  descuento        Decimal @default(0) @db.Decimal(12, 2)
+  subtotal         Decimal @db.Decimal(12, 2)
 
-  factura          Factura         @relation(fields: [facturaId], references: [id], onDelete: Cascade)
-  producto         Producto        @relation(fields: [productoId], references: [id], onDelete: Restrict)
-  pedidoDetalle    PedidoDetalle?  @relation(fields: [pedidoDetalleId], references: [id], onDelete: SetNull)
-  entregaDetalle   EntregaDetalle? @relation(fields: [entregaDetalleId], references: [id], onDelete: SetNull)
+  factura        Factura         @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  producto       Producto        @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  pedidoDetalle  PedidoDetalle?  @relation(fields: [pedidoDetalleId], references: [id], onDelete: SetNull)
+  entregaDetalle EntregaDetalle? @relation(fields: [entregaDetalleId], references: [id], onDelete: SetNull)
 
   @@index([facturaId])
 }
 
 model CuentaPorCobrar {
-  id               Int                    @id @default(autoincrement())
+  id               Int                   @id @default(autoincrement())
   empresaId        Int
   clienteId        Int
   pedidoId         Int?
-  facturaId        Int?                   @unique
+  facturaId        Int?                  @unique
   creditoId        Int?
   numeroDocumento  String?
-  montoOriginal    Decimal                @db.Decimal(12, 2)
-  saldoPendiente   Decimal                @db.Decimal(12, 2)
-  fechaEmision     DateTime               @default(now())
+  montoOriginal    Decimal               @db.Decimal(12, 2)
+  saldoPendiente   Decimal               @db.Decimal(12, 2)
+  fechaEmision     DateTime              @default(now())
   fechaVencimiento DateTime
-  estado           EstadoCuentaPorCobrar  @default(PENDIENTE)
-  creadoEn         DateTime               @default(now())
-  actualizadoEn    DateTime               @updatedAt
+  estado           EstadoCuentaPorCobrar @default(PENDIENTE)
+  creadoEn         DateTime              @default(now())
+  actualizadoEn    DateTime              @updatedAt
 
-  empresa          Empresa                @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  cliente          Cliente                @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  pedido           Pedido?                @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
-  factura          Factura?               @relation(fields: [facturaId], references: [id], onDelete: SetNull)
-  credito          Credito?               @relation(fields: [creditoId], references: [id], onDelete: SetNull)
-  aplicaciones     PagoAplicacion[]
+  empresa      Empresa          @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  cliente      Cliente          @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  pedido       Pedido?          @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
+  factura      Factura?         @relation(fields: [facturaId], references: [id], onDelete: SetNull)
+  credito      Credito?         @relation(fields: [creditoId], references: [id], onDelete: SetNull)
+  aplicaciones PagoAplicacion[]
 
   @@index([empresaId, estado, fechaVencimiento])
   @@index([clienteId, estado])
 }
 
 model PagoAplicacion {
-  id                Int             @id @default(autoincrement())
+  id                Int      @id @default(autoincrement())
   pagoId            Int
   cuentaPorCobrarId Int
-  monto             Decimal         @db.Decimal(12, 2)
-  creadoEn          DateTime        @default(now())
+  monto             Decimal  @db.Decimal(12, 2)
+  creadoEn          DateTime @default(now())
 
-  pago              Pago            @relation(fields: [pagoId], references: [id], onDelete: Cascade)
-  cuentaPorCobrar   CuentaPorCobrar @relation(fields: [cuentaPorCobrarId], references: [id], onDelete: Cascade)
+  pago            Pago            @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  cuentaPorCobrar CuentaPorCobrar @relation(fields: [cuentaPorCobrarId], references: [id], onDelete: Cascade)
 
   @@unique([pagoId, cuentaPorCobrarId])
   @@index([cuentaPorCobrarId])
 }
-
