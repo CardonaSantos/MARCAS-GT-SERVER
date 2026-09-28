@@ -484,7 +484,11 @@ model Usuario {
 
   recepcionesRequisicion RecepcionRequisicion[] @relation("RecepcionRequisicionRecibidoPor")
 
-eventosRequisicion RequisicionEvento[] @relation("RequisicionEventoUsuario")
+  eventosRequisicion RequisicionEvento[] @relation("RequisicionEventoUsuario")
+
+  operacionesTransferencia TransferenciaBodegaOperacion[] @relation("TransferenciaOperacionUsuario")
+
+  eventosTransferencia TransferenciaBodegaEvento[] @relation("TransferenciaEventoUsuario")
 }
 
 model Credito {
@@ -621,7 +625,6 @@ enum EstadoRecepcionRequisicion {
   FALLIDA
 }
 
-
 enum EstadoSesionTracking {
   ACTIVA
   FINALIZADA
@@ -676,6 +679,10 @@ enum EstadoRequisicion {
   CANCELADA
 }
 
+// ============================================================================
+// TRANSFERENCIAS ENTRE BODEGAS
+// ============================================================================
+
 enum EstadoTransferenciaBodega {
   BORRADOR
   PREPARADA
@@ -683,6 +690,30 @@ enum EstadoTransferenciaBodega {
   RECIBIDA_PARCIAL
   RECIBIDA
   CANCELADA
+}
+
+enum TipoOperacionTransferenciaBodega {
+  SALIDA
+  RECEPCION
+}
+
+enum EstadoOperacionTransferenciaBodega {
+  PENDIENTE
+  APLICADA
+  FALLIDA
+}
+
+enum TipoEventoTransferenciaBodega {
+  CREADA
+  ACTUALIZADA
+  PREPARADA
+  SALIDA_REGISTRADA
+  RECEPCION_REGISTRADA
+  RECIBIDA_PARCIAL
+  RECIBIDA
+  CANCELADA
+  OPERACION_FALLIDA
+  OBSERVACION
 }
 
 enum EstadoPedido {
@@ -1018,43 +1049,43 @@ model StockBodega {
 }
 
 model Requisicion {
-  id              Int               @id @default(autoincrement())
+  id              Int  @id @default(autoincrement())
   empresaId       Int
   bodegaDestinoId Int
   proveedorId     Int?
   solicitanteId   Int
 
-  estado          EstadoRequisicion @default(BORRADOR)
+  estado EstadoRequisicion @default(BORRADOR)
 
-  observaciones   String?
+  observaciones String?
 
-  solicitadaEn    DateTime?
-  aprobadaEn      DateTime?
-  rechazadaEn     DateTime?
-  canceladaEn     DateTime?
-  completadaEn    DateTime?
+  solicitadaEn DateTime?
+  aprobadaEn   DateTime?
+  rechazadaEn  DateTime?
+  canceladaEn  DateTime?
+  completadaEn DateTime?
 
-  motivoRechazo      String?
-  motivoCancelacion  String?
+  motivoRechazo     String?
+  motivoCancelacion String?
 
   // Concurrencia optimista para evitar que dos acciones
   // modifiquen el workflow simultáneamente.
-  version          Int               @default(0)
+  version Int @default(0)
 
-  creadoEn         DateTime          @default(now())
-  actualizadoEn    DateTime          @updatedAt
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
-  empresa       Empresa @relation(fields: [empresaId],references: [id],onDelete: Restrict)
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Restrict)
 
-  bodegaDestino Bodega @relation(fields: [bodegaDestinoId],references: [id],onDelete: Restrict)
+  bodegaDestino Bodega @relation(fields: [bodegaDestinoId], references: [id], onDelete: Restrict)
 
-  proveedor Proveedor? @relation(fields: [proveedorId],references: [id],onDelete: SetNull)
+  proveedor Proveedor? @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
 
-  solicitante Usuario @relation("RequisicionSolicitante",fields: [solicitanteId],references: [id],onDelete: Restrict)
+  solicitante Usuario @relation("RequisicionSolicitante", fields: [solicitanteId], references: [id], onDelete: Restrict)
 
-  detalles      RequisicionDetalle[]
-  recepciones   RecepcionRequisicion[]
-  eventos       RequisicionEvento[]
+  detalles    RequisicionDetalle[]
+  recepciones RecepcionRequisicion[]
+  eventos     RequisicionEvento[]
 
   @@index([empresaId, estado])
   @@index([bodegaDestinoId, estado])
@@ -1064,44 +1095,43 @@ model Requisicion {
 }
 
 model RequisicionEvento {
-  id            Int                    @id @default(autoincrement())
+  id            Int  @id @default(autoincrement())
   requisicionId Int
   usuarioId     Int?
 
-  tipo          TipoEventoRequisicion
+  tipo TipoEventoRequisicion
 
-  detalle       String?
+  detalle String?
 
-  creadoEn      DateTime               @default(now())
+  creadoEn DateTime @default(now())
 
-  requisicion Requisicion @relation(fields: [requisicionId],references: [id],onDelete: Cascade)
+  requisicion Requisicion @relation(fields: [requisicionId], references: [id], onDelete: Cascade)
 
-  usuario Usuario? @relation("RequisicionEventoUsuario",fields: [usuarioId],references: [id],onDelete: SetNull)
+  usuario Usuario? @relation("RequisicionEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@index([requisicionId, creadoEn])
   @@index([usuarioId])
   @@index([tipo, creadoEn])
 }
 
-
 model RequisicionDetalle {
-  id                    Int      @id @default(autoincrement())
-  requisicionId         Int
-  productoId            Int
+  id            Int @id @default(autoincrement())
+  requisicionId Int
+  productoId    Int
 
-  cantidadSolicitada    Int
-  cantidadRecibida      Int      @default(0)
+  cantidadSolicitada Int
+  cantidadRecibida   Int @default(0)
 
   costoUnitarioEstimado Decimal? @db.Decimal(14, 4)
 
-  version               Int      @default(0)
+  version Int @default(0)
 
-  creadoEn              DateTime @default(now())
-  actualizadoEn         DateTime @updatedAt
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
-  requisicion Requisicion @relation(fields: [requisicionId],references: [id],onDelete: Cascade)
+  requisicion Requisicion @relation(fields: [requisicionId], references: [id], onDelete: Cascade)
 
-  producto Producto @relation(fields: [productoId],references: [id],onDelete: Restrict)
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Restrict)
 
   recepcionDetalles RecepcionRequisicionDetalle[]
 
@@ -1109,36 +1139,35 @@ model RequisicionDetalle {
   @@index([productoId])
 }
 
-
 model RecepcionRequisicion {
-  id                 Int                        @id @default(autoincrement())
-  requisicionId      Int
-  recibidoPorId      Int
+  id            Int @id @default(autoincrement())
+  requisicionId Int
+  recibidoPorId Int
 
-  estado             EstadoRecepcionRequisicion @default(PENDIENTE)
+  estado EstadoRecepcionRequisicion @default(PENDIENTE)
 
   // Protege una recepción completa contra reintentos HTTP.
-  claveIdempotencia  String                     @unique
+  claveIdempotencia String @unique
 
   documentoReferencia String?
   observaciones       String?
 
-  recibidoEn         DateTime                   @default(now())
+  recibidoEn DateTime @default(now())
 
   // Se establece una vez que todas las líneas fueron
   // registradas correctamente en Inventario.
-  aplicadaEn         DateTime?
+  aplicadaEn DateTime?
 
   // Permite detectar una operación que quedó pendiente
   // por un fallo técnico y reintentarla idempotentemente.
-  errorAplicacion    String?
+  errorAplicacion String?
 
-  creadoEn           DateTime                   @default(now())
-  actualizadoEn      DateTime                   @updatedAt
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
-  requisicion Requisicion @relation(fields: [requisicionId],references: [id],onDelete: Restrict)
+  requisicion Requisicion @relation(fields: [requisicionId], references: [id], onDelete: Restrict)
 
-  recibidoPor Usuario @relation("RecepcionRequisicionRecibidoPor",fields: [recibidoPorId],references: [id],onDelete: Restrict)
+  recibidoPor Usuario @relation("RecepcionRequisicionRecibidoPor", fields: [recibidoPorId], references: [id], onDelete: Restrict)
 
   detalles RecepcionRequisicionDetalle[]
 
@@ -1147,62 +1176,179 @@ model RecepcionRequisicion {
   @@index([estado, creadoEn])
 }
 
-
 model RecepcionRequisicionDetalle {
-  id                   Int      @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
   recepcionId          Int
   requisicionDetalleId Int
 
-  cantidad             Int
+  cantidad Int
 
   // Costo REAL de lo físicamente recibido.
-  costoUnitario        Decimal  @db.Decimal(14, 4)
+  costoUnitario Decimal @db.Decimal(14, 4)
 
-  creadoEn             DateTime @default(now())
+  creadoEn DateTime @default(now())
 
-  recepcion RecepcionRequisicion @relation(fields: [recepcionId],references: [id],onDelete: Cascade)
+  recepcion RecepcionRequisicion @relation(fields: [recepcionId], references: [id], onDelete: Cascade)
 
-  requisicionDetalle RequisicionDetalle @relation(fields: [requisicionDetalleId],references: [id],onDelete: Restrict)
+  requisicionDetalle RequisicionDetalle @relation(fields: [requisicionDetalleId], references: [id], onDelete: Restrict)
 
   @@unique([recepcionId, requisicionDetalleId])
   @@index([requisicionDetalleId])
 }
 
-
 model TransferenciaBodega {
-  id              Int                       @id @default(autoincrement())
+  id              Int @id @default(autoincrement())
   bodegaOrigenId  Int
   bodegaDestinoId Int
   creadoPorId     Int
-  estado          EstadoTransferenciaBodega @default(BORRADOR)
-  observaciones   String?
-  enviadaEn       DateTime?
-  recibidaEn      DateTime?
-  creadoEn        DateTime                  @default(now())
-  actualizadoEn   DateTime                  @updatedAt
 
-  bodegaOrigen  Bodega                       @relation("TransferenciaBodegaOrigen", fields: [bodegaOrigenId], references: [id], onDelete: Restrict)
-  bodegaDestino Bodega                       @relation("TransferenciaBodegaDestino", fields: [bodegaDestinoId], references: [id], onDelete: Restrict)
-  creadoPor     Usuario                      @relation("TransferenciaCreadaPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
-  detalles      TransferenciaBodegaDetalle[]
+  estado EstadoTransferenciaBodega @default(BORRADOR)
+
+  observaciones     String?
+  motivoCancelacion String?
+
+  preparadaEn DateTime?
+  enviadaEn   DateTime?
+  recibidaEn  DateTime?
+  canceladaEn DateTime?
+
+  // Concurrencia optimista.
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  bodegaOrigen Bodega @relation("TransferenciaBodegaOrigen", fields: [bodegaOrigenId], references: [id], onDelete: Restrict)
+
+  bodegaDestino Bodega @relation("TransferenciaBodegaDestino", fields: [bodegaDestinoId], references: [id], onDelete: Restrict)
+
+  creadoPor Usuario @relation("TransferenciaCreadaPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+
+  detalles    TransferenciaBodegaDetalle[]
+  operaciones TransferenciaBodegaOperacion[]
+  eventos     TransferenciaBodegaEvento[]
 
   @@index([bodegaOrigenId, estado])
   @@index([bodegaDestinoId, estado])
+  @@index([creadoPorId, creadoEn])
+  @@index([estado, creadoEn])
+}
+
+model TransferenciaBodegaEvento {
+  id              Int  @id @default(autoincrement())
+  transferenciaId Int
+  usuarioId       Int?
+
+  tipo TipoEventoTransferenciaBodega
+
+  detalle String?
+
+  creadoEn DateTime @default(now())
+
+  transferencia TransferenciaBodega @relation(fields: [transferenciaId], references: [id], onDelete: Cascade)
+
+  usuario Usuario? @relation("TransferenciaEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([transferenciaId, creadoEn])
+  @@index([usuarioId])
+  @@index([tipo, creadoEn])
 }
 
 model TransferenciaBodegaDetalle {
-  id                 Int @id @default(autoincrement())
-  transferenciaId    Int
-  productoId         Int
+  id              Int @id @default(autoincrement())
+  transferenciaId Int
+  productoId      Int
+
   cantidadSolicitada Int
   cantidadEnviada    Int @default(0)
   cantidadRecibida   Int @default(0)
 
+  observaciones String?
+
+  // Control de concurrencia sobre cambios de cantidades.
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
   transferencia TransferenciaBodega @relation(fields: [transferenciaId], references: [id], onDelete: Cascade)
-  producto      Producto            @relation(fields: [productoId], references: [id], onDelete: Restrict)
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Restrict)
+
+  operacionDetalles TransferenciaBodegaOperacionDetalle[]
 
   @@unique([transferenciaId, productoId])
+  @@index([productoId])
+}
+
+model TransferenciaBodegaOperacionDetalle {
+  id                     Int @id @default(autoincrement())
+  operacionId            Int
+  transferenciaDetalleId Int
+
+  cantidad Int
+
+  // Costo real trasladado entre bodegas.
+  //
+  // SALIDA:
+  // se obtiene del costo promedio devuelto por Inventario.
+  //
+  // RECEPCION:
+  // utiliza el costo conservado por la salida física.
+  costoUnitario Decimal? @db.Decimal(14, 4)
+
+  creadoEn DateTime @default(now())
+
+  operacion TransferenciaBodegaOperacion @relation(fields: [operacionId], references: [id], onDelete: Cascade)
+
+  transferenciaDetalle TransferenciaBodegaDetalle @relation(fields: [transferenciaDetalleId], references: [id], onDelete: Restrict)
+
+  @@unique([operacionId, transferenciaDetalleId])
+  @@index([transferenciaDetalleId])
+}
+
+model TransferenciaBodegaOperacion {
+  id              Int @id @default(autoincrement())
+  transferenciaId Int
+  usuarioId       Int
+
+  tipo   TipoOperacionTransferenciaBodega
+  estado EstadoOperacionTransferenciaBodega @default(PENDIENTE)
+
+  // Identifica el comando HTTP/operación física completa.
+  // Permite reintentar sin duplicar movimientos de inventario.
+  claveIdempotencia String @unique
+
+  documentoReferencia String?
+  observaciones       String?
+
+  // Fecha física de salida o recepción.
+  ocurridaEn DateTime @default(now())
+
+  // Momento en que todos los movimientos de inventario
+  // correspondientes a esta operación quedaron aplicados.
+  aplicadaEn DateTime?
+
+  // Conservamos el error para recuperación/reintento.
+  errorAplicacion String?
+
+  // Permite controlar reintentos concurrentes de la misma operación.
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  transferencia TransferenciaBodega @relation(fields: [transferenciaId], references: [id], onDelete: Restrict)
+
+  usuario Usuario @relation("TransferenciaOperacionUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  detalles TransferenciaBodegaOperacionDetalle[]
+
+  @@index([transferenciaId, ocurridaEn])
+  @@index([transferenciaId, tipo, estado])
+  @@index([usuarioId, ocurridaEn])
+  @@index([estado, creadoEn])
 }
 
 model MovimientoInventario {
