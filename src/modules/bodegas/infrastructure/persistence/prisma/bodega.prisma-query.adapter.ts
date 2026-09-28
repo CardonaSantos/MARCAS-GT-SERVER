@@ -226,7 +226,6 @@ export class BodegaPrismaQueryAdapter implements BodegaQueryPort {
         id: row.id,
         tipo: row.tipo,
         detalle: row.detalle,
-        metadata: row.metadata,
         creadoEn: row.creadoEn,
         actor: row.usuario ? this.toResponsibleView(row.usuario) : null,
       })),
@@ -310,73 +309,79 @@ export class BodegaPrismaQueryAdapter implements BodegaQueryPort {
 
     for (const id of bodegaIds) result.set(id, this.emptyOperationalSummary());
 
-    const [stocks, requisiciones, transfersOut, transfersIn, despachos, envios] =
-      await Promise.all([
-        this.prisma.stockBodega.groupBy({
-          by: ['bodegaId'],
-          where: {
-            bodegaId: { in: bodegaIds },
-            OR: [
-              { cantidadReal: { gt: 0 } },
-              { cantidadReservada: { gt: 0 } },
-            ],
-          },
-          _sum: {
-            cantidadReal: true,
-            cantidadReservada: true,
-            cantidadDisponible: true,
-          },
-          _count: { _all: true },
-        }),
-        this.prisma.requisicion.groupBy({
-          by: ['bodegaDestinoId'],
-          where: {
-            bodegaDestinoId: { in: bodegaIds },
-            estado: { in: REQUISICIONES_ABIERTAS },
-          },
-          _count: { _all: true },
-        }),
-        this.prisma.transferenciaBodega.groupBy({
-          by: ['bodegaOrigenId'],
-          where: {
-            bodegaOrigenId: { in: bodegaIds },
-            estado: { in: TRANSFERENCIAS_ABIERTAS },
-          },
-          _count: { _all: true },
-        }),
-        this.prisma.transferenciaBodega.groupBy({
-          by: ['bodegaDestinoId'],
-          where: {
-            bodegaDestinoId: { in: bodegaIds },
-            estado: { in: TRANSFERENCIAS_ABIERTAS },
-          },
-          _count: { _all: true },
-        }),
-        this.prisma.ordenDespacho.groupBy({
-          by: ['bodegaId'],
-          where: {
-            bodegaId: { in: bodegaIds },
-            estado: { in: DESPACHOS_ABIERTOS },
-          },
-          _count: { _all: true },
-        }),
-        this.prisma.envioDespacho.findMany({
-          where: {
-            ordenDespacho: { bodegaId: { in: bodegaIds } },
-            envio: { estado: { in: ENVIOS_ABIERTOS } },
-          },
-          select: {
-            envioId: true,
-            ordenDespacho: { select: { bodegaId: true } },
-          },
-        }),
-      ]);
+    const [
+      stocks,
+      requisiciones,
+      transfersOut,
+      transfersIn,
+      despachos,
+      envios,
+    ] = await Promise.all([
+      this.prisma.stockBodega.groupBy({
+        by: ['bodegaId'],
+        where: {
+          bodegaId: { in: bodegaIds },
+          OR: [{ cantidadReal: { gt: 0 } }, { cantidadReservada: { gt: 0 } }],
+        },
+        _sum: {
+          cantidadReal: true,
+          cantidadReservada: true,
+          cantidadDisponible: true,
+        },
+        _count: { _all: true },
+      }),
+      this.prisma.requisicion.groupBy({
+        by: ['bodegaDestinoId'],
+        where: {
+          bodegaDestinoId: { in: bodegaIds },
+          estado: { in: REQUISICIONES_ABIERTAS },
+        },
+        _count: { _all: true },
+      }),
+      this.prisma.transferenciaBodega.groupBy({
+        by: ['bodegaOrigenId'],
+        where: {
+          bodegaOrigenId: { in: bodegaIds },
+          estado: { in: TRANSFERENCIAS_ABIERTAS },
+        },
+        _count: { _all: true },
+      }),
+      this.prisma.transferenciaBodega.groupBy({
+        by: ['bodegaDestinoId'],
+        where: {
+          bodegaDestinoId: { in: bodegaIds },
+          estado: { in: TRANSFERENCIAS_ABIERTAS },
+        },
+        _count: { _all: true },
+      }),
+      this.prisma.ordenDespacho.groupBy({
+        by: ['bodegaId'],
+        where: {
+          bodegaId: { in: bodegaIds },
+          estado: { in: DESPACHOS_ABIERTOS },
+        },
+        _count: { _all: true },
+      }),
+      this.prisma.envioDespacho.findMany({
+        where: {
+          ordenDespacho: { bodegaId: { in: bodegaIds } },
+          envio: { estado: { in: ENVIOS_ABIERTOS } },
+        },
+        select: {
+          envioId: true,
+          ordenDespacho: { select: { bodegaId: true } },
+        },
+      }),
+    ]);
 
     const patch = (
       id: number,
       values: Partial<BodegaOperationalSummaryView>,
     ) => {
-      result.set(id, { ...(result.get(id) ?? this.emptyOperationalSummary()), ...values });
+      result.set(id, {
+        ...(result.get(id) ?? this.emptyOperationalSummary()),
+        ...values,
+      });
     };
 
     for (const row of stocks) {
@@ -395,7 +400,8 @@ export class BodegaPrismaQueryAdapter implements BodegaQueryPort {
     }
 
     for (const row of transfersOut) {
-      const current = result.get(row.bodegaOrigenId) ?? this.emptyOperationalSummary();
+      const current =
+        result.get(row.bodegaOrigenId) ?? this.emptyOperationalSummary();
       patch(row.bodegaOrigenId, {
         transferenciasPendientes:
           current.transferenciasPendientes + row._count._all,
@@ -403,7 +409,8 @@ export class BodegaPrismaQueryAdapter implements BodegaQueryPort {
     }
 
     for (const row of transfersIn) {
-      const current = result.get(row.bodegaDestinoId) ?? this.emptyOperationalSummary();
+      const current =
+        result.get(row.bodegaDestinoId) ?? this.emptyOperationalSummary();
       patch(row.bodegaDestinoId, {
         transferenciasPendientes:
           current.transferenciasPendientes + row._count._all,
@@ -445,7 +452,6 @@ export class BodegaPrismaQueryAdapter implements BodegaQueryPort {
       id: row.id,
       tipo: row.tipo,
       detalle: row.detalle,
-      metadata: row.metadata,
       creadoEn: row.creadoEn,
       actor: row.usuario ? this.toResponsibleView(row.usuario) : null,
     }));

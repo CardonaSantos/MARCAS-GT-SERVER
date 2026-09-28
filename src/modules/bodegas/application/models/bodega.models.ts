@@ -16,7 +16,11 @@ export type PageResult<T> = Readonly<{
   meta: PageMeta;
 }>;
 
-export type BodegaSortField = 'codigo' | 'nombre' | 'creadoEn' | 'actualizadoEn';
+export type BodegaSortField =
+  | 'codigo'
+  | 'nombre'
+  | 'creadoEn'
+  | 'actualizadoEn';
 export type SortDirection = 'asc' | 'desc';
 
 export type BodegaListFilters = Readonly<{
@@ -63,7 +67,7 @@ export type BodegaEventView = Readonly<{
   id: number;
   tipo: BodegaEventType;
   detalle: string | null;
-  metadata: unknown;
+  // metadata: unknown;
   creadoEn: Date;
   actor: BodegaResponsibleView | null;
 }>;
@@ -146,7 +150,6 @@ export type SetPrincipalBodegaCommand = Readonly<{
   id: number;
   actorId: number;
 }>;
-
 
 /**
  * Contrato público mínimo para que otros módulos (inventario, despacho, etc.)

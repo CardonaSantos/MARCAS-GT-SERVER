@@ -18,7 +18,6 @@ export type BodegaAuditDraft = Readonly<{
   actorId?: number | null;
   type: BodegaEventType;
   detail?: string | null;
-  metadata?: Record<string, unknown> | null;
 }>;
 
 export type BodegaUserSnapshot = Readonly<{

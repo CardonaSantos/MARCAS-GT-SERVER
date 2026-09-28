@@ -32,7 +32,6 @@ export class DeactivateBodegaUseCase {
         actorId: command.actorId,
         type: 'DESACTIVADA',
         detail: command.motivo.trim(),
-        metadata: { dependenciasVerificadas: true },
       },
     ]);
   }

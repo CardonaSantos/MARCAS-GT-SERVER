@@ -96,11 +96,6 @@ export class BodegaPrismaRepository implements BodegaRepositoryPort {
       await this.persistAudits(tx, bodegaId, [
         {
           ...audit,
-          metadata: {
-            ...(audit.metadata ?? {}),
-            principalAnteriorId:
-              previous?.id && previous.id !== bodegaId ? previous.id : null,
-          },
         },
       ]);
 
@@ -120,9 +115,6 @@ export class BodegaPrismaRepository implements BodegaRepositoryPort {
           usuarioId: audit.actorId ?? null,
           tipo: audit.type,
           detalle: audit.detail ?? null,
-          metadata: audit.metadata
-            ? (audit.metadata as Prisma.InputJsonValue)
-            : undefined,
         },
       });
     }

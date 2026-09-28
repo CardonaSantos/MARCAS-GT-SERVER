@@ -52,7 +52,6 @@ export class CreateBodegaUseCase {
         actorId: command.actorId,
         type: 'CREADA' as const,
         detail: 'Bodega creada.',
-        metadata: { codigo: bodega.codigo, nombre: bodega.nombre },
       },
     ];
 
@@ -63,9 +62,6 @@ export class CreateBodegaUseCase {
         detail: currentPrincipal
           ? 'La bodega fue creada y establecida como principal.'
           : 'Primera bodega creada; establecida automáticamente como principal.',
-        metadata: {
-          principalAnteriorId: currentPrincipal?.id ?? null,
-        },
       });
     }
 

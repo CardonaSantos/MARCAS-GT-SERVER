@@ -27,7 +27,6 @@ export class AssignBodegaResponsibleUseCase {
           actorId: command.actorId,
           type: 'RESPONSABLE_REMOVIDO',
           detail: 'Responsable removido de la bodega.',
-          metadata: { responsableAnteriorId: previous },
         },
       ]);
     }
@@ -47,10 +46,6 @@ export class AssignBodegaResponsibleUseCase {
         actorId: command.actorId,
         type: 'RESPONSABLE_ASIGNADO',
         detail: `Responsable asignado: ${user.nombre}.`,
-        metadata: {
-          responsableAnteriorId: previous,
-          responsableId: user.id,
-        },
       },
     ]);
   }
