@@ -745,14 +745,20 @@ enum EstadoPagoComercial {
 
 enum TipoEventoPedido {
   CREADO
+  ACTUALIZADO
+  VALIDACION_SOLICITADA
   CONFIRMADO
+
   RESERVA_CREADA
   RESERVA_LIBERADA
+
   PREPARACION_INICIADA
   DESPACHO_PARCIAL
   DESPACHADO
+
   ENTREGA_PARCIAL
   ENTREGADO
+
   CANCELADO
   OBSERVACION
 }
@@ -1468,30 +1474,59 @@ model ReservaInventario {
 // ============================================================================
 
 model Pedido {
-  id             Int                 @id @default(autoincrement())
-  empresaId      Int
-  clienteId      Int
-  vendedorId     Int
-  visitaId       Int?
-  estado         EstadoPedido        @default(BORRADOR)
-  condicionPago  CondicionPago
-  estadoPago     EstadoPagoComercial @default(PENDIENTE)
-  moneda         String              @default("GTQ")
-  subtotal       Decimal             @default(0) @db.Decimal(12, 2)
-  descuentoTotal Decimal             @default(0) @db.Decimal(12, 2)
-  total          Decimal             @default(0) @db.Decimal(12, 2)
-  observaciones  String?
-  confirmadoEn   DateTime?
-  canceladoEn    DateTime?
-  creadoEn       DateTime            @default(now())
-  actualizadoEn  DateTime            @updatedAt
+  id Int @id @default(autoincrement())
 
-  empresa            Empresa            @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  cliente            Cliente            @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  vendedor           Usuario            @relation("PedidoVendedor", fields: [vendedorId], references: [id], onDelete: Restrict)
-  visita             Visita?            @relation(fields: [visitaId], references: [id], onDelete: SetNull)
-  detalles           PedidoDetalle[]
-  eventos            PedidoEvento[]
+  // Identificador humano del pedido.
+  // Nullable para no afectar registros históricos.
+  numero String? @unique
+
+  empresaId  Int
+  clienteId  Int
+  vendedorId Int
+  visitaId   Int?
+
+  estado        EstadoPedido        @default(BORRADOR)
+  condicionPago CondicionPago
+  estadoPago    EstadoPagoComercial @default(PENDIENTE)
+
+  moneda String @default("GTQ")
+
+  // subtotal:
+  // total bruto antes de descuentos.
+  subtotal Decimal @default(0) @db.Decimal(12, 2)
+
+  // Suma de descuentos aplicados a las líneas.
+  descuentoTotal Decimal @default(0) @db.Decimal(12, 2)
+
+  // subtotal - descuentoTotal.
+  total Decimal @default(0) @db.Decimal(12, 2)
+
+  observaciones String?
+
+  // Auditoría del workflow.
+  validacionSolicitadaEn DateTime?
+  confirmadoEn           DateTime?
+
+  motivoCancelacion String?
+  canceladoEn       DateTime?
+
+  // Concurrencia optimista.
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+
+  vendedor Usuario @relation("PedidoVendedor", fields: [vendedorId], references: [id], onDelete: Restrict)
+
+  visita Visita? @relation(fields: [visitaId], references: [id], onDelete: SetNull)
+
+  detalles PedidoDetalle[]
+  eventos  PedidoEvento[]
+
   solicitudesCredito SolicitudCredito[]
   ordenesDespacho    OrdenDespacho[]
   pagos              Pago[]
@@ -1502,44 +1537,88 @@ model Pedido {
   @@index([empresaId, estado, creadoEn])
   @@index([clienteId, creadoEn])
   @@index([vendedorId, creadoEn])
+  // Nuevos índices operativos.
+  @@index([estado, creadoEn])
+  @@index([estadoPago, creadoEn])
+  @@index([visitaId])
 }
 
 model PedidoDetalle {
-  id                 Int      @id @default(autoincrement())
-  pedidoId           Int
-  productoId         Int
-  cantidadSolicitada Int
-  cantidadReservada  Int      @default(0)
-  cantidadDespachada Int      @default(0)
-  cantidadEntregada  Int      @default(0)
-  precioUnitario     Decimal  @db.Decimal(12, 2)
-  descuento          Decimal  @default(0) @db.Decimal(12, 2)
-  subtotal           Decimal  @db.Decimal(12, 2)
-  creadoEn           DateTime @default(now())
-  actualizadoEn      DateTime @updatedAt
+  id         Int @id @default(autoincrement())
+  pedidoId   Int
+  productoId Int
 
-  pedido           Pedido                 @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  producto         Producto               @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  cantidadSolicitada Int
+
+  // Cantidad actualmente apartada en Inventario.
+  cantidadReservada Int @default(0)
+
+  // Cantidad que físicamente ya salió mediante Despacho.
+  cantidadDespachada Int @default(0)
+
+  // Cantidad confirmada como entregada al cliente.
+  cantidadEntregada Int @default(0)
+
+  // Snapshot comercial. No debe cambiar si después cambia Producto.precio.
+  precioUnitario Decimal @db.Decimal(12, 2)
+
+  // Descuento monetario total de esta línea.
+  descuento Decimal @default(0) @db.Decimal(12, 2)
+
+  // Neto de la línea:
+  // cantidadSolicitada * precioUnitario - descuento.
+  subtotal Decimal @db.Decimal(12, 2)
+
+  observaciones String?
+
+  // Concurrencia optimista.
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Restrict)
+
   reservas         ReservaInventario[]
   despachoDetalles OrdenDespachoDetalle[]
   entregaDetalles  EntregaDetalle[]
   facturaDetalles  FacturaDetalle[]
 
   @@unique([pedidoId, productoId])
+  @@index([productoId])
 }
 
 model PedidoEvento {
-  id        Int              @id @default(autoincrement())
+  id        Int  @id @default(autoincrement())
   pedidoId  Int
   usuarioId Int?
-  tipo      TipoEventoPedido
-  detalle   String?
-  creadoEn  DateTime         @default(now())
 
-  pedido  Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  tipo TipoEventoPedido
+
+  detalle String?
+
+  // Referencia lógica opcional al agregado que originó el evento.
+  //
+  // Ejemplos futuros:
+  // SOLICITUD_CREDITO / 15
+  // ORDEN_DESPACHO    / 82
+  // ENTREGA           / 31
+  //
+  // No se usa FK deliberadamente para no acoplar bounded contexts.
+  referenciaTipo String?
+  referenciaId   Int?
+
+  creadoEn DateTime @default(now())
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+
   usuario Usuario? @relation("PedidoEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@index([pedidoId, creadoEn])
+  @@index([tipo, creadoEn])
+  @@index([referenciaTipo, referenciaId])
 }
 
 // ============================================================================
