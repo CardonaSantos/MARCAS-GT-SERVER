@@ -2,7 +2,10 @@ import { BodegaDirectoryPort } from '../../../bodegas/application/ports/bodega-d
 import { MovimientoInventario } from '../../domain/entities/movimiento-inventario.entity';
 import { StockBodega } from '../../domain/entities/stock-bodega.entity';
 import { InvalidInventoryAdjustmentReasonError } from '../../domain/errors/inventory.errors';
-import { InventoryMovementType, InventoryReference } from '../../domain/inventory.types';
+import {
+  InventoryMovementType,
+  InventoryReference,
+} from '../../domain/inventory.types';
 import {
   InventoryRepositoryPort,
   InventoryTransactionPort,
@@ -104,7 +107,12 @@ export class InventoryMutationCoordinator {
           }),
         );
 
-        return this.result(persisted, movement.id!, null, false);
+        return this.resultWithMovement(
+          persisted,
+          movement,
+          null,
+          false,
+        );
       }),
     );
   }
@@ -126,21 +134,27 @@ export class InventoryMutationCoordinator {
 
     if (!stock || !movement.id) return null;
 
-    return this.result(
+    return this.resultWithMovement(
       stock,
-      movement.id,
+      movement,
       movement.reservaInventarioId,
       true,
     );
   }
 
+  /**
+   * Resultado base utilizado también por flujos de reserva que no necesitan
+   * exponer un movimiento histórico al consumidor.
+   */
   result(
     stock: StockBodega,
     movimientoId: number,
     reservaId: number | null,
     repeated: boolean,
   ): InventoryMutationResult {
-    if (!stock.id) throw new Error('El stock persistido no tiene id.');
+    if (!stock.id) {
+      throw new Error('El stock persistido no tiene id.');
+    }
 
     return {
       repeated,
@@ -148,6 +162,38 @@ export class InventoryMutationCoordinator {
       movimientoId,
       reservaId,
       snapshot: stock.snapshot(),
+    };
+  }
+
+  /**
+   * Resultado enriquecido para mutaciones respaldadas por un
+   * MovimientoInventario. En reintentos idempotentes devuelve los datos del
+   * movimiento original, no los infiere del estado actual del stock.
+   */
+  resultWithMovement(
+    stock: StockBodega,
+    movement: MovimientoInventario,
+    reservaId: number | null,
+    repeated: boolean,
+  ): InventoryMutationResult {
+    if (!movement.id) {
+      throw new Error('El movimiento persistido no tiene id.');
+    }
+
+    return {
+      ...this.result(stock, movement.id, reservaId, repeated),
+      movimiento: {
+        tipo: movement.tipo,
+        cantidad: movement.cantidad,
+        costoUnitario: movement.costoUnitario?.toString() ?? null,
+        costoPromedioAntes: movement.costoPromedioAntes.toString(),
+        costoPromedioDespues:
+          movement.costoPromedioDespues.toString(),
+        cantidadRealAntes: movement.cantidadRealAntes,
+        cantidadRealDespues: movement.cantidadRealDespues,
+        reservadaAntes: movement.reservadaAntes,
+        reservadaDespues: movement.reservadaDespues,
+      },
     };
   }
 }

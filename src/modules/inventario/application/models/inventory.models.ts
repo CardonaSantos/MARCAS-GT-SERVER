@@ -123,10 +123,11 @@ export type InventoryReservationView = Readonly<{
   actualizadoEn: Date;
 }>;
 
-export type InventoryStockDetailView = InventoryStockListItemView & Readonly<{
-  reservasActivas: InventoryReservationView[];
-  ultimosMovimientos: InventoryMovementView[];
-}>;
+export type InventoryStockDetailView = InventoryStockListItemView &
+  Readonly<{
+    reservasActivas: InventoryReservationView[];
+    ultimosMovimientos: InventoryMovementView[];
+  }>;
 
 export type ProductAvailabilityView = Readonly<{
   producto: InventoryProductView;
@@ -157,11 +158,38 @@ export type InventorySummaryView = Readonly<{
   valorInventario: string;
 }>;
 
+/**
+ * Snapshot histórico del MovimientoInventario realmente persistido.
+ *
+ * Es especialmente importante para integraciones idempotentes como
+ * Transferencias: un reintento debe recuperar el costo de la operación
+ * original y no inferirlo del costoPromedio actual del stock.
+ */
+export type InventoryMutationMovementResult = Readonly<{
+  tipo: InventoryMovementType;
+  cantidad: number;
+  costoUnitario: string | null;
+  costoPromedioAntes: string;
+  costoPromedioDespues: string;
+  cantidadRealAntes: number;
+  cantidadRealDespues: number;
+  reservadaAntes: number;
+  reservadaDespues: number;
+}>;
+
 export type InventoryMutationResult = Readonly<{
   repeated: boolean;
   stockId: number;
   movimientoId: number;
   reservaId?: number | null;
+
+  /**
+   * Presente cuando el resultado proviene de una mutación que generó o
+   * recuperó un MovimientoInventario. Se mantiene opcional para no romper
+   * consumidores existentes de operaciones sobre reservas.
+   */
+  movimiento?: InventoryMutationMovementResult;
+
   snapshot: {
     cantidadReal: number;
     cantidadReservada: number;
