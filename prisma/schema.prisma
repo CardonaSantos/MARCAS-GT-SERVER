@@ -489,37 +489,75 @@ model Usuario {
   operacionesTransferencia TransferenciaBodegaOperacion[] @relation("TransferenciaOperacionUsuario")
 
   eventosTransferencia TransferenciaBodegaEvento[] @relation("TransferenciaEventoUsuario")
+
+  creditosAprobados Credito[] @relation("CreditoAprobadoPor")
+
+  requisitosCreditoRevisados SolicitudCreditoRequisito[] @relation("SolicitudCreditoRequisitoRevisadoPor")
+
+  referenciasCreditoVerificadas ReferenciaCredito[] @relation("ReferenciaCreditoVerificadoPor")
+
+  documentosCreditoRevisados DocumentoCredito[] @relation("DocumentoCreditoRevisadoPor")
+
+  eventosSolicitudCredito SolicitudCreditoEvento[] @relation("SolicitudCreditoEventoUsuario")
+
+  operacionesIntegracionCreditoPedido OperacionIntegracionCreditoPedido[] @relation("OperacionIntegracionCreditoPedidoActor")
 }
 
 model Credito {
-  id                   Int           @id @default(autoincrement())
-  venta                Venta?        @relation(fields: [ventaId], references: [id], onDelete: Cascade)
-  ventaId              Int?
-  cliente              Cliente?      @relation(fields: [clienteId], references: [id])
-  clienteId            Int?
-  empresaId            Int?
-  empresa              Empresa?      @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  montoTotal           Float? // Monto total del crédito antes de interés
-  cuotaInicial         Float? // Monto inicial pagado
-  totalPagado          Float?        @default(0) // Total pagado hasta ahora
-  numeroCuotas         Int? // Número total de cuotas
-  estado               EstadoCredito // Enum para saber si está activo, cerrado, etc.
-  interes              Float? // Nivel de interés en porcentaje (ej: 10 para 10%)
-  montoConInteres      Float? // Monto total después de aplicar el interés
-  montoTotalConInteres Float? // Monto total del crédito después de interés
-  saldoPendiente       Float? // Saldo restante después del pago inicial
-  fechaInicio          DateTime?     @default(now()) // Fecha en que inició el 
+  id Int @id @default(autoincrement())
+
+  venta   Venta? @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  ventaId Int?
+
+  cliente   Cliente? @relation(fields: [clienteId], references: [id])
+  clienteId Int?
+
+  empresaId Int?
+  empresa   Empresa? @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  // Legacy: conservar por compatibilidad histórica.
+  montoTotal           Float?
+  cuotaInicial         Float?
+  totalPagado          Float?        @default(0)
+  numeroCuotas         Int?
+  interes              Float?
+  montoConInteres      Float?
+  montoTotalConInteres Float?
+  saldoPendiente       Float?
+  fechaInicio          DateTime?     @default(now())
   fechaFin             DateTime?
-  diasEntrePagos       Float? //NUEVA PROPIEDAD
-  fechaContrato        DateTime?     @default(now()) // Fecha del contrato
-  dpi                  String? // DPI del cliente
-  comentario           String? // Observaciones del crédito
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
-  pagos                PagoCredito[] // Relación con los pagos realizados
+  diasEntrePagos       Float?
+  fechaContrato        DateTime?     @default(now())
+  dpi                  String?
+  comentario           String?
+  pagos                PagoCredito[]
+
+  // Flujo moderno.
+  numero String? @unique
+
+  montoAutorizado     Decimal? @db.Decimal(12, 2)
+  anticipoRequerido   Decimal? @db.Decimal(12, 2)
+  montoFinanciado     Decimal? @db.Decimal(12, 2)
+  plazoAutorizadoDias Int?
+
+  aprobadoPorId Int?
+  aprobadoPor   Usuario? @relation("CreditoAprobadoPor", fields: [aprobadoPorId], references: [id], onDelete: SetNull)
+
+  aprobadoEn DateTime?
+  cerradoEn  DateTime?
+
+  estado  EstadoCredito @default(ACTIVO)
+  version Int           @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   solicitudOrigen  SolicitudCredito?
   cuentasPorCobrar CuentaPorCobrar[]
+
+  @@index([empresaId, estado, createdAt])
+  @@index([clienteId, estado])
+  @@index([aprobadoPorId])
 }
 
 model CuotaCredito {
@@ -743,11 +781,60 @@ enum EstadoPagoComercial {
   ANULADO
 }
 
+enum EstadoRequisitoSolicitudCredito {
+  PENDIENTE
+  CUMPLIDO
+  NO_CUMPLE
+  EXONERADO
+}
+
+enum TipoEventoSolicitudCredito {
+  CREADA
+  ACTUALIZADA
+  ENVIADA_REVISION
+
+  REFERENCIA_AGREGADA
+  REFERENCIA_ACTUALIZADA
+  REFERENCIA_VERIFICADA
+
+  DOCUMENTO_AGREGADO
+  DOCUMENTO_VALIDADO
+  DOCUMENTO_RECHAZADO
+
+  REQUISITO_ACTUALIZADO
+
+  APROBADA
+  APROBADA_AJUSTADA
+  RECHAZADA
+  CANCELADA
+
+  CREDITO_CREADO
+
+  INTEGRACION_PEDIDO_APLICADA
+  INTEGRACION_PEDIDO_FALLIDA
+
+  OBSERVACION
+}
+
+enum TipoOperacionIntegracionCreditoPedido {
+  APROBACION
+  RECHAZO
+}
+
+enum EstadoOperacionIntegracionCreditoPedido {
+  PENDIENTE
+  APLICADA
+  FALLIDA
+}
+
 enum TipoEventoPedido {
   CREADO
   ACTUALIZADO
   VALIDACION_SOLICITADA
   CONFIRMADO
+
+  CREDITO_APROBADO
+  CREDITO_RECHAZADO
 
   RESERVA_CREADA
   RESERVA_LIBERADA
@@ -1527,12 +1614,13 @@ model Pedido {
   detalles PedidoDetalle[]
   eventos  PedidoEvento[]
 
-  solicitudesCredito SolicitudCredito[]
-  ordenesDespacho    OrdenDespacho[]
-  pagos              Pago[]
-  cuentasPorCobrar   CuentaPorCobrar[]
-  facturas           Factura[]
-  entregas           Entrega[]
+  solicitudesCredito            SolicitudCredito[]
+  ordenesDespacho               OrdenDespacho[]
+  pagos                         Pago[]
+  cuentasPorCobrar              CuentaPorCobrar[]
+  facturas                      Factura[]
+  entregas                      Entrega[]
+  operacionesIntegracionCredito OperacionIntegracionCreditoPedido[]
 
   @@index([empresaId, estado, creadoEn])
   @@index([clienteId, creadoEn])
@@ -1634,8 +1722,13 @@ model PoliticaCredito {
   montoMaximo        Decimal? @db.Decimal(12, 2)
   plazoMaximoDias    Int?
   porcentajeAnticipo Decimal? @db.Decimal(5, 2)
-  creadoEn           DateTime @default(now())
-  actualizadoEn      DateTime @updatedAt
+
+  motivoInactivacion String?
+  inactivadaEn       DateTime?
+  version            Int       @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   empresa     Empresa                    @relation(fields: [empresaId], references: [id], onDelete: Restrict)
   requisitos  PoliticaCreditoRequisito[]
@@ -1653,90 +1746,246 @@ model PoliticaCreditoRequisito {
   obligatorio Boolean @default(true)
   orden       Int     @default(0)
 
+  activo  Boolean @default(true)
+  version Int     @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
   politica PoliticaCredito @relation(fields: [politicaId], references: [id], onDelete: Cascade)
 
+  solicitudes SolicitudCreditoRequisito[]
+
   @@unique([politicaId, codigo])
+  @@index([politicaId, activo, orden])
+}
+
+model SolicitudCreditoRequisito {
+  id Int @id @default(autoincrement())
+
+  solicitudId         Int
+  politicaRequisitoId Int?
+
+  // Snapshot.
+  codigo      String
+  nombre      String
+  descripcion String?
+  obligatorio Boolean @default(true)
+  orden       Int     @default(0)
+
+  estado        EstadoRequisitoSolicitudCredito @default(PENDIENTE)
+  observaciones String?
+
+  revisadoPorId Int?
+  revisadoEn    DateTime?
+
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  solicitud SolicitudCredito @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+
+  politicaRequisito PoliticaCreditoRequisito? @relation(fields: [politicaRequisitoId], references: [id], onDelete: SetNull)
+
+  revisadoPor Usuario? @relation("SolicitudCreditoRequisitoRevisadoPor", fields: [revisadoPorId], references: [id], onDelete: SetNull)
+
+  @@unique([solicitudId, codigo])
+  @@index([solicitudId, estado])
+  @@index([politicaRequisitoId])
+  @@index([revisadoPorId])
 }
 
 model SolicitudCredito {
-  id                Int                    @id @default(autoincrement())
-  empresaId         Int
-  pedidoId          Int
-  clienteId         Int
-  solicitanteId     Int
-  politicaId        Int?
-  creditoId         Int?                   @unique
-  montoSolicitado   Decimal                @db.Decimal(12, 2)
-  plazoDias         Int
-  anticipoPropuesto Decimal                @default(0) @db.Decimal(12, 2)
-  estado            EstadoSolicitudCredito @default(PENDIENTE)
-  motivo            String?
-  solicitadaEn      DateTime               @default(now())
-  resueltaEn        DateTime?
-  actualizadoEn     DateTime               @updatedAt
+  id Int @id @default(autoincrement())
 
-  empresa     Empresa             @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  pedido      Pedido              @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  cliente     Cliente             @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  solicitante Usuario             @relation("SolicitudCreditoSolicitante", fields: [solicitanteId], references: [id], onDelete: Restrict)
-  politica    PoliticaCredito?    @relation(fields: [politicaId], references: [id], onDelete: SetNull)
-  credito     Credito?            @relation(fields: [creditoId], references: [id], onDelete: SetNull)
+  numero String? @unique
+
+  empresaId     Int
+  pedidoId      Int
+  clienteId     Int
+  solicitanteId Int
+  politicaId    Int?
+  creditoId     Int? @unique
+
+  montoSolicitado   Decimal @db.Decimal(12, 2)
+  plazoDias         Int
+  anticipoPropuesto Decimal @default(0) @db.Decimal(12, 2)
+
+  estado EstadoSolicitudCredito @default(PENDIENTE)
+  motivo String?
+
+  solicitadaEn DateTime  @default(now())
+  enRevisionEn DateTime?
+  resueltaEn   DateTime?
+
+  canceladaEn       DateTime?
+  motivoCancelacion String?
+
+  version Int @default(0)
+
+  actualizadoEn DateTime @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+
+  solicitante Usuario @relation("SolicitudCreditoSolicitante", fields: [solicitanteId], references: [id], onDelete: Restrict)
+
+  politica PoliticaCredito? @relation(fields: [politicaId], references: [id], onDelete: SetNull)
+
+  credito Credito? @relation(fields: [creditoId], references: [id], onDelete: SetNull)
+
+  requisitos  SolicitudCreditoRequisito[]
   referencias ReferenciaCredito[]
   documentos  DocumentoCredito[]
-  decisiones  DecisionCredito[]
+  decision    DecisionCredito?
+  eventos     SolicitudCreditoEvento[]
+
+  operacionPedido OperacionIntegracionCreditoPedido?
 
   @@index([empresaId, estado, solicitadaEn])
-  @@index([pedidoId])
-  @@index([clienteId])
+  @@index([pedidoId, estado])
+  @@index([clienteId, estado, solicitadaEn])
+  @@index([solicitanteId, estado, solicitadaEn])
+  @@index([politicaId, estado])
+}
+
+model SolicitudCreditoEvento {
+  id Int @id @default(autoincrement())
+
+  solicitudId Int
+  usuarioId   Int?
+
+  tipo    TipoEventoSolicitudCredito
+  detalle String?
+
+  referenciaTipo String?
+  referenciaId   Int?
+
+  creadoEn DateTime @default(now())
+
+  solicitud SolicitudCredito @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+
+  usuario Usuario? @relation("SolicitudCreditoEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([solicitudId, creadoEn])
+  @@index([usuarioId])
+  @@index([tipo, creadoEn])
+  @@index([referenciaTipo, referenciaId])
+}
+
+model OperacionIntegracionCreditoPedido {
+  id Int @id @default(autoincrement())
+
+  solicitudId Int @unique
+  pedidoId    Int
+  actorId     Int
+
+  tipo   TipoOperacionIntegracionCreditoPedido
+  estado EstadoOperacionIntegracionCreditoPedido @default(PENDIENTE)
+
+  claveIdempotencia String @unique
+
+  intentos    Int     @default(0)
+  ultimoError String?
+
+  creadoEn      DateTime  @default(now())
+  aplicadaEn    DateTime?
+  actualizadoEn DateTime  @updatedAt
+
+  solicitud SolicitudCredito @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+
+  actor Usuario @relation("OperacionIntegracionCreditoPedidoActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([pedidoId, estado])
+  @@index([estado, creadoEn])
+  @@index([actorId])
 }
 
 model ReferenciaCredito {
-  id            Int                          @id @default(autoincrement())
-  solicitudId   Int
-  tipo          TipoReferenciaCredito
-  nombre        String
-  telefono      String
-  relacion      String?
-  resultado     EstadoVerificacionReferencia @default(PENDIENTE)
-  verificadoEn  DateTime?
+  id          Int                   @id @default(autoincrement())
+  solicitudId Int
+  tipo        TipoReferenciaCredito
+  nombre      String
+  telefono    String
+  relacion    String?
+
+  resultado EstadoVerificacionReferencia @default(PENDIENTE)
+
+  verificadoPorId Int?
+  verificadoEn    DateTime?
+
   observaciones String?
-  creadoEn      DateTime                     @default(now())
+  version       Int     @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   solicitud SolicitudCredito @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
 
+  verificadoPor Usuario? @relation("ReferenciaCreditoVerificadoPor", fields: [verificadoPorId], references: [id], onDelete: SetNull)
+
   @@index([solicitudId, resultado])
+  @@index([solicitudId, creadoEn])
+  @@index([verificadoPorId])
 }
 
 model DocumentoCredito {
-  id            Int                    @id @default(autoincrement())
-  solicitudId   Int
-  tipo          TipoDocumentoCredito
-  url           String
-  key           String?
-  mimeType      String?
-  size          Int?
-  estado        EstadoDocumentoCredito @default(PENDIENTE)
+  id          Int                  @id @default(autoincrement())
+  solicitudId Int
+  tipo        TipoDocumentoCredito
+
+  url      String
+  key      String?
+  mimeType String?
+  size     Int?
+
+  estado EstadoDocumentoCredito @default(PENDIENTE)
+
+  revisadoPorId Int?
+  revisadoEn    DateTime?
+
   observaciones String?
-  creadoEn      DateTime               @default(now())
+  version       Int     @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   solicitud SolicitudCredito @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
 
+  revisadoPor Usuario? @relation("DocumentoCreditoRevisadoPor", fields: [revisadoPorId], references: [id], onDelete: SetNull)
+
   @@index([solicitudId, tipo])
+  @@index([solicitudId, estado])
+  @@index([revisadoPorId])
 }
 
 model DecisionCredito {
-  id                  Int                 @id @default(autoincrement())
-  solicitudId         Int
-  decididoPorId       Int
-  tipo                TipoDecisionCredito
-  montoAutorizado     Decimal?            @db.Decimal(12, 2)
-  plazoAutorizadoDias Int?
-  anticipoRequerido   Decimal?            @db.Decimal(12, 2)
-  observaciones       String?
-  creadoEn            DateTime            @default(now())
+  id Int @id @default(autoincrement())
 
-  solicitud   SolicitudCredito @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
-  decididoPor Usuario          @relation("DecisionCreditoUsuario", fields: [decididoPorId], references: [id], onDelete: Restrict)
+  solicitudId   Int @unique
+  decididoPorId Int
+
+  tipo TipoDecisionCredito
+
+  montoAutorizado     Decimal? @db.Decimal(12, 2)
+  plazoAutorizadoDias Int?
+  anticipoRequerido   Decimal? @db.Decimal(12, 2)
+
+  observaciones String?
+
+  claveIdempotencia String? @unique
+
+  creadoEn DateTime @default(now())
+
+  solicitud SolicitudCredito @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+
+  decididoPor Usuario @relation("DecisionCreditoUsuario", fields: [decididoPorId], references: [id], onDelete: Restrict)
 
   @@index([solicitudId, creadoEn])
 }
