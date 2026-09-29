@@ -18,6 +18,7 @@ import { OrderRepositoryPort } from './domain/ports/order.repository.port';
 import { OrderVisitDirectoryPort } from './domain/ports/order-visit-directory.port';
 import { OrderActorDirectoryPrismaAdapter } from './infrastructure/adapters/order-actor-directory.prisma-adapter';
 import { OrderCustomerDirectoryPrismaAdapter } from './infrastructure/adapters/order-customer-directory.prisma-adapter';
+import { OrderCreditGateAdapter } from './infrastructure/adapters/order-credit-gate.adapter';
 import { OrderDirectoryAdapter } from './infrastructure/adapters/order-directory.adapter';
 import { OrderProductCatalogPrismaAdapter } from './infrastructure/adapters/order-product-catalog.prisma-adapter';
 import { OrderVisitDirectoryPrismaAdapter } from './infrastructure/adapters/order-visit-directory.prisma-adapter';
@@ -26,6 +27,7 @@ import { OrderPrismaRepository } from './infrastructure/persistence/prisma/order
 import {
   ORDER_ACTOR_DIRECTORY,
   ORDER_CUSTOMER_DIRECTORY,
+  ORDER_CREDIT_GATE,
   ORDER_DIRECTORY,
   ORDER_PRODUCT_CATALOG,
   ORDER_QUERY,
@@ -46,6 +48,7 @@ import { OrderController } from './presentation/http/order.controller';
     OrderVisitDirectoryPrismaAdapter,
     OrderProductCatalogPrismaAdapter,
     OrderDirectoryAdapter,
+    OrderCreditGateAdapter,
     { provide: ORDER_REPOSITORY, useExisting: OrderPrismaRepository },
     { provide: ORDER_QUERY, useExisting: OrderPrismaQueryAdapter },
     { provide: ORDER_ACTOR_DIRECTORY, useExisting: OrderActorDirectoryPrismaAdapter },
@@ -53,6 +56,7 @@ import { OrderController } from './presentation/http/order.controller';
     { provide: ORDER_VISIT_DIRECTORY, useExisting: OrderVisitDirectoryPrismaAdapter },
     { provide: ORDER_PRODUCT_CATALOG, useExisting: OrderProductCatalogPrismaAdapter },
     { provide: ORDER_DIRECTORY, useExisting: OrderDirectoryAdapter },
+    { provide: ORDER_CREDIT_GATE, useExisting: OrderCreditGateAdapter },
     {
       provide: CreateOrderUseCase,
       useFactory: (
@@ -130,6 +134,6 @@ import { OrderController } from './presentation/http/order.controller';
       inject: [ORDER_QUERY, ORDER_ACTOR_DIRECTORY],
     },
   ],
-  exports: [ORDER_DIRECTORY],
+  exports: [ORDER_DIRECTORY, ORDER_CREDIT_GATE],
 })
 export class PedidosModule {}

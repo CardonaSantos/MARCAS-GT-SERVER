@@ -204,6 +204,25 @@ export class Pedido {
     };
   }
 
+  returnToDraftAfterCreditRejection(): void {
+    if (
+      this.estado !== 'PENDIENTE_VALIDACION' ||
+      !['CREDITO', 'MIXTO'].includes(this.condicionPago)
+    ) {
+      throw new OrderInvalidStateError(
+        this.estado,
+        'retornar a borrador después de rechazo de crédito',
+      );
+    }
+
+    this.props = {
+      ...this.props,
+      estado: 'BORRADOR',
+      validacionSolicitadaEn: null,
+      version: this.version + 1,
+    };
+  }
+
   cancel(reason: string, at = new Date()): void {
     if (!['BORRADOR', 'PENDIENTE_VALIDACION'].includes(this.estado)) {
       throw new OrderInvalidStateError(this.estado, 'cancelar');

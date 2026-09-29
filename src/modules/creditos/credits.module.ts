@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { ActiveUserRolesGuard } from 'src/shared/security/active-user-roles.guard';
 import {
-  // ORDER_CREDIT_GATE,
+  ORDER_CREDIT_GATE,
   ORDER_DIRECTORY,
   OrderCreditGatePort,
   OrderDirectoryPort,

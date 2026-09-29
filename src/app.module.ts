@@ -31,6 +31,7 @@ import { InventarioModule } from './modules/inventario';
 import { RequisicionesModule } from './modules/requisiciones';
 import { TransferenciasModule } from './modules/transferencias';
 import { PedidosModule } from './modules/pedidos';
+import { CreditosModule } from './modules/creditos';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { PedidosModule } from './modules/pedidos';
     RequisicionesModule,
     TransferenciasModule,
     PedidosModule,
+    CreditosModule,
   ],
   controllers: [],
   providers: [LocationGateway, CloudinaryProvider], //PONER EL CLOUDINARY PROVIDER PORQUE LLEVA LAS CONFIG

@@ -1,5 +1,4 @@
-import { OrderCreditGatePort } from 'src/modules/pedidos/application/ports/order-credit-gate.port';
-import { OrderDirectoryPort } from '../../../pedidos';
+import { OrderCreditGatePort, OrderDirectoryPort } from '../../../pedidos';
 import {
   CreditApplicationNotFoundError,
   CreditDecisionNotReadyError,
