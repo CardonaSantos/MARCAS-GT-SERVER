@@ -27,7 +27,7 @@ const DESPACHOS_ABIERTOS: EstadoOrdenDespacho[] = [
   'PENDIENTE',
   'PREPARANDO',
   'PREPARADA',
-  'PARCIAL',
+  'PARCIALMENTE_DESPACHADA',
 ];
 
 const ENVIOS_ABIERTOS: EstadoEnvio[] = [
@@ -45,32 +45,47 @@ export class BodegaOperationalDependenciesPrismaAdapter
   constructor(private readonly prisma: PrismaService) {}
 
   async inspect(bodegaId: number): Promise<BodegaOperationalDependencies> {
-    const [stock, requisiciones, transferenciasOrigen, transferenciasDestino, despachos, envios] =
-      await Promise.all([
-        this.prisma.stockBodega.aggregate({
-          where: { bodegaId },
-          _sum: { cantidadReal: true, cantidadReservada: true },
-        }),
-        this.prisma.requisicion.count({
-          where: { bodegaDestinoId: bodegaId, estado: { in: REQUISICIONES_ABIERTAS } },
-        }),
-        this.prisma.transferenciaBodega.count({
-          where: { bodegaOrigenId: bodegaId, estado: { in: TRANSFERENCIAS_ABIERTAS } },
-        }),
-        this.prisma.transferenciaBodega.count({
-          where: { bodegaDestinoId: bodegaId, estado: { in: TRANSFERENCIAS_ABIERTAS } },
-        }),
-        this.prisma.ordenDespacho.count({
-          where: { bodegaId, estado: { in: DESPACHOS_ABIERTOS } },
-        }),
-        this.prisma.envioDespacho.findMany({
-          where: {
-            ordenDespacho: { bodegaId },
-            envio: { estado: { in: ENVIOS_ABIERTOS } },
-          },
-          select: { envioId: true },
-        }),
-      ]);
+    const [
+      stock,
+      requisiciones,
+      transferenciasOrigen,
+      transferenciasDestino,
+      despachos,
+      envios,
+    ] = await Promise.all([
+      this.prisma.stockBodega.aggregate({
+        where: { bodegaId },
+        _sum: { cantidadReal: true, cantidadReservada: true },
+      }),
+      this.prisma.requisicion.count({
+        where: {
+          bodegaDestinoId: bodegaId,
+          estado: { in: REQUISICIONES_ABIERTAS },
+        },
+      }),
+      this.prisma.transferenciaBodega.count({
+        where: {
+          bodegaOrigenId: bodegaId,
+          estado: { in: TRANSFERENCIAS_ABIERTAS },
+        },
+      }),
+      this.prisma.transferenciaBodega.count({
+        where: {
+          bodegaDestinoId: bodegaId,
+          estado: { in: TRANSFERENCIAS_ABIERTAS },
+        },
+      }),
+      this.prisma.ordenDespacho.count({
+        where: { bodegaId, estado: { in: DESPACHOS_ABIERTOS } },
+      }),
+      this.prisma.envioDespacho.findMany({
+        where: {
+          ordenDespacho: { bodegaId },
+          envio: { estado: { in: ENVIOS_ABIERTOS } },
+        },
+        select: { envioId: true },
+      }),
+    ]);
 
     return {
       stockReal: stock._sum.cantidadReal ?? 0,

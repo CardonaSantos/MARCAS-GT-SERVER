@@ -41,7 +41,7 @@ const DESPACHOS_ABIERTOS: EstadoOrdenDespacho[] = [
   'PENDIENTE',
   'PREPARANDO',
   'PREPARADA',
-  'PARCIAL',
+  'PARCIALMENTE_DESPACHADA',
 ];
 
 const ENVIOS_ABIERTOS: EstadoEnvio[] = [

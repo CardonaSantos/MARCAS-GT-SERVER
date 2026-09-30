@@ -304,23 +304,23 @@ model Visita {
 }
 
 model Venta {
-  id                Int             @id @default(autoincrement())
+  id                Int        @id @default(autoincrement())
   monto             Float
   montoConDescuento Float
   descuento         Int?
   metodoPago        MetodoPago
   referenciaPago    String?    @unique
 
-  timestamp         DateTime        @default(now())
-  vendedor          Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  usuarioId         Int
-  cliente           Cliente         @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  clienteId         Int
-  visita            Visita?         @relation(fields: [visitaId], references: [id]) // Relación con Visita
-  visitaId          Int? // Quita @unique aquí
-  productos         VentaProducto[]
+  timestamp DateTime        @default(now())
+  vendedor  Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId Int
+  cliente   Cliente         @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  clienteId Int
+  visita    Visita?         @relation(fields: [visitaId], references: [id]) // Relación con Visita
+  visitaId  Int? // Quita @unique aquí
+  productos VentaProducto[]
   //
-  Credito           Credito[]
+  Credito   Credito[]
 
   facturas Factura[]
 }
@@ -478,11 +478,16 @@ model Usuario {
   pagosRegistrados          Pago[]                  @relation("PagoRegistradoPor")
   solicitudesCreditoCreadas SolicitudCredito[]      @relation("SolicitudCreditoSolicitante")
   decisionesCredito         DecisionCredito[]       @relation("DecisionCreditoUsuario")
-  ordenesDespachoPreparadas OrdenDespacho[]         @relation("OrdenDespachoPreparadoPor")
-  eventosOrdenDespacho      OrdenDespachoEvento[]   @relation("OrdenDespachoEventoUsuario")
-  entregasRegistradas       Entrega[]               @relation("EntregaRegistradaPor")
-  enviosResponsable         Envio[]                 @relation("EnvioResponsable")
-  eventosEnvio              EnvioEvento[]           @relation("EnvioEventoUsuario")
+
+  ordenesDespachoCreadas     OrdenDespacho[]       @relation("OrdenDespachoCreadoPor")
+  ordenesDespachoPreparadas  OrdenDespacho[]       @relation("OrdenDespachoPreparadoPor")
+  ordenesDespachoDespachadas OrdenDespacho[]       @relation("OrdenDespachoDespachadoPor")
+  ordenesDespachoCanceladas  OrdenDespacho[]       @relation("OrdenDespachoCanceladoPor")
+  eventosOrdenDespacho       OrdenDespachoEvento[] @relation("OrdenDespachoEventoUsuario")
+
+  entregasRegistradas Entrega[]     @relation("EntregaRegistradaPor")
+  enviosResponsable   Envio[]       @relation("EnvioResponsable")
+  eventosEnvio        EnvioEvento[] @relation("EnvioEventoUsuario")
 
   recepcionesRequisicion RecepcionRequisicion[] @relation("RecepcionRequisicionRecibidoPor")
 
@@ -929,14 +934,16 @@ enum EstadoOrdenDespacho {
   PENDIENTE
   PREPARANDO
   PREPARADA
+  PARCIALMENTE_DESPACHADA
   DESPACHADA
-  PARCIAL
   CANCELADA
 }
 
 enum TipoEventoOrdenDespacho {
   CREADA
+  ACTUALIZADA
   PREPARACION_INICIADA
+  PREPARACION_AJUSTADA
   PREPARADA
   DESPACHO_PARCIAL
   DESPACHADA
@@ -1997,38 +2004,87 @@ model DecisionCredito {
 // ============================================================================
 
 model OrdenDespacho {
-  id             Int                 @id @default(autoincrement())
-  pedidoId       Int
-  bodegaId       Int
-  preparadoPorId Int?
-  numero         String?
-  estado         EstadoOrdenDespacho @default(PENDIENTE)
-  programadoEn   DateTime?
-  preparadoEn    DateTime?
-  despachadoEn   DateTime?
-  observaciones  String?
-  creadoEn       DateTime            @default(now())
-  actualizadoEn  DateTime            @updatedAt
+  id       Int @id @default(autoincrement())
+  pedidoId Int
+  bodegaId Int
 
-  pedido       Pedido                 @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
-  bodega       Bodega                 @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
-  preparadoPor Usuario?               @relation("OrdenDespachoPreparadoPor", fields: [preparadoPorId], references: [id], onDelete: SetNull)
-  detalles     OrdenDespachoDetalle[]
-  eventos      OrdenDespachoEvento[]
-  envios       EnvioDespacho[]
-  entregas     Entrega[]
+  // Auditoría directa de los hitos principales.
+  // Opcionales para no romper registros históricos.
+  creadoPorId     Int?
+  preparadoPorId  Int?
+  despachadoPorId Int?
+  canceladoPorId  Int?
+
+  // Identificador humano generado por el servidor, p. ej. DSP-000001.
+  // Nullable para soportar registros históricos.
+  numero String? @unique
+
+  estado EstadoOrdenDespacho @default(PENDIENTE)
+
+  // Programación y timestamps del workflow.
+  programadoEn          DateTime?
+  preparacionIniciadaEn DateTime?
+  preparadoEn           DateTime?
+  despachadoEn          DateTime?
+  canceladoEn           DateTime?
+
+  motivoCancelacion String?
+  observaciones     String?
+
+  // Concurrencia optimista.
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+  bodega Bodega @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
+
+  creadoPor Usuario? @relation("OrdenDespachoCreadoPor", fields: [creadoPorId], references: [id], onDelete: SetNull)
+
+  preparadoPor Usuario? @relation("OrdenDespachoPreparadoPor", fields: [preparadoPorId], references: [id], onDelete: SetNull)
+
+  despachadoPor Usuario? @relation("OrdenDespachoDespachadoPor", fields: [despachadoPorId], references: [id], onDelete: SetNull)
+
+  canceladoPor Usuario? @relation("OrdenDespachoCanceladoPor", fields: [canceladoPorId], references: [id], onDelete: SetNull)
+
+  detalles OrdenDespachoDetalle[]
+  eventos  OrdenDespachoEvento[]
+  envios   EnvioDespacho[]
+  entregas Entrega[]
 
   @@index([pedidoId, estado])
   @@index([bodegaId, estado])
+  @@index([estado, creadoEn])
+  @@index([estado, programadoEn])
+  @@index([creadoPorId, creadoEn])
+  @@index([preparadoPorId, preparadoEn])
+  @@index([despachadoPorId, despachadoEn])
+  @@index([canceladoPorId, canceladoEn])
 }
 
 model OrdenDespachoDetalle {
-  id                 Int @id @default(autoincrement())
-  ordenDespachoId    Int
-  pedidoDetalleId    Int
-  productoId         Int
-  cantidadPreparada  Int @default(0)
+  id              Int @id @default(autoincrement())
+  ordenDespachoId Int
+  pedidoDetalleId Int
+  productoId      Int
+
+  // Cantidad asignada específicamente a esta orden.
+  cantidadProgramada Int @default(0)
+
+  // Cantidad físicamente preparada en bodega.
+  cantidadPreparada Int @default(0)
+
+  // Cantidad que ya salió físicamente de bodega.
   cantidadDespachada Int @default(0)
+
+  observaciones String?
+
+  // Concurrencia optimista por línea.
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @default(now()) @updatedAt
 
   ordenDespacho   OrdenDespacho    @relation(fields: [ordenDespachoId], references: [id], onDelete: Cascade)
   pedidoDetalle   PedidoDetalle    @relation(fields: [pedidoDetalleId], references: [id], onDelete: Restrict)
@@ -2036,20 +2092,41 @@ model OrdenDespachoDetalle {
   entregaDetalles EntregaDetalle[]
 
   @@unique([ordenDespachoId, pedidoDetalleId])
+  @@index([pedidoDetalleId])
+  @@index([productoId])
 }
 
 model OrdenDespachoEvento {
-  id              Int                     @id @default(autoincrement())
+  id              Int  @id @default(autoincrement())
   ordenDespachoId Int
   usuarioId       Int?
-  tipo            TipoEventoOrdenDespacho
-  detalle         String?
-  creadoEn        DateTime                @default(now())
+
+  tipo    TipoEventoOrdenDespacho
+  detalle String?
+
+  // Referencia lógica a una operación de otro bounded context.
+  // Ejemplo:
+  // referenciaTipo = "MOVIMIENTO_INVENTARIO"
+  // referenciaId   = 841
+  referenciaTipo String?
+  referenciaId   Int?
+
+  // Protege reintentos de operaciones externas.
+  claveIdempotencia String? @unique
+
+  // Snapshot opcional de datos del evento:
+  // cantidades, pedidoDetalleId, productoId, motivo, etc.
+  metadata Json?
+
+  creadoEn DateTime @default(now())
 
   ordenDespacho OrdenDespacho @relation(fields: [ordenDespachoId], references: [id], onDelete: Cascade)
   usuario       Usuario?      @relation("OrdenDespachoEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@index([ordenDespachoId, creadoEn])
+  @@index([tipo, creadoEn])
+  @@index([usuarioId, creadoEn])
+  @@index([referenciaTipo, referenciaId])
 }
 
 model Entrega {
