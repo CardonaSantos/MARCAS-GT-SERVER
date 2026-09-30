@@ -133,6 +133,31 @@ export class SaleService {
       });
   }
 
+  private async createSaleRecord(
+    prisma: PrismaTransaction,
+    dto: CreateSaleDto,
+  ) {
+    return prisma.venta.create({
+      data: {
+        clienteId: dto.clienteId,
+        usuarioId: dto.vendedorId,
+        descuento: dto.descuento,
+        metodoPago: dto.metodoPago,
+        monto: dto.monto,
+        montoConDescuento: dto.montoConDescuento,
+        referenciaPago: dto.referenciaPago?.trim().toUpperCase() || null,
+        productos: {
+          create: dto.productos.map((prod) => ({
+            producto: { connect: { id: prod.productoId } },
+            cantidad: prod.cantidad,
+            precio: prod.precio,
+          })),
+        },
+      },
+      include: { productos: { include: { producto: true } } },
+    });
+  }
+
   // Métodos auxiliares
   private async handleStockValidation(
     prisma: PrismaTransaction,
@@ -155,30 +180,6 @@ export class SaleService {
         }
       }),
     );
-  }
-
-  private async createSaleRecord(
-    prisma: PrismaTransaction,
-    dto: CreateSaleDto,
-  ) {
-    return prisma.venta.create({
-      data: {
-        clienteId: dto.clienteId,
-        usuarioId: dto.vendedorId,
-        descuento: dto.descuento,
-        metodoPago: dto.metodoPago,
-        monto: dto.monto,
-        montoConDescuento: dto.montoConDescuento,
-        productos: {
-          create: dto.productos.map((prod) => ({
-            producto: { connect: { id: prod.productoId } },
-            cantidad: prod.cantidad,
-            precio: prod.precio,
-          })),
-        },
-      },
-      include: { productos: { include: { producto: true } } },
-    });
   }
 
   private async handleCreditSale(

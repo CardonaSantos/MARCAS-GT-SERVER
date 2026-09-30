@@ -309,6 +309,8 @@ model Venta {
   montoConDescuento Float
   descuento         Int?
   metodoPago        MetodoPago
+  referenciaPago    String?    @unique
+
   timestamp         DateTime        @default(now())
   vendedor          Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   usuarioId         Int
