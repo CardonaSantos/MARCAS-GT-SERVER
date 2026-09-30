@@ -19,7 +19,7 @@ import * as bodyParser from 'body-parser';
 
 async function bootstrap() {
   // const port = process.env.PORT || 3000;
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 4000;
 
   const allowedOrigins = process.env.CORS_ORIGIN; // Variable para definir el origen permitido
 

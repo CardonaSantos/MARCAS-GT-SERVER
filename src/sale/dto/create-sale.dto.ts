@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsPositive,
   IsString,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -30,6 +31,11 @@ export class ProductSaleDto {
 export class CreateSaleDto {
   @IsInt()
   empresaId: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  referenciaPago?: string;
 
   @IsInt()
   clienteId: number;
