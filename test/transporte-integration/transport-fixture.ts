@@ -133,7 +133,10 @@ export async function createTransportIntegrationFixture(
       pedidoId: pedido.id,
       productoId: producto.id,
       cantidadSolicitada: 20,
-      cantidadReservada: 20,
+      // El pedido ya está totalmente despachado en las dos órdenes del fixture.
+      // La reserva remanente debe ser 0 porque:
+      // cantidadReservada + cantidadDespachada <= cantidadSolicitada.
+      cantidadReservada: 0,
       cantidadDespachada: 20,
       cantidadEntregada: 0,
       precioUnitario: 10,
