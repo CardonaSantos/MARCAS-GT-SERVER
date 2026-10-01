@@ -455,18 +455,16 @@ model Usuario {
   actualizadoEn          DateTime               @updatedAt
   visitas                Visita[]
   activo                 Boolean                @default(true)
-  NotificacionesLeidas   NotificacionesLeidas[] // Solo esta relación para manejar las notificaciones leídas
+  NotificacionesLeidas   NotificacionesLeidas[]
 
-  // Campos para la recuperación de contraseña
-  tokenRecuperacion String? // Token generado para restablecer contraseña
-  expiracionToken   DateTime? // Fecha de expiración del token
-  //
-  empresaId         Int? // FK opcional, en caso de que un usuario no tenga empresa
-  empresa           Empresa?  @relation(fields: [empresaId], references: [id])
+  tokenRecuperacion String?
+  expiracionToken   DateTime?
+
+  empresaId Int?
+  empresa   Empresa? @relation(fields: [empresaId], references: [id])
 
   bodegasResponsable Bodega[] @relation("BodegaResponsable")
-
-  eventosBodega BodegaEvento[] @relation("BodegaEventoUsuario")
+  eventosBodega      BodegaEvento[] @relation("BodegaEventoUsuario")
 
   sesionesTracking          SesionTrackingUsuario[]
   ubicacionActualTracking   UbicacionUsuarioActual?
@@ -485,27 +483,25 @@ model Usuario {
   ordenesDespachoCanceladas  OrdenDespacho[]       @relation("OrdenDespachoCanceladoPor")
   eventosOrdenDespacho       OrdenDespachoEvento[] @relation("OrdenDespachoEventoUsuario")
 
+  // NUEVO
+  operacionesDespacho OperacionDespacho[] @relation("OperacionDespachoUsuario")
+
   entregasRegistradas Entrega[]     @relation("EntregaRegistradaPor")
   enviosResponsable   Envio[]       @relation("EnvioResponsable")
   eventosEnvio        EnvioEvento[] @relation("EnvioEventoUsuario")
 
   recepcionesRequisicion RecepcionRequisicion[] @relation("RecepcionRequisicionRecibidoPor")
-
-  eventosRequisicion RequisicionEvento[] @relation("RequisicionEventoUsuario")
+  eventosRequisicion    RequisicionEvento[]     @relation("RequisicionEventoUsuario")
 
   operacionesTransferencia TransferenciaBodegaOperacion[] @relation("TransferenciaOperacionUsuario")
-
-  eventosTransferencia TransferenciaBodegaEvento[] @relation("TransferenciaEventoUsuario")
+  eventosTransferencia    TransferenciaBodegaEvento[]    @relation("TransferenciaEventoUsuario")
 
   creditosAprobados Credito[] @relation("CreditoAprobadoPor")
 
-  requisitosCreditoRevisados SolicitudCreditoRequisito[] @relation("SolicitudCreditoRequisitoRevisadoPor")
-
-  referenciasCreditoVerificadas ReferenciaCredito[] @relation("ReferenciaCreditoVerificadoPor")
-
-  documentosCreditoRevisados DocumentoCredito[] @relation("DocumentoCreditoRevisadoPor")
-
-  eventosSolicitudCredito SolicitudCreditoEvento[] @relation("SolicitudCreditoEventoUsuario")
+  requisitosCreditoRevisados    SolicitudCreditoRequisito[] @relation("SolicitudCreditoRequisitoRevisadoPor")
+  referenciasCreditoVerificadas ReferenciaCredito[]         @relation("ReferenciaCreditoVerificadoPor")
+  documentosCreditoRevisados    DocumentoCredito[]          @relation("DocumentoCreditoRevisadoPor")
+  eventosSolicitudCredito       SolicitudCreditoEvento[]    @relation("SolicitudCreditoEventoUsuario")
 
   operacionesIntegracionCreditoPedido OperacionIntegracionCreditoPedido[] @relation("OperacionIntegracionCreditoPedidoActor")
 }
@@ -948,6 +944,8 @@ enum TipoEventoOrdenDespacho {
   DESPACHO_PARCIAL
   DESPACHADA
   CANCELADA
+  OPERACION_FALLIDA
+  OPERACION_REINTENTADA
   OBSERVACION
 }
 
@@ -2008,20 +2006,15 @@ model OrdenDespacho {
   pedidoId Int
   bodegaId Int
 
-  // Auditoría directa de los hitos principales.
-  // Opcionales para no romper registros históricos.
   creadoPorId     Int?
   preparadoPorId  Int?
   despachadoPorId Int?
   canceladoPorId  Int?
 
-  // Identificador humano generado por el servidor, p. ej. DSP-000001.
-  // Nullable para soportar registros históricos.
   numero String? @unique
 
   estado EstadoOrdenDespacho @default(PENDIENTE)
 
-  // Programación y timestamps del workflow.
   programadoEn          DateTime?
   preparacionIniciadaEn DateTime?
   preparadoEn           DateTime?
@@ -2031,7 +2024,6 @@ model OrdenDespacho {
   motivoCancelacion String?
   observaciones     String?
 
-  // Concurrencia optimista.
   version Int @default(0)
 
   creadoEn      DateTime @default(now())
@@ -2040,16 +2032,20 @@ model OrdenDespacho {
   pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
   bodega Bodega @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
 
-  creadoPor Usuario? @relation("OrdenDespachoCreadoPor", fields: [creadoPorId], references: [id], onDelete: SetNull)
+  creadoPor Usuario? @relation("OrdenDespachoCreadoPor",fields: [creadoPorId],references: [id],onDelete: SetNull)
 
-  preparadoPor Usuario? @relation("OrdenDespachoPreparadoPor", fields: [preparadoPorId], references: [id], onDelete: SetNull)
+  preparadoPor Usuario? @relation("OrdenDespachoPreparadoPor",fields: [preparadoPorId],references: [id],onDelete: SetNull)
 
-  despachadoPor Usuario? @relation("OrdenDespachoDespachadoPor", fields: [despachadoPorId], references: [id], onDelete: SetNull)
+  despachadoPor Usuario? @relation("OrdenDespachoDespachadoPor",fields: [despachadoPorId],references: [id],onDelete: SetNull)
 
-  canceladoPor Usuario? @relation("OrdenDespachoCanceladoPor", fields: [canceladoPorId], references: [id], onDelete: SetNull)
+  canceladoPor Usuario? @relation("OrdenDespachoCanceladoPor",fields: [canceladoPorId],references: [id],onDelete: SetNull)
 
-  detalles OrdenDespachoDetalle[]
-  eventos  OrdenDespachoEvento[]
+  detalles    OrdenDespachoDetalle[]
+  eventos     OrdenDespachoEvento[]
+
+  // NUEVO
+  operaciones OperacionDespacho[]
+
   envios   EnvioDespacho[]
   entregas Entrega[]
 
@@ -2063,38 +2059,117 @@ model OrdenDespacho {
   @@index([canceladoPorId, canceladoEn])
 }
 
+
+model OperacionDespacho {
+  id              Int @id @default(autoincrement())
+  ordenDespachoId Int
+  usuarioId       Int
+
+  tipo   TipoOperacionDespacho
+  estado EstadoOperacionDespacho @default(PENDIENTE)
+
+  claveIdempotencia String @unique
+  observaciones     String?
+
+  ocurridaEn      DateTime @default(now())
+  iniciadaEn      DateTime?
+  ultimoIntentoEn DateTime?
+  aplicadaEn      DateTime?
+  fallidaEn       DateTime?
+
+  intentos Int @default(0)
+
+  errorAplicacion String?
+
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @default(now()) @updatedAt
+
+  ordenDespacho OrdenDespacho @relation(fields: [ordenDespachoId],references: [id],onDelete: Restrict)
+
+  usuario Usuario @relation("OperacionDespachoUsuario",fields: [usuarioId],references: [id],onDelete: Restrict)
+
+  detalles OperacionDespachoDetalle[]
+
+  @@index([ordenDespachoId, ocurridaEn])
+  @@index([ordenDespachoId, tipo, estado])
+  @@index([usuarioId, ocurridaEn])
+  @@index([estado, actualizadoEn])
+  @@index([tipo, ocurridaEn])
+}
+
+
+
 model OrdenDespachoDetalle {
   id              Int @id @default(autoincrement())
   ordenDespachoId Int
   pedidoDetalleId Int
   productoId      Int
 
-  // Cantidad asignada específicamente a esta orden.
   cantidadProgramada Int @default(0)
-
-  // Cantidad físicamente preparada en bodega.
-  cantidadPreparada Int @default(0)
-
-  // Cantidad que ya salió físicamente de bodega.
+  cantidadPreparada  Int @default(0)
   cantidadDespachada Int @default(0)
 
   observaciones String?
-
-  // Concurrencia optimista por línea.
-  version Int @default(0)
+  version       Int @default(0)
 
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @default(now()) @updatedAt
 
-  ordenDespacho   OrdenDespacho    @relation(fields: [ordenDespachoId], references: [id], onDelete: Cascade)
-  pedidoDetalle   PedidoDetalle    @relation(fields: [pedidoDetalleId], references: [id], onDelete: Restrict)
-  producto        Producto         @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  ordenDespacho OrdenDespacho @relation(fields: [ordenDespachoId],references: [id],onDelete: Cascade)
+
+  pedidoDetalle PedidoDetalle @relation(fields: [pedidoDetalleId],references: [id],onDelete: Restrict)
+
+  producto Producto @relation(fields: [productoId],references: [id],onDelete: Restrict)
+
   entregaDetalles EntregaDetalle[]
+
+  // NUEVO
+  operacionDetalles OperacionDespachoDetalle[]
 
   @@unique([ordenDespachoId, pedidoDetalleId])
   @@index([pedidoDetalleId])
   @@index([productoId])
 }
+
+
+model OperacionDespachoDetalle {
+  id                     Int @id @default(autoincrement())
+  operacionId            Int
+  ordenDespachoDetalleId Int
+
+  cantidad Int
+
+  estado EstadoDetalleOperacionDespacho @default(PENDIENTE)
+
+  // REFERENCIAS LOGICAS A INVENTARIO.
+  // No llevan @relation ni FK.
+  reservaInventarioId    Int?
+  movimientoInventarioId Int? @unique
+
+  // Idempotencia por línea.
+  claveIdempotencia String @unique
+
+  aplicadaEn DateTime?
+
+  errorAplicacion String?
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @default(now()) @updatedAt
+
+  operacion OperacionDespacho @relation(fields: [operacionId],references: [id],onDelete: Cascade)
+
+  ordenDespachoDetalle OrdenDespachoDetalle @relation(fields: [ordenDespachoDetalleId],references: [id],onDelete: Restrict)
+
+  @@unique([operacionId, ordenDespachoDetalleId])
+  @@index([ordenDespachoDetalleId])
+  @@index([estado, actualizadoEn])
+  @@index([reservaInventarioId])
+}
+
+
+
 
 model OrdenDespachoEvento {
   id              Int  @id @default(autoincrement())
@@ -2467,4 +2542,26 @@ model PagoAplicacion {
 
   @@unique([pagoId, cuentaPorCobrarId])
   @@index([cuentaPorCobrarId])
+}
+
+
+
+
+enum TipoOperacionDespacho {
+  RESERVA_PREPARACION
+  SALIDA_DESPACHO
+  LIBERACION_RESERVA
+}
+
+enum EstadoOperacionDespacho {
+  PENDIENTE
+  APLICANDO
+  APLICADA
+  FALLIDA
+}
+
+enum EstadoDetalleOperacionDespacho {
+  PENDIENTE
+  APLICADA
+  FALLIDA
 }

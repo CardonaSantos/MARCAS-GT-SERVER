@@ -17,18 +17,20 @@ import { OrderProductCatalogPort } from './domain/ports/order-product-catalog.po
 import { OrderRepositoryPort } from './domain/ports/order.repository.port';
 import { OrderVisitDirectoryPort } from './domain/ports/order-visit-directory.port';
 import { OrderActorDirectoryPrismaAdapter } from './infrastructure/adapters/order-actor-directory.prisma-adapter';
-import { OrderCustomerDirectoryPrismaAdapter } from './infrastructure/adapters/order-customer-directory.prisma-adapter';
 import { OrderCreditGateAdapter } from './infrastructure/adapters/order-credit-gate.adapter';
+import { OrderCustomerDirectoryPrismaAdapter } from './infrastructure/adapters/order-customer-directory.prisma-adapter';
 import { OrderDirectoryAdapter } from './infrastructure/adapters/order-directory.adapter';
+import { OrderDispatchGateAdapter } from './infrastructure/adapters/order-dispatch-gate.adapter';
 import { OrderProductCatalogPrismaAdapter } from './infrastructure/adapters/order-product-catalog.prisma-adapter';
 import { OrderVisitDirectoryPrismaAdapter } from './infrastructure/adapters/order-visit-directory.prisma-adapter';
 import { OrderPrismaQueryAdapter } from './infrastructure/persistence/prisma/order.prisma-query.adapter';
 import { OrderPrismaRepository } from './infrastructure/persistence/prisma/order.prisma-repository';
 import {
   ORDER_ACTOR_DIRECTORY,
-  ORDER_CUSTOMER_DIRECTORY,
   ORDER_CREDIT_GATE,
+  ORDER_CUSTOMER_DIRECTORY,
   ORDER_DIRECTORY,
+  ORDER_DISPATCH_GATE,
   ORDER_PRODUCT_CATALOG,
   ORDER_QUERY,
   ORDER_REPOSITORY,
@@ -49,14 +51,30 @@ import { OrderController } from './presentation/http/order.controller';
     OrderProductCatalogPrismaAdapter,
     OrderDirectoryAdapter,
     OrderCreditGateAdapter,
+    OrderDispatchGateAdapter,
+
     { provide: ORDER_REPOSITORY, useExisting: OrderPrismaRepository },
     { provide: ORDER_QUERY, useExisting: OrderPrismaQueryAdapter },
-    { provide: ORDER_ACTOR_DIRECTORY, useExisting: OrderActorDirectoryPrismaAdapter },
-    { provide: ORDER_CUSTOMER_DIRECTORY, useExisting: OrderCustomerDirectoryPrismaAdapter },
-    { provide: ORDER_VISIT_DIRECTORY, useExisting: OrderVisitDirectoryPrismaAdapter },
-    { provide: ORDER_PRODUCT_CATALOG, useExisting: OrderProductCatalogPrismaAdapter },
+    {
+      provide: ORDER_ACTOR_DIRECTORY,
+      useExisting: OrderActorDirectoryPrismaAdapter,
+    },
+    {
+      provide: ORDER_CUSTOMER_DIRECTORY,
+      useExisting: OrderCustomerDirectoryPrismaAdapter,
+    },
+    {
+      provide: ORDER_VISIT_DIRECTORY,
+      useExisting: OrderVisitDirectoryPrismaAdapter,
+    },
+    {
+      provide: ORDER_PRODUCT_CATALOG,
+      useExisting: OrderProductCatalogPrismaAdapter,
+    },
     { provide: ORDER_DIRECTORY, useExisting: OrderDirectoryAdapter },
     { provide: ORDER_CREDIT_GATE, useExisting: OrderCreditGateAdapter },
+    { provide: ORDER_DISPATCH_GATE, useExisting: OrderDispatchGateAdapter },
+
     {
       provide: CreateOrderUseCase,
       useFactory: (
@@ -65,7 +83,14 @@ import { OrderController } from './presentation/http/order.controller';
         customers: OrderCustomerDirectoryPort,
         visits: OrderVisitDirectoryPort,
         products: OrderProductCatalogPort,
-      ) => new CreateOrderUseCase(repository, users, customers, visits, products),
+      ) =>
+        new CreateOrderUseCase(
+          repository,
+          users,
+          customers,
+          visits,
+          products,
+        ),
       inject: [
         ORDER_REPOSITORY,
         ORDER_ACTOR_DIRECTORY,
@@ -82,7 +107,14 @@ import { OrderController } from './presentation/http/order.controller';
         customers: OrderCustomerDirectoryPort,
         visits: OrderVisitDirectoryPort,
         products: OrderProductCatalogPort,
-      ) => new UpdateOrderUseCase(repository, users, customers, visits, products),
+      ) =>
+        new UpdateOrderUseCase(
+          repository,
+          users,
+          customers,
+          visits,
+          products,
+        ),
       inject: [
         ORDER_REPOSITORY,
         ORDER_ACTOR_DIRECTORY,
@@ -93,47 +125,65 @@ import { OrderController } from './presentation/http/order.controller';
     },
     {
       provide: RequestOrderValidationUseCase,
-      useFactory: (repository: OrderRepositoryPort, users: OrderActorDirectoryPort) =>
-        new RequestOrderValidationUseCase(repository, users),
+      useFactory: (
+        repository: OrderRepositoryPort,
+        users: OrderActorDirectoryPort,
+      ) => new RequestOrderValidationUseCase(repository, users),
       inject: [ORDER_REPOSITORY, ORDER_ACTOR_DIRECTORY],
     },
     {
       provide: ConfirmOrderUseCase,
-      useFactory: (repository: OrderRepositoryPort, users: OrderActorDirectoryPort) =>
-        new ConfirmOrderUseCase(repository, users),
+      useFactory: (
+        repository: OrderRepositoryPort,
+        users: OrderActorDirectoryPort,
+      ) => new ConfirmOrderUseCase(repository, users),
       inject: [ORDER_REPOSITORY, ORDER_ACTOR_DIRECTORY],
     },
     {
       provide: CancelOrderUseCase,
-      useFactory: (repository: OrderRepositoryPort, users: OrderActorDirectoryPort) =>
-        new CancelOrderUseCase(repository, users),
+      useFactory: (
+        repository: OrderRepositoryPort,
+        users: OrderActorDirectoryPort,
+      ) => new CancelOrderUseCase(repository, users),
       inject: [ORDER_REPOSITORY, ORDER_ACTOR_DIRECTORY],
     },
     {
       provide: ListOrdersUseCase,
-      useFactory: (query: OrderQueryPort, users: OrderActorDirectoryPort) =>
-        new ListOrdersUseCase(query, users),
+      useFactory: (
+        query: OrderQueryPort,
+        users: OrderActorDirectoryPort,
+      ) => new ListOrdersUseCase(query, users),
       inject: [ORDER_QUERY, ORDER_ACTOR_DIRECTORY],
     },
     {
       provide: GetOrderUseCase,
-      useFactory: (query: OrderQueryPort, users: OrderActorDirectoryPort) =>
-        new GetOrderUseCase(query, users),
+      useFactory: (
+        query: OrderQueryPort,
+        users: OrderActorDirectoryPort,
+      ) => new GetOrderUseCase(query, users),
       inject: [ORDER_QUERY, ORDER_ACTOR_DIRECTORY],
     },
     {
       provide: ListOrderEventsUseCase,
-      useFactory: (query: OrderQueryPort, users: OrderActorDirectoryPort) =>
-        new ListOrderEventsUseCase(query, users),
+      useFactory: (
+        query: OrderQueryPort,
+        users: OrderActorDirectoryPort,
+      ) => new ListOrderEventsUseCase(query, users),
       inject: [ORDER_QUERY, ORDER_ACTOR_DIRECTORY],
     },
     {
       provide: GetOrderSummaryUseCase,
-      useFactory: (query: OrderQueryPort, users: OrderActorDirectoryPort) =>
-        new GetOrderSummaryUseCase(query, users),
+      useFactory: (
+        query: OrderQueryPort,
+        users: OrderActorDirectoryPort,
+      ) => new GetOrderSummaryUseCase(query, users),
       inject: [ORDER_QUERY, ORDER_ACTOR_DIRECTORY],
     },
   ],
-  exports: [ORDER_DIRECTORY, ORDER_CREDIT_GATE],
+  exports: [
+    ORDER_DIRECTORY,
+    ORDER_CREDIT_GATE,
+    ORDER_DISPATCH_GATE,
+  ],
 })
 export class PedidosModule {}

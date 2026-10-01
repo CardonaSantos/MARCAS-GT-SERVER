@@ -42,11 +42,12 @@ export type BodegaResponsibleView = Readonly<{
   activo: boolean;
 }>;
 
-export type BodegaOperationalSummaryView = BodegaOperationalDependencies &
-  Readonly<{
-    stockDisponible: number;
-    productosConStock: number;
-  }>;
+export type BodegaOperationalSummaryView =
+  BodegaOperationalDependencies &
+    Readonly<{
+      stockDisponible: number;
+      productosConStock: number;
+    }>;
 
 export type BodegaListItemView = Readonly<{
   id: number;
@@ -67,7 +68,6 @@ export type BodegaEventView = Readonly<{
   id: number;
   tipo: BodegaEventType;
   detalle: string | null;
-  // metadata: unknown;
   creadoEn: Date;
   actor: BodegaResponsibleView | null;
 }>;
@@ -151,12 +151,9 @@ export type SetPrincipalBodegaCommand = Readonly<{
   actorId: number;
 }>;
 
-/**
- * Contrato público mínimo para que otros módulos (inventario, despacho, etc.)
- * consuman Bodegas sin depender del repositorio ni de Prisma.
- */
 export type BodegaDirectoryEntry = Readonly<{
   id: number;
+  empresaId?: number | null;
   codigo: string;
   nombre: string;
   activo: boolean;

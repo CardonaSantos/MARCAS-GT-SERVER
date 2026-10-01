@@ -28,7 +28,11 @@ export class ReservaInventario {
     this.assertInvariant();
   }
 
-  static create(pedidoDetalleId: number, stockBodegaId: number, quantity: number): ReservaInventario {
+  static create(
+    pedidoDetalleId: number,
+    stockBodegaId: number,
+    quantity: number,
+  ): ReservaInventario {
     if (!Number.isInteger(quantity) || quantity <= 0) {
       throw new InvalidInventoryQuantityError(quantity);
     }
@@ -75,15 +79,27 @@ export class ReservaInventario {
 
   increase(quantity: number): void {
     this.assertPositiveQuantity(quantity);
-    this.assertOpen();
+    const reopening = this.isClosed();
 
     this.props = {
       ...this.props,
       cantidadOriginal: this.cantidadOriginal + quantity,
       cantidadPendiente: this.cantidadPendiente + quantity,
-      estado: this.cantidadAplicada > 0 || this.cantidadLiberada > 0 ? 'PARCIAL' : 'ACTIVA',
+      estado:
+        this.cantidadAplicada > 0 || this.cantidadLiberada > 0
+          ? 'PARCIAL'
+          : 'ACTIVA',
+      ...(reopening
+        ? {
+            aplicadaEn: null,
+            liberadaEn: null,
+            cerradaEn: null,
+            canceladaEn: null,
+          }
+        : {}),
       version: this.version + 1,
     };
+
     this.assertInvariant();
   }
 
@@ -92,6 +108,7 @@ export class ReservaInventario {
     const cantidadPendiente = this.cantidadPendiente - quantity;
     const cantidadAplicada = this.cantidadAplicada + quantity;
     const closed = cantidadPendiente === 0;
+
     const estado: InventoryReservationState = closed
       ? this.cantidadLiberada > 0
         ? 'FINALIZADA_MIXTA'
@@ -107,6 +124,7 @@ export class ReservaInventario {
       cerradaEn: closed ? now : null,
       version: this.version + 1,
     };
+
     this.assertInvariant();
   }
 
@@ -115,6 +133,7 @@ export class ReservaInventario {
     const cantidadPendiente = this.cantidadPendiente - quantity;
     const cantidadLiberada = this.cantidadLiberada + quantity;
     const closed = cantidadPendiente === 0;
+
     const estado: InventoryReservationState = closed
       ? this.cantidadAplicada > 0
         ? 'FINALIZADA_MIXTA'
@@ -130,22 +149,29 @@ export class ReservaInventario {
       cerradaEn: closed ? now : null,
       version: this.version + 1,
     };
+
     this.assertInvariant();
   }
 
   cancel(now = new Date()): number {
     this.assertOpen();
     const quantity = this.cantidadPendiente;
+
     this.props = {
       ...this.props,
       cantidadPendiente: 0,
       cantidadLiberada: this.cantidadLiberada + quantity,
-      estado: this.cantidadAplicada > 0 ? 'FINALIZADA_MIXTA' : 'CANCELADA',
+      estado:
+        this.cantidadAplicada > 0
+          ? 'FINALIZADA_MIXTA'
+          : 'CANCELADA',
       canceladaEn: now,
-      liberadaEn: this.cantidadAplicada === 0 ? now : this.liberadaEn,
+      liberadaEn:
+        this.cantidadAplicada === 0 ? now : this.liberadaEn,
       cerradaEn: now,
       version: this.version + 1,
     };
+
     this.assertInvariant();
     return quantity;
   }
@@ -153,13 +179,19 @@ export class ReservaInventario {
   private assertOperableQuantity(quantity: number): void {
     this.assertPositiveQuantity(quantity);
     this.assertOpen();
+
     if (quantity > this.cantidadPendiente) {
-      throw new InventoryReservationQuantityExceededError(this.cantidadPendiente, quantity);
+      throw new InventoryReservationQuantityExceededError(
+        this.cantidadPendiente,
+        quantity,
+      );
     }
   }
 
   private assertOpen(): void {
-    if (this.isClosed()) throw new InventoryReservationClosedError(this.id);
+    if (this.isClosed()) {
+      throw new InventoryReservationClosedError(this.id);
+    }
   }
 
   private assertPositiveQuantity(quantity: number): void {
@@ -170,6 +202,7 @@ export class ReservaInventario {
 
   private assertInvariant(): void {
     const p = this.props;
+
     if (
       !Number.isInteger(p.cantidadOriginal) ||
       !Number.isInteger(p.cantidadPendiente) ||
@@ -179,11 +212,16 @@ export class ReservaInventario {
       p.cantidadPendiente < 0 ||
       p.cantidadAplicada < 0 ||
       p.cantidadLiberada < 0 ||
-      p.cantidadOriginal !== p.cantidadPendiente + p.cantidadAplicada + p.cantidadLiberada ||
+      p.cantidadOriginal !==
+        p.cantidadPendiente +
+          p.cantidadAplicada +
+          p.cantidadLiberada ||
       !Number.isInteger(p.version) ||
       p.version < 0
     ) {
-      throw new Error('ReservaInventario fue construida con un estado inválido.');
+      throw new Error(
+        'ReservaInventario fue construida con un estado inválido.',
+      );
     }
   }
 }

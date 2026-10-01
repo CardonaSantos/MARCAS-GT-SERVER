@@ -23,14 +23,19 @@ export class BodegaDirectoryAdapter implements BodegaDirectoryPort {
 
   private toEntry(bodega: {
     id?: number;
+    empresaId: number;
     codigo: string;
     nombre: string;
     activo: boolean;
     esPrincipal: boolean;
   }): BodegaDirectoryEntry {
-    if (!bodega.id) throw new Error('La bodega persistida no tiene id.');
+    if (!bodega.id) {
+      throw new Error('La bodega persistida no tiene id.');
+    }
+
     return {
       id: bodega.id,
+      empresaId: bodega.empresaId,
       codigo: bodega.codigo,
       nombre: bodega.nombre,
       activo: bodega.activo,

@@ -7,3 +7,4 @@ export const ORDER_PRODUCT_CATALOG = Symbol('ORDER_PRODUCT_CATALOG');
 export const ORDER_DIRECTORY = Symbol('ORDER_DIRECTORY');
 
 export const ORDER_CREDIT_GATE = Symbol('ORDER_CREDIT_GATE');
+export const ORDER_DISPATCH_GATE = Symbol('ORDER_DISPATCH_GATE');
