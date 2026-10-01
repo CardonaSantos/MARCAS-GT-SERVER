@@ -1,23 +1,27 @@
 import { PrismaClient } from '@prisma/client';
 
-function databaseIdentity(raw: string): string {
-  const value = raw.trim().replace(/^["']|["']$/g, '');
+function assertLocalDatabaseUrl(rawUrl: string): string {
+  const value = rawUrl.trim().replace(/^["']|["']$/g, '');
+
+  let url: URL;
 
   try {
-    const url = new URL(value);
-    const schema = url.searchParams.get('schema') ?? 'public';
-    const port = url.port || '5432';
-
-    return [
-      url.protocol.toLowerCase(),
-      url.hostname.toLowerCase(),
-      port,
-      url.pathname.replace(/\/+$/, '').toLowerCase(),
-      schema.toLowerCase(),
-    ].join('|');
+    url = new URL(value);
   } catch {
-    return value.replace(/\s+/g, '').replace(/\/+$/, '').toLowerCase();
+    throw new Error(
+      'TEST_DATABASE_URL no tiene un formato PostgreSQL válido.',
+    );
   }
+
+  const allowedHosts = new Set(['localhost', '127.0.0.1', '::1']);
+
+  if (!allowedHosts.has(url.hostname.toLowerCase())) {
+    throw new Error(
+      'La integración de Transporte solo puede ejecutarse contra PostgreSQL local.',
+    );
+  }
+
+  return value;
 }
 
 export function requireIntegrationDatabaseUrl(): string {
@@ -25,23 +29,11 @@ export function requireIntegrationDatabaseUrl(): string {
 
   if (!testUrl) {
     throw new Error(
-      'TEST_DATABASE_URL es obligatoria para la integración de Transporte.',
+      'TEST_DATABASE_URL es obligatoria durante la ejecución de los tests de integración.',
     );
   }
 
-  // const normalUrl = process.env.DATABASE_URL?.trim();
-
-  // if (
-  //   normalUrl &&
-  //   databaseIdentity(normalUrl) === databaseIdentity(testUrl)
-  // ) {
-  //   throw new Error(
-  //     'TEST_DATABASE_URL no puede apuntar a la misma base que DATABASE_URL. ' +
-  //       'Se rechazó la ejecución por seguridad.',
-  //   );
-  // }
-
-  return testUrl;
+  return assertLocalDatabaseUrl(testUrl);
 }
 
 export function createIntegrationPrisma(): PrismaClient {
