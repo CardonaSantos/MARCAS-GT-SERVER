@@ -59,7 +59,7 @@ import { EntregasModule } from './modules/entregas';
     CustomerLocationModule,
     AnalitycsModule,
     ScheduleModule.forRoot(),
-    EmpresaModule,
+    EmpresaModule, //-
     ReportsModule,
     RecoveryModule,
     CreditoModule,
