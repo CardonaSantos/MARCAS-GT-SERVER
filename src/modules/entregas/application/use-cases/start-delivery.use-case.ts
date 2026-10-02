@@ -24,6 +24,10 @@ export class StartDeliveryUseCase {
       this.transport,
       this.dispatches,
     );
+
+    // Reintento HTTP después de un start ya confirmado.
+    if (delivery.estado === 'EN_RUTA') return delivery;
+
     Delivery.restore({ estado: delivery.estado, version: delivery.version, detalles: [] }).assertStartable();
     if (!stop || stop.paradaEstado !== 'EN_RUTA') {
       throw new DeliveryValidationError('La parada de transporte ya no está disponible para atención.');

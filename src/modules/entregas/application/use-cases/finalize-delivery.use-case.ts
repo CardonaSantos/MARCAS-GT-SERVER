@@ -6,10 +6,15 @@ import {
 } from '../../../transporte';
 import { DeliveryRepositoryPort } from '../../domain/ports/delivery.repository.port';
 import { Delivery } from '../../domain/entities/delivery.entity';
-import { DeliveryValidationError } from '../../domain/errors/delivery.errors';
+import {
+  DeliveryInvalidStateError,
+  DeliveryValidationError,
+} from '../../domain/errors/delivery.errors';
 import { DeliveryActorDirectoryPort } from '../ports/delivery-actor-directory.port';
 import { FinalizeDeliveryCommand } from '../models/delivery.models';
 import { deliveryContext } from './delivery.helpers';
+
+const FINAL_STATES = ['ENTREGADA', 'PARCIAL', 'RECHAZADA', 'NO_ENTREGADA'];
 
 export class FinalizeDeliveryUseCase {
   constructor(
@@ -25,6 +30,16 @@ export class FinalizeDeliveryUseCase {
     const { actor, delivery, stop } = await deliveryContext(
       command.id, command.actorId, this.repository, this.actors, this.transport, this.dispatches,
     );
+
+    // Un retry exacto después de haber cerrado localmente es un no-op exitoso.
+    if (FINAL_STATES.includes(delivery.estado)) {
+      if (delivery.estado === command.resultado) return delivery;
+      throw new DeliveryInvalidStateError(
+        delivery.estado,
+        `finalizar nuevamente como ${command.resultado}`,
+      );
+    }
+
     if (!stop) throw new DeliveryValidationError('La entrega no está vinculada a una parada de transporte.');
 
     const loaded = new Map(stop.carga.map((x) => [x.ordenDespachoDetalleId, x.cantidadCargada]));
@@ -72,8 +87,9 @@ export class FinalizeDeliveryUseCase {
 
     const refreshed = await this.repository.findById(delivery.id);
     if (!refreshed) throw new DeliveryValidationError('La entrega dejó de existir durante la finalización.');
-    if (['ENTREGADA', 'PARCIAL', 'RECHAZADA', 'NO_ENTREGADA'].includes(refreshed.estado)) {
-      return refreshed;
+    if (FINAL_STATES.includes(refreshed.estado)) {
+      if (refreshed.estado === command.resultado) return refreshed;
+      throw new DeliveryInvalidStateError(refreshed.estado, 'completar la recuperación de la entrega');
     }
 
     await this.repository.finalize({
