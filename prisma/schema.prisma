@@ -509,12 +509,13 @@ model Usuario {
 
   operacionesIntegracionCreditoPedido OperacionIntegracionCreditoPedido[] @relation("OperacionIntegracionCreditoPedidoActor")
 
-  enviosCreados         Envio[] @relation("EnvioCreadoPor")
-  enviosAsignados       Envio[] @relation("EnvioAsignadoPor")
-  enviosCargaConfirmada Envio[] @relation("EnvioCargaConfirmadaPor")
-  enviosIniciados       Envio[] @relation("EnvioIniciadoPor")
-  enviosCompletados     Envio[] @relation("EnvioCompletadoPor")
-  enviosCancelados      Envio[] @relation("EnvioCanceladoPor")
+  enviosCreados         Envio[]         @relation("EnvioCreadoPor")
+  enviosAsignados       Envio[]         @relation("EnvioAsignadoPor")
+  enviosCargaConfirmada Envio[]         @relation("EnvioCargaConfirmadaPor")
+  enviosIniciados       Envio[]         @relation("EnvioIniciadoPor")
+  enviosCompletados     Envio[]         @relation("EnvioCompletadoPor")
+  enviosCancelados      Envio[]         @relation("EnvioCanceladoPor")
+  eventosEntrega        EntregaEvento[] @relation("EntregaEventoUsuario")
 
   incidenciasEnvioReportadas EnvioIncidencia[] @relation("EnvioIncidenciaReportadaPor")
   incidenciasEnvioResueltas  EnvioIncidencia[] @relation("EnvioIncidenciaResueltaPor")
@@ -973,11 +974,23 @@ enum EstadoEntrega {
   CANCELADA
 }
 
+enum TipoEventoEntrega {
+  CREADA
+  INICIADA
+  ENTREGA_PARCIAL
+  ENTREGADA
+  RECHAZADA
+  NO_ENTREGADA
+  CANCELADA
+  EVIDENCIA_AGREGADA
+  OBSERVACION
+}
+
 enum TipoEvidenciaEntrega {
   FIRMA
   FOTO
   DOCUMENTO
-  GPS
+  // GPS
   OTRO
 }
 
@@ -2273,70 +2286,175 @@ model OrdenDespachoEvento {
 }
 
 model Entrega {
-  id                Int           @id @default(autoincrement())
-  ordenDespachoId   Int
-  pedidoId          Int
-  clienteId         Int
-  registradoPorId   Int?
-  estado            EstadoEntrega @default(PENDIENTE)
+  id              Int @id @default(autoincrement())
+  ordenDespachoId Int
+  pedidoId        Int
+  clienteId       Int
+
+  registradoPorId Int?
+
+  estado EstadoEntrega @default(PENDIENTE)
+
+  // Datos de quien recibe físicamente la mercadería.
   receptorNombre    String?
   receptorDocumento String?
-  firmaUrl          String?
-  latitud           Decimal?      @db.Decimal(10, 7)
-  longitud          Decimal?      @db.Decimal(10, 7)
-  entregadoEn       DateTime?
-  observaciones     String?
-  creadoEn          DateTime      @default(now())
-  actualizadoEn     DateTime      @updatedAt
 
+  // Ubicación real donde se registró el resultado.
+  latitud  Decimal? @db.Decimal(10, 7)
+  longitud Decimal? @db.Decimal(10, 7)
+
+  // Workflow.
+  iniciadaEn   DateTime?
+  entregadoEn  DateTime?
+  finalizadaEn DateTime?
+
+  // Se utiliza cuando la entrega termina sin completarse.
+  motivoNoEntrega  MotivoNoEntrega?
+  detalleNoEntrega String?
+
+  observaciones String?
+
+  // Permite proteger la creación/reintento de una entrega.
+  claveIdempotencia String? @unique
+
+  // Concurrencia optimista.
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  // Relación pública con la parada de Transporte.
+  //
+  // Una parada solo puede producir una Entrega.
+  // Puede ser null para soportar una entrega manual/directa.
   envioDespachoId Int?           @unique
   envioDespacho   EnvioDespacho? @relation(fields: [envioDespachoId], references: [id], onDelete: SetNull)
 
-  ordenDespacho OrdenDespacho      @relation(fields: [ordenDespachoId], references: [id], onDelete: Restrict)
-  pedido        Pedido             @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
-  cliente       Cliente            @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  registradoPor Usuario?           @relation("EntregaRegistradaPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
-  detalles      EntregaDetalle[]
-  evidencias    EntregaEvidencia[]
-  factura       Factura?
+  ordenDespacho OrdenDespacho @relation(fields: [ordenDespachoId], references: [id], onDelete: Restrict)
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+
+  registradoPor Usuario? @relation("EntregaRegistradaPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
+
+  detalles   EntregaDetalle[]
+  evidencias EntregaEvidencia[]
+  eventos    EntregaEvento[]
+
+  factura Factura?
 
   @@index([envioDespachoId, estado])
   @@index([pedidoId, estado])
-  @@index([ordenDespachoId])
+  @@index([ordenDespachoId, estado])
+  @@index([clienteId, estado, creadoEn])
+  @@index([registradoPorId, creadoEn])
+  @@index([estado, creadoEn])
 }
 
 model EntregaDetalle {
-  id                     Int     @id @default(autoincrement())
+  id                     Int @id @default(autoincrement())
   entregaId              Int
   ordenDespachoDetalleId Int
   pedidoDetalleId        Int
   productoId             Int
-  cantidadEntregada      Int
-  cantidadRechazada      Int     @default(0)
-  motivoRechazo          String?
 
-  entrega              Entrega              @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+  cantidadEntregada Int @default(0)
+  cantidadRechazada Int @default(0)
+
+  motivoRechazo String?
+
+  // Concurrencia optimista.
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  entrega Entrega @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+
   ordenDespachoDetalle OrdenDespachoDetalle @relation(fields: [ordenDespachoDetalleId], references: [id], onDelete: Restrict)
-  pedidoDetalle        PedidoDetalle        @relation(fields: [pedidoDetalleId], references: [id], onDelete: Restrict)
-  producto             Producto             @relation(fields: [productoId], references: [id], onDelete: Restrict)
-  facturaDetalles      FacturaDetalle[]
+
+  pedidoDetalle PedidoDetalle @relation(fields: [pedidoDetalleId], references: [id], onDelete: Restrict)
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Restrict)
+
+  facturaDetalles FacturaDetalle[]
 
   @@unique([entregaId, ordenDespachoDetalleId])
+  @@index([pedidoDetalleId])
+  @@index([productoId])
+  @@index([ordenDespachoDetalleId])
 }
 
 model EntregaEvidencia {
-  id        Int                  @id @default(autoincrement())
+  id        Int @id @default(autoincrement())
   entregaId Int
-  tipo      TipoEvidenciaEntrega
-  url       String
-  key       String?
-  mimeType  String?
-  size      Int?
-  creadoEn  DateTime             @default(now())
+
+  tipo TipoEvidenciaEntrega
+
+  url      String
+  key      String?
+  mimeType String?
+  size     Int?
+
+  descripcion String?
+
+  // Evita duplicar evidencia por reintentos de subida.
+  claveIdempotencia String? @unique
+
+  creadoEn DateTime @default(now())
 
   entrega Entrega @relation(fields: [entregaId], references: [id], onDelete: Cascade)
 
   @@index([entregaId, tipo])
+  @@index([entregaId, creadoEn])
+}
+
+model EntregaEvento {
+  id        Int  @id @default(autoincrement())
+  entregaId Int
+  usuarioId Int?
+
+  tipo   TipoEventoEntrega
+  estado EstadoEntrega
+
+  detalle String?
+
+  // Referencia lógica a otro bounded context.
+  //
+  // Ejemplos:
+  //
+  // ENVIO_DESPACHO / 41
+  // PEDIDO         / 82
+  // FACTURA        / 19
+  //
+  // No se utiliza FK deliberadamente.
+  referenciaTipo String?
+  referenciaId   Int?
+
+  // Protege eventos derivados de comandos reintentados.
+  claveIdempotencia String? @unique
+
+  // Snapshot adicional del evento.
+  //
+  // Ejemplo:
+  // {
+  //   cantidadEntregada: 8,
+  //   cantidadRechazada: 2
+  // }
+  metadata Json?
+
+  creadoEn DateTime @default(now())
+
+  entrega Entrega @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+
+  usuario Usuario? @relation("EntregaEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([entregaId, creadoEn])
+  @@index([tipo, creadoEn])
+  @@index([estado, creadoEn])
+  @@index([usuarioId, creadoEn])
+  @@index([referenciaTipo, referenciaId])
 }
 
 // ============================================================================
@@ -2788,4 +2906,16 @@ enum EstadoDetalleOperacionDespacho {
   PENDIENTE
   APLICADA
   FALLIDA
+}
+
+enum MotivoNoEntrega {
+  CLIENTE_AUSENTE
+  DIRECCION_INCORRECTA
+  LOCAL_CERRADO
+  REPROGRAMADA
+  RECHAZO_CLIENTE
+  PROBLEMA_ACCESO
+  DOCUMENTACION
+  MERCADERIA_DANADA
+  OTRO
 }
