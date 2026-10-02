@@ -34,7 +34,12 @@ export class GetDeliveryUseCase {
     return {
       ...view,
       trackingActual: current
-        ? { ...current, stale: Date.now() - current.capturadoEn.getTime() > 300000 }
+        ? {
+            ...current,
+            stale:
+              !current.capturadoEn ||
+              Date.now() - current.capturadoEn.getTime() > 300000,
+          }
         : null,
     };
   }
