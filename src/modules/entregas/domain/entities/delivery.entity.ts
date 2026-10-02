@@ -93,7 +93,7 @@ export class Delivery {
     longitud?: number | null;
     motivoNoEntrega?: DeliveryFailureReason | null;
     detalleNoEntrega?: string | null;
-    evidencias: { tipo: string }[];
+    evidencias: readonly { tipo: string }[];
     modalidad: 'INTERNO' | 'EXTERNO';
     lineas: readonly DeliveryLineSnapshot[];
   }): void {

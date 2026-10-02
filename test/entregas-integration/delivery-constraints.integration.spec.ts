@@ -26,7 +26,11 @@ describe('Entregas constraints / PostgreSQL integration', () => {
     fixture = null;
   });
 
-  afterAll(async () => prisma.$disconnect());
+  afterAll(async () => {
+    if (prisma) {
+      await prisma.$disconnect();
+    }
+  });
 
   async function createDelivery() {
     const f = fixture!;

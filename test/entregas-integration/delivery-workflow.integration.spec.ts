@@ -47,7 +47,11 @@ describe('Entregas workflow / PostgreSQL integration', () => {
     fixture = null;
   });
 
-  afterAll(async () => prisma.$disconnect());
+  afterAll(async () => {
+    if (prisma) {
+      await prisma.$disconnect();
+    }
+  });
 
   async function runningStop() {
     const f = fixture!;
