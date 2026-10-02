@@ -124,3 +124,26 @@ empresaId nunca proviene del frontend.
 - ENTREGADA exige toda la carga aceptada y firma/foto;
 - PARCIAL exige aceptación parcial y evidencia;
 - NO_ENTREGADA exige motivo.
+
+
+## Pruebas
+
+Unitarias del módulo:
+
+```powershell
+npm test -- entregas --runInBand
+```
+
+PostgreSQL integration:
+
+```powershell
+.\scripts\run-entregas-integration.ps1
+```
+
+HTTP E2E:
+
+```powershell
+.\scripts\run-entregas-e2e.ps1
+```
+
+Ambos runners rechazan cualquier DATABASE_URL que no apunte a PostgreSQL local.
