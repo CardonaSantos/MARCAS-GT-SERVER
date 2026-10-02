@@ -1,4 +1,5 @@
 import {
+  AddShipmentObservationUseCase,
   CancelShipmentUseCase,
   ReportShipmentIncidentUseCase,
   ResolveShipmentIncidentUseCase,
@@ -11,6 +12,7 @@ describe('Transport workflow application use-cases', () => {
     cancelShipment: jest.fn(),
     reportIncident: jest.fn(),
     resolveIncident: jest.fn(),
+    addObservation: jest.fn(),
   } as any;
 
   const query = {
@@ -161,6 +163,51 @@ describe('Transport workflow application use-cases', () => {
       ).rejects.toMatchObject({
         code: 'TRANSPORT_FORBIDDEN',
       });
+    });
+  });
+
+  describe('AddShipmentObservationUseCase', () => {
+    const useCase = new AddShipmentObservationUseCase(workflow, query, actors);
+
+    it('solo agrega observación cuando el envío está dentro del scope del actor', async () => {
+      query.getShipmentState.mockResolvedValue({
+        id: 25,
+        estado: 'PROGRAMADO',
+        modalidad: 'INTERNO',
+        version: 0,
+        responsableId: null,
+      });
+
+      await useCase.execute({
+        id: 25,
+        actorId: 1,
+        detalle: 'Observación autorizada',
+        claveIdempotencia: 'OBS-ENV-25-001',
+      });
+
+      expect(workflow.addObservation).toHaveBeenCalledWith({
+        shipmentId: 25,
+        actorId: 1,
+        detalle: 'Observación autorizada',
+        claveIdempotencia: 'OBS-ENV-25-001',
+      });
+    });
+
+    it('oculta un envío fuera del scope', async () => {
+      query.getShipmentState.mockResolvedValue(null);
+
+      await expect(
+        useCase.execute({
+          id: 25,
+          actorId: 1,
+          detalle: 'No debería escribirse',
+          claveIdempotencia: 'OBS-ENV-25-002',
+        }),
+      ).rejects.toMatchObject({
+        code: 'TRANSPORT_NOT_FOUND',
+      });
+
+      expect(workflow.addObservation).not.toHaveBeenCalled();
     });
   });
 

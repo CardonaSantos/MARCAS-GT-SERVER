@@ -12,6 +12,7 @@ describe('AssignShipmentUseCase', () => {
   } as any;
 
   const query = {
+    findIdempotentOperation: jest.fn(),
     getShipmentState: jest.fn(),
   } as any;
 
@@ -51,6 +52,7 @@ describe('AssignShipmentUseCase', () => {
       }
       return null;
     });
+    query.findIdempotentOperation.mockResolvedValue(null);
     query.getShipmentState.mockResolvedValue({
       id: 5,
       estado: 'PROGRAMADO',
@@ -100,6 +102,47 @@ describe('AssignShipmentUseCase', () => {
         claveIdempotencia: 'ASSIGN-ENV-5-001',
       }),
     );
+  });
+
+  it('repite asignación con la misma clave sin duplicar operación', async () => {
+    query.findIdempotentOperation.mockResolvedValue({
+      envioId: 5,
+      tipo: 'ASIGNADO',
+    });
+
+    await expect(
+      useCase.execute({
+        id: 5,
+        vehiculoId: 30,
+        conductorId: 40,
+        responsableId: 77,
+        claveIdempotencia: 'ASSIGN-ENV-5-001',
+        actorId: 1,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(query.getShipmentState).not.toHaveBeenCalled();
+    expect(workflow.assignResources).not.toHaveBeenCalled();
+  });
+
+  it('rechaza reutilizar una clave de idempotencia de otra operación', async () => {
+    query.findIdempotentOperation.mockResolvedValue({
+      envioId: 99,
+      tipo: 'CARGA_CONFIRMADA',
+    });
+
+    await expect(
+      useCase.execute({
+        id: 5,
+        vehiculoId: 30,
+        conductorId: 40,
+        responsableId: 77,
+        claveIdempotencia: 'ASSIGN-ENV-5-001',
+        actorId: 1,
+      }),
+    ).rejects.toMatchObject({
+      code: 'TRANSPORT_IDEMPOTENCY_CONFLICT',
+    });
   });
 
   it('rechaza envío inexistente', async () => {

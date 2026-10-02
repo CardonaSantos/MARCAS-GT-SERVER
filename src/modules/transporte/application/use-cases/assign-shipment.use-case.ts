@@ -1,6 +1,7 @@
 import { TransportCatalogRepositoryPort } from '../../domain/ports/transport-catalog.repository.port';
 import { TransportWorkflowPort } from '../../domain/ports/transport-workflow.port';
 import {
+  TransportIdempotencyConflictError,
   TransportNotFoundError,
   TransportResourceNotFoundError,
   TransportResourceUnavailableError,
@@ -23,6 +24,24 @@ export class AssignShipmentUseCase {
   async execute(input: any) {
     const actor = await requireTransportActor(this.actors, input.actorId);
     assertPlanner(actor);
+
+    const existing = await this.query.findIdempotentOperation(
+      input.claveIdempotencia,
+    );
+
+    if (existing) {
+      if (existing.envioId === input.id && existing.tipo === 'ASIGNADO') {
+        return;
+      }
+
+      throw new TransportIdempotencyConflictError({
+        claveIdempotencia: input.claveIdempotencia,
+        envioId: input.id,
+        envioExistente: existing.envioId,
+        eventoExistente: existing.tipo,
+      });
+    }
+
     const current = await this.query.getShipmentState(
       input.id,
       transportReadScope(actor),

@@ -28,6 +28,7 @@ import {
   CancelShipmentUseCase,
   ReportShipmentIncidentUseCase,
   ResolveShipmentIncidentUseCase,
+  AddShipmentObservationUseCase,
 } from './application/use-cases/workflow.use-cases';
 import {
   GetShipmentUseCase,
@@ -178,6 +179,15 @@ import {
         q: TransportQueryPort,
         a: TransportActorDirectoryPort,
       ) => new ResolveShipmentIncidentUseCase(w, q, a),
+      inject: [TRANSPORT_WORKFLOW, TRANSPORT_QUERY, TRANSPORT_ACTOR_DIRECTORY],
+    },
+    {
+      provide: AddShipmentObservationUseCase,
+      useFactory: (
+        w: TransportWorkflowPort,
+        q: TransportQueryPort,
+        a: TransportActorDirectoryPort,
+      ) => new AddShipmentObservationUseCase(w, q, a),
       inject: [TRANSPORT_WORKFLOW, TRANSPORT_QUERY, TRANSPORT_ACTOR_DIRECTORY],
     },
     {

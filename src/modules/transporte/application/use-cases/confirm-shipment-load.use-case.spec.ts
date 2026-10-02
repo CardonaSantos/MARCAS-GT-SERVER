@@ -6,6 +6,7 @@ describe('ConfirmShipmentLoadUseCase', () => {
   } as any;
 
   const query = {
+    findIdempotentOperation: jest.fn(),
     getShipment: jest.fn(),
   } as any;
 
@@ -57,6 +58,7 @@ describe('ConfirmShipmentLoadUseCase', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     actors.findById.mockResolvedValue(actor);
+    query.findIdempotentOperation.mockResolvedValue(null);
     query.getShipment.mockResolvedValue(shipment);
     dispatches.findById.mockResolvedValue({
       id: 50,
@@ -88,6 +90,43 @@ describe('ConfirmShipmentLoadUseCase', () => {
       actorId: 1,
       claveIdempotencia: 'LOAD-ENV-10-001',
       lineas: [{ cargaDetalleId: 700, cantidadCargada: 5 }],
+    });
+  });
+
+  it('repite confirmación con la misma clave sin duplicar operación', async () => {
+    query.findIdempotentOperation.mockResolvedValue({
+      envioId: 10,
+      tipo: 'CARGA_CONFIRMADA',
+    });
+
+    await expect(
+      useCase.execute({
+        id: 10,
+        claveIdempotencia: 'LOAD-ENV-10-001',
+        lineas: [{ cargaDetalleId: 700, cantidadCargada: 5 }],
+        actorId: 1,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(query.getShipment).not.toHaveBeenCalled();
+    expect(workflow.confirmLoad).not.toHaveBeenCalled();
+  });
+
+  it('rechaza reutilizar una clave de otra operación', async () => {
+    query.findIdempotentOperation.mockResolvedValue({
+      envioId: 99,
+      tipo: 'ASIGNADO',
+    });
+
+    await expect(
+      useCase.execute({
+        id: 10,
+        claveIdempotencia: 'LOAD-ENV-10-001',
+        lineas: [{ cargaDetalleId: 700, cantidadCargada: 5 }],
+        actorId: 1,
+      }),
+    ).rejects.toMatchObject({
+      code: 'TRANSPORT_IDEMPOTENCY_CONFLICT',
     });
   });
 

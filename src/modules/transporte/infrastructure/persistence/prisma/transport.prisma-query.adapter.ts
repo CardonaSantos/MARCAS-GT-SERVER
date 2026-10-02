@@ -45,6 +45,25 @@ export class TransportPrismaQueryAdapter implements TransportQueryPort {
   // ENVÍO: ESTADO / LISTADO / DETALLE
   // ==========================================================================
 
+  async findIdempotentOperation(key: string) {
+    const event = await this.prisma.envioEvento.findUnique({
+      where: {
+        claveIdempotencia: key,
+      },
+      select: {
+        envioId: true,
+        tipo: true,
+      },
+    });
+
+    return event
+      ? {
+          envioId: event.envioId,
+          tipo: event.tipo,
+        }
+      : null;
+  }
+
   async getShipmentState(id: number, scope: TransportReadScope) {
     const row = await this.prisma.envio.findFirst({
       where: {

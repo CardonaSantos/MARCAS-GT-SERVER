@@ -46,6 +46,10 @@ export type ShipmentListFilters = Readonly<{
   scope: TransportReadScope;
 }>;
 export interface TransportQueryPort {
+  findIdempotentOperation(
+    key: string,
+  ): Promise<{ envioId: number; tipo: string } | null>;
+
   getShipmentState(
     id: number,
     scope: TransportReadScope,

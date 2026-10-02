@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  Inject,
   Param,
   ParseIntPipe,
   Post,
@@ -24,6 +23,7 @@ import {
   CancelShipmentUseCase,
   ReportShipmentIncidentUseCase,
   ResolveShipmentIncidentUseCase,
+  AddShipmentObservationUseCase,
 } from '../../application/use-cases/workflow.use-cases';
 import {
   GetShipmentUseCase,
@@ -32,8 +32,6 @@ import {
   ListShipmentCandidatesUseCase,
   ListShipmentsUseCase,
 } from '../../application/use-cases/read.use-cases';
-import { TransportWorkflowPort } from '../../domain/ports/transport-workflow.port';
-import { TRANSPORT_WORKFLOW } from '../../transport.tokens';
 import { TransportExceptionFilter } from './transport-exception.filter';
 import {
   AssignShipmentDto,
@@ -72,8 +70,7 @@ export class TransportController {
     private readonly candidatesUse: ListShipmentCandidatesUseCase,
     private readonly summaryUse: GetTransportSummaryUseCase,
     private readonly reportUse: GetTransportOperationalReportUseCase,
-    @Inject(TRANSPORT_WORKFLOW)
-    private readonly workflow: TransportWorkflowPort,
+    private readonly observationUse: AddShipmentObservationUseCase,
   ) {}
   @Get()
   @Roles('ADMIN', 'BODEGA', 'CONTABILIDAD', 'VENDEDOR', 'REPARTIDOR')
@@ -143,8 +140,8 @@ export class TransportController {
     @Body() d: ObservationDto,
     @CurrentActorId() a: number,
   ) {
-    return this.workflow.addObservation({
-      shipmentId: id,
+    return this.observationUse.execute({
+      id,
       actorId: a,
       detalle: d.detalle,
       claveIdempotencia: d.claveIdempotencia,

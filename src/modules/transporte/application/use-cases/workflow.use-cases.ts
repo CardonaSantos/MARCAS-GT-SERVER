@@ -104,3 +104,31 @@ export class ResolveShipmentIncidentUseCase {
     });
   }
 }
+
+
+export class AddShipmentObservationUseCase {
+  constructor(
+    private readonly workflow: TransportWorkflowPort,
+    private readonly query: TransportQueryPort,
+    private readonly actors: TransportActorDirectoryPort,
+  ) {}
+
+  async execute(input: any) {
+    const actor = await requireTransportActor(this.actors, input.actorId);
+    const current = await this.query.getShipmentState(
+      input.id,
+      transportReadScope(actor),
+    );
+
+    if (!current) {
+      throw new TransportNotFoundError(input.id);
+    }
+
+    return this.workflow.addObservation({
+      shipmentId: input.id,
+      actorId: actor.id,
+      detalle: input.detalle,
+      claveIdempotencia: input.claveIdempotencia,
+    });
+  }
+}

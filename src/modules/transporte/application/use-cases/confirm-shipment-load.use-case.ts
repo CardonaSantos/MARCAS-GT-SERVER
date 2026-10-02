@@ -1,5 +1,6 @@
 import { DispatchDirectoryPort } from '../../../despachos';
 import {
+  TransportIdempotencyConflictError,
   TransportNotFoundError,
   TransportQuantityExceededError,
   TransportValidationError,
@@ -22,6 +23,27 @@ export class ConfirmShipmentLoadUseCase {
   async execute(input: any) {
     const actor = await requireTransportActor(this.actors, input.actorId);
     assertPlanner(actor);
+
+    const existing = await this.query.findIdempotentOperation(
+      input.claveIdempotencia,
+    );
+
+    if (existing) {
+      if (
+        existing.envioId === input.id &&
+        existing.tipo === 'CARGA_CONFIRMADA'
+      ) {
+        return;
+      }
+
+      throw new TransportIdempotencyConflictError({
+        claveIdempotencia: input.claveIdempotencia,
+        envioId: input.id,
+        envioExistente: existing.envioId,
+        eventoExistente: existing.tipo,
+      });
+    }
+
     const shipment = await this.query.getShipment(
       input.id,
       transportReadScope(actor),
