@@ -3,6 +3,7 @@ export {
   ORDER_CREDIT_GATE,
   ORDER_DIRECTORY,
   ORDER_DISPATCH_GATE,
+  ORDER_DELIVERY_GATE,
 } from './order.tokens';
 
 export type {
@@ -19,3 +20,8 @@ export type {
   OrderDispatchGatePort,
   OrderDispatchGateResult,
 } from './application/ports/order-dispatch-gate.port';
+
+export type {
+  OrderDeliveryGatePort,
+  OrderDeliveryGateResult,
+} from './application/ports/order-delivery-gate.port';
