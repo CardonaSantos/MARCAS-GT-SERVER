@@ -235,38 +235,36 @@ describe('Transporte HTTP E2E', () => {
   });
 
   it('crea recursos de transporte por HTTP', async () => {
-    const [vehicle, driver, carrier] = await Promise.all([
-      request(app.getHttpServer())
-        .post('/vehiculos')
-        .set(auth(tokens.admin))
-        .send({
-          placa: `E2E-SPARE-${fixture.suffix}`,
-          marca: 'Toyota',
-          modelo: 'E2E',
-          capacidadKg: 900,
-        })
-        .expect(201),
+    const vehicle = await request(app.getHttpServer())
+      .post('/vehiculos')
+      .set(auth(tokens.admin))
+      .send({
+        placa: `SP-${fixture.suffix.slice(-20)}`,
+        marca: 'Toyota',
+        modelo: 'E2E',
+        capacidadKg: 900,
+      })
+      .expect(201);
 
-      request(app.getHttpServer())
-        .post('/conductores')
-        .set(auth(tokens.bodega))
-        .send({
-          nombre: `Conductor E2E ${fixture.suffix}`,
-          telefono: '55553333',
-          licencia: `LIC-E2E-${fixture.suffix}`,
-        })
-        .expect(201),
+    const driver = await request(app.getHttpServer())
+      .post('/conductores')
+      .set(auth(tokens.bodega))
+      .send({
+        nombre: `Conductor E2E ${fixture.suffix}`,
+        telefono: '55553333',
+        licencia: `LIC-${fixture.suffix.slice(-20)}`,
+      })
+      .expect(201);
 
-      request(app.getHttpServer())
-        .post('/transportistas')
-        .set(auth(tokens.admin))
-        .send({
-          codigo: `E2E-EXT-${fixture.suffix}`,
-          tipo: 'EXTERNO',
-          nombre: `Carrier E2E ${fixture.suffix}`,
-        })
-        .expect(201),
-    ]);
+    const carrier = await request(app.getHttpServer())
+      .post('/transportistas')
+      .set(auth(tokens.admin))
+      .send({
+        codigo: `EXT-${fixture.suffix.slice(-20)}`,
+        tipo: 'EXTERNO',
+        nombre: `Carrier E2E ${fixture.suffix}`,
+      })
+      .expect(201);
 
     spareVehicleId = vehicle.body.id;
     spareDriverId = driver.body.id;

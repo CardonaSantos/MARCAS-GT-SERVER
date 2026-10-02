@@ -84,7 +84,7 @@ export async function createTransportIntegrationFixture(
   const bodega = await prisma.bodega.create({
     data: {
       empresaId: empresa.id,
-      codigo: `BOD-${tag}`,
+      codigo: `BOD-${tag.slice(-20).toUpperCase()}`,
       nombre: `Bodega ${tag}`,
       direccion: 'Zona de integración',
       activo: true,
@@ -314,6 +314,58 @@ export async function cleanupTransportIntegrationFixture(
       id: fixture.cliente.id,
     },
   });
+
+  const fixtureUsers = await prisma.usuario.findMany({
+    where: {
+      empresaId: fixture.empresa.id,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  const fixtureUserIds = fixtureUsers.map((user) => user.id);
+
+  if (fixtureUserIds.length) {
+    const trackingSessions = await prisma.sesionTrackingUsuario.findMany({
+      where: {
+        usuarioId: {
+          in: fixtureUserIds,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    const trackingSessionIds = trackingSessions.map((session) => session.id);
+
+    await prisma.ubicacionUsuarioActual.deleteMany({
+      where: {
+        usuarioId: {
+          in: fixtureUserIds,
+        },
+      },
+    });
+
+    if (trackingSessionIds.length) {
+      await prisma.ubicacionUsuarioHistorial.deleteMany({
+        where: {
+          sesionId: {
+            in: trackingSessionIds,
+          },
+        },
+      });
+    }
+
+    await prisma.sesionTrackingUsuario.deleteMany({
+      where: {
+        usuarioId: {
+          in: fixtureUserIds,
+        },
+      },
+    });
+  }
 
   await prisma.bodega.deleteMany({
     where: {

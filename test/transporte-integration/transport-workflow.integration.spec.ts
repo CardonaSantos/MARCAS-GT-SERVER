@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import {
   TransportConcurrentModificationError,
-  TransportValidationError,
+  TransportQuantityExceededError,
 } from '../../src/modules/transporte/domain/errors/transport.errors';
 import { TransportDeliveryGateAdapter } from '../../src/modules/transporte/infrastructure/adapters/transport-delivery-gate.adapter';
 import { TransportDirectoryAdapter } from '../../src/modules/transporte/infrastructure/adapters/transport-directory.adapter';
@@ -419,7 +419,7 @@ describe('Transporte workflow / PostgreSQL integration', () => {
           },
         ],
       }),
-    ).rejects.toBeInstanceOf(TransportValidationError);
+    ).rejects.toBeInstanceOf(TransportQuantityExceededError);
 
     const [envio, unchangedLoad] = await Promise.all([
       prisma.envio.findUniqueOrThrow({
