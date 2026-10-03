@@ -499,6 +499,21 @@ model Usuario {
   ordenesDespachoCanceladas  OrdenDespacho[]       @relation("OrdenDespachoCanceladoPor")
   eventosOrdenDespacho       OrdenDespachoEvento[] @relation("OrdenDespachoEventoUsuario")
 
+  // NUEVOS AJUSTES
+  pagosVerificados Pago[] @relation("PagoVerificadoPor")
+
+  pagosRechazados Pago[] @relation("PagoRechazadoPor")
+
+  pagosAnulados Pago[] @relation("PagoAnuladoPor")
+
+  comprobantesPagoSubidos PagoComprobante[] @relation("PagoComprobanteSubidoPor")
+
+  aplicacionesPagoRealizadas PagoAplicacion[] @relation("PagoAplicadoPor")
+
+  aplicacionesPagoRevertidas PagoAplicacion[] @relation("PagoAplicacionRevertidaPor")
+
+  eventosPago PagoEvento[] @relation("PagoEventoUsuario")
+
   // NUEVO
   operacionesDespacho OperacionDespacho[] @relation("OperacionDespachoUsuario")
 
@@ -3093,47 +3108,160 @@ model Banco {
 }
 
 model Pago {
-  id              Int                   @id @default(autoincrement())
-  empresaId       Int
-  clienteId       Int
-  pedidoId        Int?
-  bancoId         Int?
-  registradoPorId Int?
-  metodo          MetodoPagoOperacion
-  estado          EstadoPagoTransaccion @default(PENDIENTE)
-  monto           Decimal               @db.Decimal(12, 2)
-  referencia      String?
-  fechaPago       DateTime              @default(now())
-  verificadoEn    DateTime?
-  observaciones   String?
-  creadoEn        DateTime              @default(now())
-  actualizadoEn   DateTime              @updatedAt
+  id        Int @id @default(autoincrement())
+  empresaId Int
+  clienteId Int
+  pedidoId  Int?
+  bancoId   Int?
 
-  empresa       Empresa           @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  cliente       Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  pedido        Pedido?           @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
-  banco         Banco?            @relation(fields: [bancoId], references: [id], onDelete: SetNull)
-  registradoPor Usuario?          @relation("PagoRegistradoPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
-  comprobantes  PagoComprobante[]
-  aplicaciones  PagoAplicacion[]
+  // --------------------------------------------------------------------------
+  // AUDITORÍA DE ACTORES
+  // --------------------------------------------------------------------------
+
+  registradoPorId Int?
+  verificadoPorId Int?
+  rechazadoPorId  Int?
+  anuladoPorId    Int?
+
+  // --------------------------------------------------------------------------
+  // TRANSACCIÓN
+  // --------------------------------------------------------------------------
+
+  metodo MetodoPagoOperacion
+
+  estado EstadoPagoTransaccion @default(PENDIENTE)
+
+  moneda String @default("GTQ")
+
+  monto Decimal @db.Decimal(12, 2)
+
+  // Número de transferencia, depósito, cheque, autorización, etc.
+  // No debe ser @unique global porque distintas cuentas/bancos podrían
+  // utilizar referencias coincidentes.
+  referencia String?
+
+  fechaPago DateTime @default(now())
+
+  // --------------------------------------------------------------------------
+  // VERIFICACIÓN
+  // --------------------------------------------------------------------------
+
+  verificadoEn DateTime?
+
+  rechazadoEn   DateTime?
+  motivoRechazo String?
+
+  anuladoEn       DateTime?
+  motivoAnulacion String?
+
+  observaciones String?
+
+  // --------------------------------------------------------------------------
+  // IDEMPOTENCIA / CONCURRENCIA
+  // --------------------------------------------------------------------------
+
+  // Nullable para compatibilidad con registros históricos.
+  // Los casos de uso nuevos exigirán una clave.
+  claveIdempotencia String? @unique
+
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  // --------------------------------------------------------------------------
+  // RELACIONES
+  // --------------------------------------------------------------------------
+
+  empresa Empresa @relation(fields: [empresaId],references: [id],onDelete: Restrict)
+
+  cliente Cliente @relation(fields: [clienteId],references: [id],onDelete: Restrict)
+
+  pedido Pedido? @relation(fields: [pedidoId],references: [id],onDelete: SetNull)
+
+  banco Banco? @relation(fields: [bancoId],references: [id],onDelete: SetNull)
+
+  registradoPor Usuario? @relation("PagoRegistradoPor",fields: [registradoPorId],references: [id],onDelete: SetNull)
+
+  verificadoPor Usuario? @relation("PagoVerificadoPor",fields: [verificadoPorId],    references: [id],onDelete: SetNull)
+
+  rechazadoPor Usuario? @relation("PagoRechazadoPor",fields: [rechazadoPorId],references: [id],onDelete: SetNull)
+
+  anuladoPor Usuario? @relation("PagoAnuladoPor",fields: [anuladoPorId],references: [id],onDelete: SetNull)
+
+  comprobantes PagoComprobante[]
+  aplicaciones PagoAplicacion[]
+  eventos      PagoEvento[]
+
+  // --------------------------------------------------------------------------
+  // ÍNDICES
+  // --------------------------------------------------------------------------
 
   @@index([empresaId, estado, fechaPago])
   @@index([clienteId, fechaPago])
+  @@index([pedidoId, fechaPago])
+  @@index([bancoId, fechaPago])
+  @@index([empresaId, referencia])
+  @@index([registradoPorId, fechaPago])
+  @@index([verificadoPorId, verificadoEn])
 }
 
 model PagoComprobante {
-  id       Int      @id @default(autoincrement())
-  pagoId   Int
-  url      String
-  key      String?
+  id     Int @id @default(autoincrement())
+  pagoId Int
+
+  subidoPorId Int?
+
+  url String
+  key String?
+
   mimeType String?
   size     Int?
+
+  descripcion String?
+
+  claveIdempotencia String? @unique
+
   creadoEn DateTime @default(now())
 
-  pago Pago @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  pago Pago @relation(fields: [pagoId],references: [id],onDelete: Cascade)
 
-  @@index([pagoId])
+  subidoPor Usuario? @relation("PagoComprobanteSubidoPor",fields: [subidoPorId],references: [id],onDelete: SetNull)
+
+  @@index([pagoId, creadoEn])
+  @@index([subidoPorId, creadoEn])
 }
+
+model PagoEvento {
+  id        Int @id @default(autoincrement())
+  pagoId    Int
+  usuarioId Int?
+
+  tipo   TipoEventoPago
+  estado EstadoPagoTransaccion
+
+  detalle String?
+
+  referenciaTipo String?
+  referenciaId   Int?
+
+  claveIdempotencia String? @unique
+
+  metadata Json?
+
+  creadoEn DateTime @default(now())
+
+  pago Pago @relation(fields: [pagoId],references: [id],onDelete: Cascade)
+
+  usuario Usuario? @relation("PagoEventoUsuario",fields: [usuarioId],references: [id],onDelete: SetNull)
+
+  @@index([pagoId, creadoEn])
+  @@index([tipo, creadoEn])
+  @@index([estado, creadoEn])
+  @@index([usuarioId, creadoEn])
+  @@index([referenciaTipo, referenciaId])
+}
+
 
 model Factura {
   id          Int @id @default(autoincrement())
@@ -3326,17 +3454,50 @@ model CuentaPorCobrar {
 
 
 model PagoAplicacion {
-  id                Int      @id @default(autoincrement())
+  id                Int @id @default(autoincrement())
   pagoId            Int
   cuentaPorCobrarId Int
-  monto             Decimal  @db.Decimal(12, 2)
-  creadoEn          DateTime @default(now())
 
-  pago            Pago            @relation(fields: [pagoId], references: [id], onDelete: Cascade)
-  cuentaPorCobrar CuentaPorCobrar @relation(fields: [cuentaPorCobrarId], references: [id], onDelete: Cascade)
+  monto Decimal @db.Decimal(12, 2)
 
-  @@unique([pagoId, cuentaPorCobrarId])
-  @@index([cuentaPorCobrarId])
+  estado EstadoPagoAplicacion @default(ACTIVA)
+
+  // --------------------------------------------------------------------------
+  // AUDITORÍA
+  // --------------------------------------------------------------------------
+
+  aplicadoPorId Int?
+
+  revertidaEn     DateTime?
+  revertidaPorId  Int?
+  motivoReversion String?
+
+  // Nullable por compatibilidad con posibles registros históricos.
+  // Las nuevas operaciones sí deben enviarla.
+  claveIdempotencia String? @unique
+
+  version Int @default(0)
+
+  creadoEn DateTime @default(now())
+
+  // --------------------------------------------------------------------------
+  // RELACIONES
+  // --------------------------------------------------------------------------
+
+  pago Pago @relation(fields: [pagoId],references: [id],onDelete: Restrict)
+
+  cuentaPorCobrar CuentaPorCobrar @relation(fields: [cuentaPorCobrarId],references: [id],onDelete: Restrict)
+
+  aplicadoPor Usuario? @relation("PagoAplicadoPor",fields: [aplicadoPorId],references: [id],onDelete: SetNull)
+
+  revertidaPor Usuario? @relation("PagoAplicacionRevertidaPor",fields: [revertidaPorId],references: [id],onDelete: SetNull)
+
+  // Ya NO usamos @@unique([pagoId, cuentaPorCobrarId])
+
+  @@index([pagoId, estado])
+  @@index([cuentaPorCobrarId, estado])
+  @@index([aplicadoPorId, creadoEn])
+  @@index([revertidaPorId, revertidaEn])
 }
 
 
@@ -3624,4 +3785,25 @@ enum MotivoNoEntrega {
   DOCUMENTACION
   MERCADERIA_DANADA
   OTRO
+}
+
+
+// ============================================================================
+// PAGOS
+// ============================================================================
+
+enum EstadoPagoAplicacion {
+  ACTIVA
+  REVERSADA
+}
+
+enum TipoEventoPago {
+  CREADO
+  COMPROBANTE_AGREGADO
+  VERIFICADO
+  RECHAZADO
+  APLICADO
+  APLICACION_REVERTIDA
+  ANULADO
+  OBSERVACION
 }
