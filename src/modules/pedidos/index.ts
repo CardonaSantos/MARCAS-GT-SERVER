@@ -1,5 +1,6 @@
 export { PedidosModule } from './orders.module';
 export {
+  ORDER_BILLING_DIRECTORY,
   ORDER_CREDIT_GATE,
   ORDER_DIRECTORY,
   ORDER_DISPATCH_GATE,
@@ -25,3 +26,8 @@ export type {
   OrderDeliveryGatePort,
   OrderDeliveryGateResult,
 } from './application/ports/order-delivery-gate.port';
+
+export type {
+  OrderBillingDirectoryPort,
+  OrderBillingEntry,
+} from './application/ports/order-billing-directory.port';

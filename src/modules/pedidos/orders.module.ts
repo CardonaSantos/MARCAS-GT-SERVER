@@ -20,6 +20,7 @@ import { OrderActorDirectoryPrismaAdapter } from './infrastructure/adapters/orde
 import { OrderCreditGateAdapter } from './infrastructure/adapters/order-credit-gate.adapter';
 import { OrderCustomerDirectoryPrismaAdapter } from './infrastructure/adapters/order-customer-directory.prisma-adapter';
 import { OrderDirectoryAdapter } from './infrastructure/adapters/order-directory.adapter';
+import { OrderBillingDirectoryAdapter } from './infrastructure/adapters/order-billing-directory.adapter';
 import { OrderDispatchGateAdapter } from './infrastructure/adapters/order-dispatch-gate.adapter';
 import { OrderDeliveryGateAdapter } from './infrastructure/adapters/order-delivery-gate.adapter';
 import { OrderProductCatalogPrismaAdapter } from './infrastructure/adapters/order-product-catalog.prisma-adapter';
@@ -28,6 +29,7 @@ import { OrderPrismaQueryAdapter } from './infrastructure/persistence/prisma/ord
 import { OrderPrismaRepository } from './infrastructure/persistence/prisma/order.prisma-repository';
 import {
   ORDER_ACTOR_DIRECTORY,
+  ORDER_BILLING_DIRECTORY,
   ORDER_CREDIT_GATE,
   ORDER_CUSTOMER_DIRECTORY,
   ORDER_DIRECTORY,
@@ -52,6 +54,7 @@ import { OrderController } from './presentation/http/order.controller';
     OrderVisitDirectoryPrismaAdapter,
     OrderProductCatalogPrismaAdapter,
     OrderDirectoryAdapter,
+    OrderBillingDirectoryAdapter,
     OrderCreditGateAdapter,
     OrderDispatchGateAdapter,
     OrderDeliveryGateAdapter,
@@ -75,6 +78,7 @@ import { OrderController } from './presentation/http/order.controller';
       useExisting: OrderProductCatalogPrismaAdapter,
     },
     { provide: ORDER_DIRECTORY, useExisting: OrderDirectoryAdapter },
+    { provide: ORDER_BILLING_DIRECTORY, useExisting: OrderBillingDirectoryAdapter },
     { provide: ORDER_CREDIT_GATE, useExisting: OrderCreditGateAdapter },
     { provide: ORDER_DISPATCH_GATE, useExisting: OrderDispatchGateAdapter },
     { provide: ORDER_DELIVERY_GATE, useExisting: OrderDeliveryGateAdapter },
@@ -186,6 +190,7 @@ import { OrderController } from './presentation/http/order.controller';
   ],
   exports: [
     ORDER_DIRECTORY,
+    ORDER_BILLING_DIRECTORY,
     ORDER_CREDIT_GATE,
     ORDER_DISPATCH_GATE,
     ORDER_DELIVERY_GATE,

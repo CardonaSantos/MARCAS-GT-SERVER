@@ -73,12 +73,16 @@ export class DeliveryPrismaQueryAdapter implements DeliveryQueryPort, DeliveryDi
         detalles: { include: { producto: true, pedidoDetalle: true, ordenDespachoDetalle: true } },
         evidencias: true,
         eventos: { orderBy: { creadoEn: 'desc' }, take: 5, include: { usuario: { select: { id: true, nombre: true, correo: true, rol: true } } } },
-        factura: true,
+        facturas: { include: { factura: true } },
       },
     });
   }
 
   private enrich(row: any) {
+    const invoices = (row.facturas ?? []).map((link: any) => link.factura);
+    const activeInvoice = invoices.find((invoice: any) =>
+      ['BORRADOR', 'LISTA_EMISION', 'EMITIDA'].includes(invoice.estado),
+    ) ?? null;
     const loaded = row.envioDespacho?.cargas?.reduce((a: number, x: any) => a + x.cantidadCargada, 0) ?? 0;
     const delivered = row.detalles.reduce((a: number, x: any) => a + x.cantidadEntregada, 0);
     const rejected = row.detalles.reduce((a: number, x: any) => a + x.cantidadRechazada, 0);
@@ -98,7 +102,7 @@ export class DeliveryPrismaQueryAdapter implements DeliveryQueryPort, DeliveryDi
     if (lat == null || lng == null) warnings.push({ codigo: 'SIN_GPS', nivel: 'ADVERTENCIA', mensaje: 'No hay ubicación final registrada.' });
     if (distance != null && distance > 500) warnings.push({ codigo: 'FUERA_RADIO_DESTINO', nivel: 'ADVERTENCIA', mensaje: `Registrada a ${distance} m del destino planificado.` });
     if (row.pedido.condicionPago === 'CONTRAENTREGA' && row.pedido.estadoPago !== 'PAGADO') warnings.push({ codigo: 'CONTRAENTREGA_PENDIENTE_COBRO', nivel: 'CRITICO', mensaje: 'Pedido contraentrega sin pago completo registrado.' });
-    if (row.estado === 'ENTREGADA' && !row.factura) warnings.push({ codigo: 'ENTREGA_SIN_FACTURAR', nivel: 'INFO', mensaje: 'Entrega disponible para facturación.' });
+    if (['ENTREGADA', 'PARCIAL'].includes(row.estado) && !activeInvoice) warnings.push({ codigo: 'ENTREGA_SIN_FACTURAR', nivel: 'INFO', mensaje: 'Entrega disponible para facturación.' });
 
     return {
       id: row.id,
@@ -186,7 +190,8 @@ export class DeliveryPrismaQueryAdapter implements DeliveryQueryPort, DeliveryDi
       motivoNoEntrega: row.motivoNoEntrega,
       detalleNoEntrega: row.detalleNoEntrega,
       observaciones: row.observaciones,
-      factura: row.factura,
+      factura: activeInvoice,
+      facturas: invoices,
       detalles: row.detalles.map((x: any) => {
         const load = row.envioDespacho?.cargas?.find((c: any) => c.ordenDespachoDetalleId === x.ordenDespachoDetalleId);
         return {
@@ -230,7 +235,7 @@ export class DeliveryPrismaQueryAdapter implements DeliveryQueryPort, DeliveryDi
       ...(filters.registradoPorId ? { registradoPorId: Number(filters.registradoPorId) } : {}),
       ...(filters.motivoNoEntrega ? { motivoNoEntrega: filters.motivoNoEntrega } : {}),
       ...(filters.soloPendientes ? { estado: { in: ['PENDIENTE', 'EN_RUTA'] } } : {}),
-      ...(filters.soloSinFactura ? { factura: null, estado: { in: ['ENTREGADA', 'PARCIAL'] } } : {}),
+      ...(filters.soloSinFactura ? { facturas: { none: { factura: { estado: { in: ['BORRADOR', 'LISTA_EMISION', 'EMITIDA'] } } } }, estado: { in: ['ENTREGADA', 'PARCIAL'] } } : {}),
       ...((filters.fechaDesde || filters.fechaHasta) ? { creadoEn: {
         ...(filters.fechaDesde ? { gte: new Date(filters.fechaDesde) } : {}),
         ...(filters.fechaHasta ? { lte: new Date(filters.fechaHasta) } : {}),
@@ -385,8 +390,8 @@ export class DeliveryPrismaQueryAdapter implements DeliveryQueryPort, DeliveryDi
         promedioEntregaHoras: durations.length ? Math.round((durations.reduce((a: number,b: number)=>a+b,0)/durations.length)*100)/100 : null,
       },
       facturacion: {
-        listasParaFacturar: rows.filter((x: any) => ['ENTREGADA','PARCIAL'].includes(x.estado) && !x.factura).length,
-        facturadas: rows.filter((x: any) => Boolean(x.factura)).length,
+        listasParaFacturar: rows.filter((x: any) => ['ENTREGADA','PARCIAL'].includes(x.estado) && !(x.facturas ?? []).some((link: any) => ['BORRADOR','LISTA_EMISION','EMITIDA'].includes(link.factura.estado))).length,
+        facturadas: rows.filter((x: any) => (x.facturas ?? []).some((link: any) => ['BORRADOR','LISTA_EMISION','EMITIDA'].includes(link.factura.estado))).length,
       },
     };
   }
