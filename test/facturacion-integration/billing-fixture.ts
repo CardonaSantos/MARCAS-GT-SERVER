@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import {
   cleanupTransportIntegrationFixture,
   createTransportIntegrationFixture,
+  TransportIntegrationFixture,
 } from '../transporte-integration/transport-fixture';
 
 export type BillingIntegrationFixture = Awaited<
