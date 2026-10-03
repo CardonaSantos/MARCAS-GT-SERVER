@@ -134,6 +134,66 @@ describe('Facturación constraints / PostgreSQL integration', () => {
     ).rejects.toThrow();
   });
 
+  it('CHECK rechaza tasa de impuesto por detalle mayor a 100', async () => {
+    const f = fixture!;
+    const invoice = await createInvoice();
+
+    const detail = await prisma.facturaDetalle.create({
+      data: {
+        facturaId: invoice.id,
+        productoId: f.base.producto.id,
+        pedidoDetalleId: f.base.pedidoDetalle.id,
+        entregaDetalleId: f.entregas[0].detalles[0].id,
+        descripcion: 'Detalle válido',
+        bienOServicio: 'BIEN',
+        unidadMedida: 'UN',
+        cantidad: 1,
+        precioUnitario: 10,
+        precioBruto: 10,
+        descuento: 0,
+        impuestoTotal: 0,
+        totalLinea: 10,
+      },
+    });
+
+    await expect(
+      prisma.facturaDetalleImpuesto.create({
+        data: {
+          facturaDetalleId: detail.id,
+          nombreCorto: 'IVA',
+          codigoUnidadGravable: 1,
+          tasa: 101,
+          montoGravable: 8.92857143,
+          montoImpuesto: 1.07142857,
+        },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('CHECK exige fecha cuando Factura queda DESCARTADA', async () => {
+    const f = fixture!;
+
+    await expect(
+      prisma.factura.create({
+        data: {
+          empresaId: f.base.empresa.id,
+          clienteId: f.base.cliente.id,
+          pedidoId: f.base.pedido.id,
+          creadoPorId: f.contabilidad.id,
+          estado: 'DESCARTADA',
+          condicionPago: 'CREDITO',
+          moneda: 'GTQ',
+          subtotal: 10,
+          descuentoTotal: 0,
+          impuestoTotal: 0,
+          total: 10,
+          descartadaEn: null,
+          motivoDescarte: 'Inválida sin fecha',
+        },
+      }),
+    ).rejects.toThrow();
+  });
+
   it('CHECK rechaza secuencia DTE con siguienteNumero no positivo', async () => {
     const f = fixture!;
     const fiscal = await configureBillingFiscalProfiles(prisma, f);
