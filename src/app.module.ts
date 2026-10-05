@@ -37,6 +37,7 @@ import { TransporteModule } from './modules/transporte';
 import { EntregasModule } from './modules/entregas';
 import { FacturacionModule } from './modules/facturacion';
 import { PagosModule } from './modules/pagos';
+import { TrackingModule } from './modules/tracking';
 
 @Module({
   imports: [
@@ -44,7 +45,7 @@ import { PagosModule } from './modules/pagos';
     NotificationsModule,
     AuthModule,
     ConfigModule.forRoot({
-      isGlobal: true, // Hace que ConfigService esté disponible en toda la aplicación
+      isGlobal: true,
     }),
     CustomersModule,
     ProductModule,
@@ -61,13 +62,12 @@ import { PagosModule } from './modules/pagos';
     CustomerLocationModule,
     AnalitycsModule,
     ScheduleModule.forRoot(),
-    EmpresaModule, //-
+    EmpresaModule,
     ReportsModule,
     RecoveryModule,
     CreditoModule,
     SaldosModule,
     CloudinaryModule,
-    // nuevos
     BodegaModule,
     InventarioModule,
     RequisicionesModule,
@@ -79,8 +79,9 @@ import { PagosModule } from './modules/pagos';
     EntregasModule,
     FacturacionModule,
     PagosModule,
+    TrackingModule,
   ],
   controllers: [],
-  providers: [LocationGateway, CloudinaryProvider], //PONER EL CLOUDINARY PROVIDER PORQUE LLEVA LAS CONFIG
+  providers: [LocationGateway, CloudinaryProvider],
 })
 export class AppModule {}

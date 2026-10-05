@@ -21,7 +21,6 @@ export class TrackingDirectoryPrismaAdapter implements TrackingDirectoryPort {
           ultimoHeartbeatEn: true,
         },
       }),
-
       this.prisma.ubicacionUsuarioActual.findUnique({
         where: {
           usuarioId: userId,
@@ -38,25 +37,24 @@ export class TrackingDirectoryPrismaAdapter implements TrackingDirectoryPort {
       }),
     ]);
 
+    const activeCurrent =
+      session && current?.sesionId === session.id ? current : null;
+
     return {
       usuarioId: userId,
       sesionId: session?.id ?? null,
       sesionActiva: !!session,
       ultimoHeartbeatEn: session?.ultimoHeartbeatEn ?? null,
-
-      latitud: current?.latitud != null ? Number(current.latitud) : null,
-
-      longitud: current?.longitud != null ? Number(current.longitud) : null,
-
+      latitud:
+        activeCurrent?.latitud != null ? Number(activeCurrent.latitud) : null,
+      longitud:
+        activeCurrent?.longitud != null ? Number(activeCurrent.longitud) : null,
       precisionM:
-        current?.precisionM != null ? Number(current.precisionM) : null,
-
+        activeCurrent?.precisionM != null ? Number(activeCurrent.precisionM) : null,
       velocidadMps:
-        current?.velocidadMps != null ? Number(current.velocidadMps) : null,
-
-      bateriaPct: current?.bateriaPct ?? null,
-
-      capturadoEn: current?.capturadoEn ?? null,
+        activeCurrent?.velocidadMps != null ? Number(activeCurrent.velocidadMps) : null,
+      bateriaPct: activeCurrent?.bateriaPct ?? null,
+      capturadoEn: activeCurrent?.capturadoEn ?? null,
     };
   }
 
@@ -69,34 +67,10 @@ export class TrackingDirectoryPrismaAdapter implements TrackingDirectoryPort {
       limit: number;
     },
   ) {
-    const sessions = await this.prisma.sesionTrackingUsuario.findMany({
-      where: {
+    const where = {
+      sesion: {
         usuarioId: userId,
       },
-      select: {
-        id: true,
-      },
-    });
-
-    const sessionIds = sessions.map((session) => session.id);
-
-    if (!sessionIds.length) {
-      return {
-        data: [],
-        meta: {
-          total: 0,
-          page: filters.page,
-          limit: filters.limit,
-          totalPages: 0,
-        },
-      };
-    }
-
-    const where = {
-      sesionId: {
-        in: sessionIds,
-      },
-
       ...(filters.desde || filters.hasta
         ? {
             capturadoEn: {
@@ -110,15 +84,11 @@ export class TrackingDirectoryPrismaAdapter implements TrackingDirectoryPort {
     const [rows, total] = await Promise.all([
       this.prisma.ubicacionUsuarioHistorial.findMany({
         where,
-
         orderBy: {
           capturadoEn: 'desc',
         },
-
         skip: (filters.page - 1) * filters.limit,
-
         take: filters.limit,
-
         select: {
           latitud: true,
           longitud: true,
@@ -128,7 +98,6 @@ export class TrackingDirectoryPrismaAdapter implements TrackingDirectoryPort {
           capturadoEn: true,
         },
       }),
-
       this.prisma.ubicacionUsuarioHistorial.count({
         where,
       }),
@@ -138,17 +107,11 @@ export class TrackingDirectoryPrismaAdapter implements TrackingDirectoryPort {
       data: rows.map((row) => ({
         latitud: Number(row.latitud),
         longitud: Number(row.longitud),
-
         precisionM: row.precisionM != null ? Number(row.precisionM) : null,
-
-        velocidadMps:
-          row.velocidadMps != null ? Number(row.velocidadMps) : null,
-
+        velocidadMps: row.velocidadMps != null ? Number(row.velocidadMps) : null,
         bateriaPct: row.bateriaPct ?? null,
-
         capturadoEn: row.capturadoEn,
       })),
-
       meta: {
         total,
         page: filters.page,
