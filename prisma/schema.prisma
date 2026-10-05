@@ -1431,7 +1431,7 @@ enum EstadoEnvio {
 }
 
 // ============================================================================
-// JORNADA Y TRACKING
+// JORNADA Y TRACKING - TRABAJAR
 // ============================================================================
 
 model SesionTrackingUsuario {
