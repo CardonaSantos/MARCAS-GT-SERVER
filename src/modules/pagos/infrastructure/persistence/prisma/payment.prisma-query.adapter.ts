@@ -650,11 +650,13 @@ function mapApplicationRead(row: any) {
 }
 
 function activeApplied(applications: readonly any[]): PaymentMoney {
-  return applications.reduce(
-    (total, row) =>
-      total.add(PaymentMoney.from(row.monto.toFixed(2))),
-    PaymentMoney.zero(),
-  );
+  return applications.reduce((total, row) => {
+    if (row.estado !== undefined && row.estado !== 'ACTIVA') {
+      return total;
+    }
+
+    return total.add(PaymentMoney.from(row.monto.toFixed(2)));
+  }, PaymentMoney.zero());
 }
 
 function minMoney(a: PaymentMoney, b: PaymentMoney): PaymentMoney {
