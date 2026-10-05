@@ -171,7 +171,7 @@ describe('Tracking/Jornada / PostgreSQL Integration', () => {
     const first = await repository.startTracking({
       usuarioId,
       fecha,
-      iniciadaEn,
+      iniciadaEn: iniciadoEn,
     });
 
     const finished = await repository.finishTracking({
@@ -212,7 +212,7 @@ describe('Tracking/Jornada / PostgreSQL Integration', () => {
     const started = await repository.startTracking({
       usuarioId,
       fecha: getTrackingBusinessDate(iniciadoEn),
-      iniciadaEn,
+      iniciadaEn: iniciadoEn,
     });
 
     const key1 = fixture!.tag + ':gps:1';
@@ -296,7 +296,7 @@ describe('Tracking/Jornada / PostgreSQL Integration', () => {
     const started = await repository.startTracking({
       usuarioId,
       fecha: getTrackingBusinessDate(iniciadoEn),
-      iniciadaEn,
+      iniciadaEn: iniciadoEn,
     });
 
     await repository.finishTracking({
@@ -331,7 +331,7 @@ describe('Tracking/Jornada / PostgreSQL Integration', () => {
     const started = await repository.startTracking({
       usuarioId,
       fecha: getTrackingBusinessDate(iniciadoEn),
-      iniciadaEn,
+      iniciadaEn: iniciadoEn,
     });
 
     const heartbeat = started.sesion.ultimoHeartbeatEn;
