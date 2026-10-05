@@ -56,7 +56,7 @@ export class StartTrackingUseCase {
     const result = await this.repository.startTracking({
       usuarioId,
       fecha,
-      iniciadaEn,
+      iniciadaEn: iniciadoEn,
     });
 
     if (!result.sesion.asistenciaId) {
@@ -204,7 +204,7 @@ export class RegisterTrackingLocationUseCase {
       recibidoEn,
     });
 
-    if (!persisted.applied) {
+    if ('reason' in persisted) {
       if (persisted.reason === 'SESSION_NOT_FOUND') {
         throw new NotFoundException(
           'No se encontró la sesión de tracking del usuario autenticado.',
@@ -293,19 +293,19 @@ export class FinishTrackingUseCase {
       finalizadoEn: new Date(),
     });
 
-    if (result.status === 'NOT_FOUND') {
-      throw new NotFoundException(
-        'No se encontró la sesión de tracking del usuario autenticado.',
-      );
-    }
+    if (!('sesion' in result)) {
+      if (result.status === 'NOT_FOUND') {
+        throw new NotFoundException(
+          'No se encontró la sesión de tracking del usuario autenticado.',
+        );
+      }
 
-    if (result.status === 'EXPIRED') {
-      throw new ConflictException(
-        'La sesión de tracking ya expiró y no puede finalizarse manualmente.',
-      );
-    }
+      if (result.status === 'EXPIRED') {
+        throw new ConflictException(
+          'La sesión de tracking ya expiró y no puede finalizarse manualmente.',
+        );
+      }
 
-    if (result.status === 'RACE_LOST') {
       throw new ConflictException(
         'La sesión cambió mientras se procesaba la finalización.',
       );
