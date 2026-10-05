@@ -262,13 +262,18 @@ model Asistencia {
   id        Int       @id @default(autoincrement())
   fecha     DateTime
   entrada   DateTime
-  salida    DateTime? // Puede estar en null si aún no ha salido
-  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  salida    DateTime?
   usuarioId Int
-  creadoEn  DateTime  @default(now())
 
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @default(now()) @updatedAt
+
+  usuario          Usuario                  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   sesionesTracking SesionTrackingUsuario[]
-}
+
+  @@unique([usuarioId, fecha])
+  @@index([fecha])
+} 
 
 //-----------------------------------------------
 
@@ -1439,14 +1444,17 @@ model SesionTrackingUsuario {
   usuarioId         Int
   asistenciaId      Int?
   estado            EstadoSesionTracking @default(ACTIVA)
-  iniciadaEn        DateTime             @default(now())
+
+  iniciadaEn        DateTime @default(now())
   finalizadaEn      DateTime?
-  ultimoHeartbeatEn DateTime             @default(now())
-  motivoCierre      String?
-  dispositivoId     String?
-  plataforma        String?
-  creadoEn          DateTime             @default(now())
-  actualizadoEn     DateTime             @updatedAt
+  ultimoHeartbeatEn DateTime @default(now())
+
+  motivoCierre  String?
+  dispositivoId String?
+  plataforma    String?
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   usuario         Usuario                     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   asistencia      Asistencia?                 @relation(fields: [asistenciaId], references: [id], onDelete: SetNull)
@@ -1454,22 +1462,26 @@ model SesionTrackingUsuario {
   ubicacionActual UbicacionUsuarioActual?
 
   @@index([usuarioId, estado])
-  @@index([asistenciaId])
-  @@index([ultimoHeartbeatEn])
+  @@index([usuarioId, iniciadaEn])
+  @@index([asistenciaId, iniciadaEn])
+  @@index([estado, ultimoHeartbeatEn])
 }
 
 model UbicacionUsuarioHistorial {
-  id           Int      @id @default(autoincrement())
-  sesionId     Int
+  id                 Int      @id @default(autoincrement())
+  sesionId           Int
+  claveIdempotencia  String   @unique
+
   latitud      Decimal  @db.Decimal(10, 7)
   longitud     Decimal  @db.Decimal(10, 7)
   precisionM   Decimal? @db.Decimal(10, 2)
   velocidadMps Decimal? @db.Decimal(10, 2)
   bateriaPct   Int?
+
   capturadoEn  DateTime
   persistidoEn DateTime @default(now())
 
-  sesion SesionTrackingUsuario @relation(fields: [sesionId], references: [id], onDelete: Cascade)
+  sesion SesionTrackingUsuario @relation(fields: [sesionId],references: [id],onDelete: Cascade)
 
   @@index([sesionId, capturadoEn])
 }
