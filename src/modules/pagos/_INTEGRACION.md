@@ -92,3 +92,33 @@ VENDEDOR:
 - POST /pagos/:id/aplicaciones
 - POST /pagos/:pagoId/aplicaciones/:aplicacionId/revertir
 - POST /pagos/:id/anular
+
+
+## Validación recomendada
+
+Unit/regresión:
+
+```powershell
+npm test -- --runInBand
+```
+
+PostgreSQL Integration:
+
+```powershell
+.\scripts\run-pagos-integration.ps1
+```
+
+HTTP E2E:
+
+```powershell
+.\scripts\run-pagos-e2e.ps1
+```
+
+La integración cubre idempotencia, comprobantes, PREPAGO, anticipo MIXTO,
+rechazo, múltiples CxC, remanente disponible, cierre/reapertura de Crédito,
+reversión, anulación, validaciones de empresa/cliente/moneda, límites
+financieros y concurrencia SERIALIZABLE.
+
+La suite E2E cubre JWT, roles, scope de VENDEDOR, registro idempotente,
+comprobantes, verificación, candidatos CxC, aplicación, reversión, rechazo,
+pago general, anulación, auditoría y resumen.
