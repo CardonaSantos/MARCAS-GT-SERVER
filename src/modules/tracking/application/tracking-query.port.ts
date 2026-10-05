@@ -19,7 +19,7 @@ export type TrackingRealtimeView = {
     sesionId: number;
     asistenciaId: number;
     estado: TrackingSessionStatus;
-    iniciadaEn: Date;
+    iniciadoEn: Date;
     ultimoHeartbeatEn: Date;
     minutosSesionActual: number;
   };

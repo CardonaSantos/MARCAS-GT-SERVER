@@ -120,7 +120,7 @@ describe('Tracking use cases - contrato APK', () => {
         asistenciaId: 80,
         estado: 'FINALIZADA',
         iniciadaEn: new Date('2026-10-05T14:00:00.000Z'),
-        finalizadaEn,
+        finalizadaEn: finalizadoEn,
         ultimoHeartbeatEn: new Date('2026-10-05T14:59:00.000Z'),
       },
     });
