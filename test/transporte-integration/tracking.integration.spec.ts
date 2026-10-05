@@ -87,6 +87,7 @@ describe('Tracking directory / PostgreSQL integration', () => {
       data: [
         {
           sesionId: session.id,
+          claveIdempotencia: f.tag + ':transport-history:1',
           latitud: 15.1,
           longitud: -91.1,
           capturadoEn: base,
@@ -94,6 +95,7 @@ describe('Tracking directory / PostgreSQL integration', () => {
         },
         {
           sesionId: session.id,
+          claveIdempotencia: f.tag + ':transport-history:2',
           latitud: 15.2,
           longitud: -91.2,
           capturadoEn: new Date(base.getTime() + 60_000),
@@ -101,6 +103,7 @@ describe('Tracking directory / PostgreSQL integration', () => {
         },
         {
           sesionId: session.id,
+          claveIdempotencia: f.tag + ':transport-history:3',
           latitud: 15.3,
           longitud: -91.3,
           capturadoEn: new Date(base.getTime() + 120_000),
