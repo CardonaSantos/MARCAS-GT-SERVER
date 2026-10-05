@@ -40,19 +40,19 @@ export class TrackingQueryPrismaAdapter implements TrackingQueryPort {
 
   async listHistory(filters: TrackingHistoryFilters) {
     const where: Prisma.AsistenciaWhereInput = {
+      // El histórico de Tracking/Jornada nunca debe mezclar asistencias legacy
+      // que no tengan sesiones del nuevo sistema.
+      sesionesTracking: {
+        some: filters.estadoSesion
+          ? { estado: filters.estadoSesion as EstadoSesionTracking }
+          : {},
+      },
       ...(filters.usuarioId ? { usuarioId: filters.usuarioId } : {}),
       ...(filters.fechaDesde || filters.fechaHasta
         ? {
             fecha: {
               ...(filters.fechaDesde ? { gte: filters.fechaDesde } : {}),
               ...(filters.fechaHasta ? { lte: filters.fechaHasta } : {}),
-            },
-          }
-        : {}),
-      ...(filters.estadoSesion
-        ? {
-            sesionesTracking: {
-              some: { estado: filters.estadoSesion as EstadoSesionTracking },
             },
           }
         : {}),
@@ -73,7 +73,7 @@ export class TrackingQueryPrismaAdapter implements TrackingQueryPort {
     const [rows, total] = await Promise.all([
       this.prisma.asistencia.findMany({
         where,
-        orderBy: [{ fecha: 'desc' }, { entrada: 'desc' }],
+        orderBy: [{ fecha: 'desc' }, { entrada: 'desc' }, { id: 'desc' }],
         skip: (filters.page - 1) * filters.limit,
         take: filters.limit,
         include: {
@@ -169,15 +169,15 @@ export class TrackingQueryPrismaAdapter implements TrackingQueryPort {
         },
         sesionesTracking: {
           orderBy: { iniciadaEn: 'asc' },
-          include: {
-            ubicaciones: {
-              orderBy: [{ capturadoEn: 'asc' }, { id: 'asc' }],
+          select: {
+            id: true,
+            estado: true,
+            iniciadaEn: true,
+            finalizadaEn: true,
+            ultimoHeartbeatEn: true,
+            _count: {
               select: {
-                id: true,
-                latitud: true,
-                longitud: true,
-                bateriaPct: true,
-                capturadoEn: true,
+                ubicaciones: true,
               },
             },
           },
@@ -185,43 +185,69 @@ export class TrackingQueryPrismaAdapter implements TrackingQueryPort {
       },
     });
 
-    if (!row) return null;
+    // Una asistencia sin sesiones pertenece al flujo legacy u otro contexto.
+    // No debe aparecer como una jornada del Tracking V1.
+    if (!row || row.sesionesTracking.length === 0) return null;
 
-    const sessions = row.sesionesTracking.map((session) => {
-      const first = session.ubicaciones[0] ?? null;
-      const last = session.ubicaciones[session.ubicaciones.length - 1] ?? null;
+    // El detalle de jornada solo necesita extremos y conteo por sesión.
+    // El recorrido completo se obtiene por el endpoint paginado /locations.
+    const sessions = await Promise.all(
+      row.sesionesTracking.map(async (session) => {
+        const [first, last] = await Promise.all([
+          this.prisma.ubicacionUsuarioHistorial.findFirst({
+            where: { sesionId: session.id },
+            orderBy: [{ capturadoEn: 'asc' }, { id: 'asc' }],
+            select: {
+              latitud: true,
+              longitud: true,
+              bateriaPct: true,
+              capturadoEn: true,
+            },
+          }),
+          this.prisma.ubicacionUsuarioHistorial.findFirst({
+            where: { sesionId: session.id },
+            orderBy: [{ capturadoEn: 'desc' }, { id: 'desc' }],
+            select: {
+              latitud: true,
+              longitud: true,
+              bateriaPct: true,
+              capturadoEn: true,
+            },
+          }),
+        ]);
 
-      return {
-        id: session.id,
-        estado: session.estado,
-        iniciadoEn: session.iniciadaEn,
-        finalizadoEn: session.finalizadaEn,
-        ultimoHeartbeatEn: session.ultimoHeartbeatEn,
-        duracionMinutos: calculateConfirmedTrackingMinutes({
+        return {
+          id: session.id,
           estado: session.estado,
-          iniciadaEn: session.iniciadaEn,
-          finalizadaEn: session.finalizadaEn,
+          iniciadoEn: session.iniciadaEn,
+          finalizadoEn: session.finalizadaEn,
           ultimoHeartbeatEn: session.ultimoHeartbeatEn,
-        }),
-        puntosRegistrados: session.ubicaciones.length,
-        bateriaInicial: first?.bateriaPct ?? null,
-        bateriaFinal: last?.bateriaPct ?? null,
-        primeraUbicacion: first
-          ? {
-              latitud: Number(first.latitud),
-              longitud: Number(first.longitud),
-              capturadoEn: first.capturadoEn,
-            }
-          : null,
-        ultimaUbicacion: last
-          ? {
-              latitud: Number(last.latitud),
-              longitud: Number(last.longitud),
-              capturadoEn: last.capturadoEn,
-            }
-          : null,
-      };
-    });
+          duracionMinutos: calculateConfirmedTrackingMinutes({
+            estado: session.estado,
+            iniciadaEn: session.iniciadaEn,
+            finalizadaEn: session.finalizadaEn,
+            ultimoHeartbeatEn: session.ultimoHeartbeatEn,
+          }),
+          puntosRegistrados: session._count.ubicaciones,
+          bateriaInicial: first?.bateriaPct ?? null,
+          bateriaFinal: last?.bateriaPct ?? null,
+          primeraUbicacion: first
+            ? {
+                latitud: Number(first.latitud),
+                longitud: Number(first.longitud),
+                capturadoEn: first.capturadoEn,
+              }
+            : null,
+          ultimaUbicacion: last
+            ? {
+                latitud: Number(last.latitud),
+                longitud: Number(last.longitud),
+                capturadoEn: last.capturadoEn,
+              }
+            : null,
+        };
+      }),
+    );
 
     const metricSessions = row.sesionesTracking.map((session) => ({
       estado: session.estado,
@@ -230,7 +256,8 @@ export class TrackingQueryPrismaAdapter implements TrackingQueryPort {
       ultimoHeartbeatEn: session.ultimoHeartbeatEn,
     }));
 
-    const minutosTracking = calculateTotalConfirmedTrackingMinutes(metricSessions);
+    const minutosTracking =
+      calculateTotalConfirmedTrackingMinutes(metricSessions);
     const minutosJornada = calculateJourneyMinutes({
       entrada: row.entrada,
       salida: row.salida,
@@ -261,20 +288,33 @@ export class TrackingQueryPrismaAdapter implements TrackingQueryPort {
       },
       resumen: {
         sesionesTotal: sessions.length,
-        sesionesFinalizadas: sessions.filter((session) => session.estado === 'FINALIZADA').length,
-        sesionesExpiradas: sessions.filter((session) => session.estado === 'EXPIRADA').length,
-        haySesionActiva: sessions.some((session) => session.estado === 'ACTIVA'),
+        sesionesFinalizadas: sessions.filter(
+          (session) => session.estado === 'FINALIZADA',
+        ).length,
+        sesionesExpiradas: sessions.filter(
+          (session) => session.estado === 'EXPIRADA',
+        ).length,
+        haySesionActiva: sessions.some(
+          (session) => session.estado === 'ACTIVA',
+        ),
         primeraActivacion: row.sesionesTracking[0]?.iniciadaEn ?? null,
         ultimaFinalizacion:
-          [...row.sesionesTracking].reverse().find((session) => session.finalizadaEn !== null)?.finalizadaEn ?? null,
+          [...row.sesionesTracking]
+            .reverse()
+            .find((session) => session.finalizadaEn !== null)?.finalizadaEn ??
+          null,
         ultimoHeartbeatEn:
           [...row.sesionesTracking].sort(
-            (a, b) => b.ultimoHeartbeatEn.getTime() - a.ultimoHeartbeatEn.getTime(),
+            (a, b) =>
+              b.ultimoHeartbeatEn.getTime() -
+              a.ultimoHeartbeatEn.getTime(),
           )[0]?.ultimoHeartbeatEn ?? null,
         minutosTracking,
         minutosJornada,
         minutosSinTracking:
-          minutosJornada === null ? null : Math.max(0, minutosJornada - minutosTracking),
+          minutosJornada === null
+            ? null
+            : Math.max(0, minutosJornada - minutosTracking),
       },
       sesiones: sessions,
     };

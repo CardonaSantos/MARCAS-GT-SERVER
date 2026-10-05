@@ -4,7 +4,6 @@ describe('TrackingDirectoryPrismaAdapter', () => {
   const prisma = {
     sesionTrackingUsuario: {
       findFirst: jest.fn(),
-      findMany: jest.fn(),
     },
     ubicacionUsuarioActual: {
       findUnique: jest.fn(),
@@ -22,15 +21,14 @@ describe('TrackingDirectoryPrismaAdapter', () => {
   });
 
   describe('getCurrent', () => {
-    it('consulta la sesión activa y la ubicación actual del usuario', async () => {
-      const heartbeat = new Date('2026-10-01T16:00:00.000Z');
-      const capturedAt = new Date('2026-10-01T15:59:45.000Z');
+    it('devuelve la ubicación cuando pertenece a la sesión ACTIVA', async () => {
+      const heartbeat = new Date('2026-10-05T16:00:00.000Z');
+      const capturedAt = new Date('2026-10-05T15:59:45.000Z');
 
       prisma.sesionTrackingUsuario.findFirst.mockResolvedValue({
         id: 55,
         ultimoHeartbeatEn: heartbeat,
       });
-
       prisma.ubicacionUsuarioActual.findUnique.mockResolvedValue({
         sesionId: 55,
         latitud: 15.6666667,
@@ -41,38 +39,7 @@ describe('TrackingDirectoryPrismaAdapter', () => {
         capturadoEn: capturedAt,
       });
 
-      const result = await adapter.getCurrent(7);
-
-      expect(prisma.sesionTrackingUsuario.findFirst).toHaveBeenCalledWith({
-        where: {
-          usuarioId: 7,
-          estado: 'ACTIVA',
-        },
-        orderBy: {
-          iniciadaEn: 'desc',
-        },
-        select: {
-          id: true,
-          ultimoHeartbeatEn: true,
-        },
-      });
-
-      expect(prisma.ubicacionUsuarioActual.findUnique).toHaveBeenCalledWith({
-        where: {
-          usuarioId: 7,
-        },
-        select: {
-          sesionId: true,
-          latitud: true,
-          longitud: true,
-          precisionM: true,
-          velocidadMps: true,
-          bateriaPct: true,
-          capturadoEn: true,
-        },
-      });
-
-      expect(result).toEqual({
+      await expect(adapter.getCurrent(7)).resolves.toEqual({
         usuarioId: 7,
         sesionId: 55,
         sesionActiva: true,
@@ -86,12 +53,38 @@ describe('TrackingDirectoryPrismaAdapter', () => {
       });
     });
 
+    it('no mezcla la última ubicación de una sesión vieja con una sesión nueva', async () => {
+      prisma.sesionTrackingUsuario.findFirst.mockResolvedValue({
+        id: 20,
+        ultimoHeartbeatEn: new Date('2026-10-05T16:00:00.000Z'),
+      });
+      prisma.ubicacionUsuarioActual.findUnique.mockResolvedValue({
+        sesionId: 10,
+        latitud: 15.5,
+        longitud: -91.5,
+        precisionM: 4,
+        velocidadMps: 0,
+        bateriaPct: 80,
+        capturadoEn: new Date('2026-10-05T12:00:00.000Z'),
+      });
+
+      const result = await adapter.getCurrent(3);
+
+      expect(result.sesionActiva).toBe(true);
+      expect(result.sesionId).toBe(20);
+      expect(result.latitud).toBeNull();
+      expect(result.longitud).toBeNull();
+      expect(result.precisionM).toBeNull();
+      expect(result.velocidadMps).toBeNull();
+      expect(result.bateriaPct).toBeNull();
+      expect(result.capturadoEn).toBeNull();
+    });
+
     it('convierte valores Decimal-like a number', async () => {
       prisma.sesionTrackingUsuario.findFirst.mockResolvedValue({
         id: 10,
-        ultimoHeartbeatEn: null,
+        ultimoHeartbeatEn: new Date('2026-10-05T16:00:00.000Z'),
       });
-
       prisma.ubicacionUsuarioActual.findUnique.mockResolvedValue({
         sesionId: 10,
         latitud: { valueOf: () => 15.5 },
@@ -99,7 +92,7 @@ describe('TrackingDirectoryPrismaAdapter', () => {
         precisionM: { valueOf: () => 4.25 },
         velocidadMps: { valueOf: () => 1.75 },
         bateriaPct: 60,
-        capturadoEn: new Date('2026-10-01T16:00:00.000Z'),
+        capturadoEn: new Date('2026-10-05T16:00:00.000Z'),
       });
 
       const result = await adapter.getCurrent(3);
@@ -110,13 +103,19 @@ describe('TrackingDirectoryPrismaAdapter', () => {
       expect(result.velocidadMps).toBe(1.75);
     });
 
-    it('devuelve snapshot vacío cuando no existe sesión ni ubicación actual', async () => {
+    it('devuelve snapshot vacío cuando no existe sesión activa', async () => {
       prisma.sesionTrackingUsuario.findFirst.mockResolvedValue(null);
-      prisma.ubicacionUsuarioActual.findUnique.mockResolvedValue(null);
+      prisma.ubicacionUsuarioActual.findUnique.mockResolvedValue({
+        sesionId: 8,
+        latitud: 15.5,
+        longitud: -91.5,
+        precisionM: 5,
+        velocidadMps: 0,
+        bateriaPct: 50,
+        capturadoEn: new Date('2026-10-04T16:00:00.000Z'),
+      });
 
-      const result = await adapter.getCurrent(99);
-
-      expect(result).toEqual({
+      await expect(adapter.getCurrent(99)).resolves.toEqual({
         usuarioId: 99,
         sesionId: null,
         sesionActiva: false,
@@ -132,43 +131,7 @@ describe('TrackingDirectoryPrismaAdapter', () => {
   });
 
   describe('listHistory', () => {
-    it('devuelve página vacía cuando el usuario nunca tuvo sesiones', async () => {
-      prisma.sesionTrackingUsuario.findMany.mockResolvedValue([]);
-
-      const result = await adapter.listHistory(7, {
-        page: 1,
-        limit: 20,
-      });
-
-      expect(prisma.sesionTrackingUsuario.findMany).toHaveBeenCalledWith({
-        where: {
-          usuarioId: 7,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      expect(prisma.ubicacionUsuarioHistorial.findMany).not.toHaveBeenCalled();
-      expect(prisma.ubicacionUsuarioHistorial.count).not.toHaveBeenCalled();
-
-      expect(result).toEqual({
-        data: [],
-        meta: {
-          total: 0,
-          page: 1,
-          limit: 20,
-          totalPages: 0,
-        },
-      });
-    });
-
-    it('consulta historial de todas las sesiones del usuario con paginación', async () => {
-      prisma.sesionTrackingUsuario.findMany.mockResolvedValue([
-        { id: 10 },
-        { id: 11 },
-      ]);
-
+    it('consulta el historial directamente por relación con las sesiones del usuario', async () => {
       prisma.ubicacionUsuarioHistorial.findMany.mockResolvedValue([
         {
           latitud: 15.1,
@@ -176,10 +139,9 @@ describe('TrackingDirectoryPrismaAdapter', () => {
           precisionM: 5,
           velocidadMps: 1.5,
           bateriaPct: 72,
-          capturadoEn: new Date('2026-10-01T12:00:00.000Z'),
+          capturadoEn: new Date('2026-10-05T12:00:00.000Z'),
         },
       ]);
-
       prisma.ubicacionUsuarioHistorial.count.mockResolvedValue(21);
 
       const result = await adapter.listHistory(7, {
@@ -187,12 +149,14 @@ describe('TrackingDirectoryPrismaAdapter', () => {
         limit: 10,
       });
 
-      expect(prisma.ubicacionUsuarioHistorial.findMany).toHaveBeenCalledWith({
-        where: {
-          sesionId: {
-            in: [10, 11],
-          },
+      const expectedWhere = {
+        sesion: {
+          usuarioId: 7,
         },
+      };
+
+      expect(prisma.ubicacionUsuarioHistorial.findMany).toHaveBeenCalledWith({
+        where: expectedWhere,
         orderBy: {
           capturadoEn: 'desc',
         },
@@ -207,41 +171,20 @@ describe('TrackingDirectoryPrismaAdapter', () => {
           capturadoEn: true,
         },
       });
-
       expect(prisma.ubicacionUsuarioHistorial.count).toHaveBeenCalledWith({
-        where: {
-          sesionId: {
-            in: [10, 11],
-          },
-        },
+        where: expectedWhere,
       });
-
       expect(result.meta).toEqual({
         total: 21,
         page: 2,
         limit: 10,
         totalPages: 3,
       });
-
-      expect(result.data).toEqual([
-        {
-          latitud: 15.1,
-          longitud: -91.1,
-          precisionM: 5,
-          velocidadMps: 1.5,
-          bateriaPct: 72,
-          capturadoEn: new Date('2026-10-01T12:00:00.000Z'),
-        },
-      ]);
     });
 
-    it('aplica rango de fechas al historial', async () => {
-      const desde = new Date('2026-10-01T00:00:00.000Z');
-      const hasta = new Date('2026-10-01T23:59:59.999Z');
-
-      prisma.sesionTrackingUsuario.findMany.mockResolvedValue([
-        { id: 10 },
-      ]);
+    it('aplica el rango de captura al trazado histórico', async () => {
+      const desde = new Date('2026-10-05T00:00:00.000Z');
+      const hasta = new Date('2026-10-05T23:59:59.999Z');
 
       prisma.ubicacionUsuarioHistorial.findMany.mockResolvedValue([]);
       prisma.ubicacionUsuarioHistorial.count.mockResolvedValue(0);
@@ -254,8 +197,8 @@ describe('TrackingDirectoryPrismaAdapter', () => {
       });
 
       const expectedWhere = {
-        sesionId: {
-          in: [10],
+        sesion: {
+          usuarioId: 7,
         },
         capturadoEn: {
           gte: desde,
@@ -270,17 +213,12 @@ describe('TrackingDirectoryPrismaAdapter', () => {
           take: 50,
         }),
       );
-
       expect(prisma.ubicacionUsuarioHistorial.count).toHaveBeenCalledWith({
         where: expectedWhere,
       });
     });
 
     it('preserva nulls de precisión, velocidad y batería', async () => {
-      prisma.sesionTrackingUsuario.findMany.mockResolvedValue([
-        { id: 20 },
-      ]);
-
       prisma.ubicacionUsuarioHistorial.findMany.mockResolvedValue([
         {
           latitud: 15.25,
@@ -288,10 +226,9 @@ describe('TrackingDirectoryPrismaAdapter', () => {
           precisionM: null,
           velocidadMps: null,
           bateriaPct: null,
-          capturadoEn: new Date('2026-10-01T12:00:00.000Z'),
+          capturadoEn: new Date('2026-10-05T12:00:00.000Z'),
         },
       ]);
-
       prisma.ubicacionUsuarioHistorial.count.mockResolvedValue(1);
 
       const result = await adapter.listHistory(9, {
@@ -305,7 +242,7 @@ describe('TrackingDirectoryPrismaAdapter', () => {
         precisionM: null,
         velocidadMps: null,
         bateriaPct: null,
-        capturadoEn: new Date('2026-10-01T12:00:00.000Z'),
+        capturadoEn: new Date('2026-10-05T12:00:00.000Z'),
       });
     });
   });
