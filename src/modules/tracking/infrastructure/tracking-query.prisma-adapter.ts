@@ -465,6 +465,13 @@ export class TrackingQueryPrismaAdapter implements TrackingQueryPort {
         rol: session.usuario.rol,
         avatarUrl: null,
       },
+      usuario: {
+        id: session.usuario.id,
+        nombre: session.usuario.nombre,
+        telefono: null,
+        rol: session.usuario.rol,
+        avatarUrl: null,
+      },
       tracking: {
         sesionId: session.id,
         asistenciaId: session.asistenciaId,

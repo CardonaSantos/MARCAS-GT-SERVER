@@ -66,6 +66,8 @@ export class StartTrackingUseCase {
     }
 
     await emitStateSafely(this.logger, this.realtime, {
+      usuarioId,
+
       tecnicoId: usuarioId,
       sesionTrackingId: result.sesion.id,
       asistenciaId: result.sesion.asistenciaId,
@@ -319,6 +321,8 @@ export class FinishTrackingUseCase {
 
     if (result.status === 'FINISHED') {
       await emitStateSafely(this.logger, this.realtime, {
+        usuarioId,
+
         tecnicoId: usuarioId,
         sesionTrackingId: result.sesion.id,
         asistenciaId: result.sesion.asistenciaId,
@@ -380,6 +384,8 @@ export class ExpireTrackingUseCase {
       expired += 1;
 
       await emitStateSafely(this.logger, this.realtime, {
+        usuarioId: session.usuarioId,
+
         tecnicoId: session.usuarioId,
         sesionTrackingId: session.id,
         asistenciaId: session.asistenciaId,

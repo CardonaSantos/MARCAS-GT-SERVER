@@ -8,6 +8,13 @@ export type TrackingRealtimeView = {
     rol: string;
     avatarUrl: string | null;
   };
+  usuario: {
+    id: number;
+    nombre: string;
+    telefono: string | null;
+    rol: string;
+    avatarUrl: string | null;
+  };
   tracking: {
     sesionId: number;
     asistenciaId: number;

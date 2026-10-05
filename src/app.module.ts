@@ -13,7 +13,6 @@ import { ProviderModule } from './provider/provider.module';
 import { CategoriesModule } from './categories/categories.module';
 import { DeliveryStockModule } from './delivery-stock/delivery-stock.module';
 import { DiscountModule } from './discount/discount.module';
-import { LocationGateway } from './location/location.gateway';
 import { ProspectoModule } from './prospecto/prospecto.module';
 import { CustomerLocationModule } from './customer-location/customer-location.module';
 import { AnalitycsModule } from './analitycs/analitycs.module';
@@ -80,6 +79,6 @@ import { TrackingModule } from './modules/tracking';
     TrackingModule,
   ],
   controllers: [],
-  providers: [LocationGateway, CloudinaryProvider],
+  providers: [CloudinaryProvider],
 })
 export class AppModule {}
