@@ -175,11 +175,12 @@ export class TrackingPrismaRepository implements TrackingRepositoryPort {
 
           const current = await tx.ubicacionUsuarioActual.findUnique({
             where: { usuarioId: params.usuarioId },
-            select: { id: true, capturadoEn: true },
+            select: { id: true, sesionId: true, capturadoEn: true },
           });
 
           const shouldAdvanceSnapshot =
             !current ||
+            current.sesionId !== params.sesionId ||
             params.capturadoEn.getTime() >= current.capturadoEn.getTime();
 
           if (shouldAdvanceSnapshot) {

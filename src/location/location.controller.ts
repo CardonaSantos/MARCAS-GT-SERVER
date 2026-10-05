@@ -1,24 +1,19 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-} from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { LocationService } from './location.service';
-import { CreateLocationDto } from './dto/create-location.dto';
-import { UpdateLocationDto } from './dto/update-location.dto';
 
+/**
+ * LEGACY LOCATION
+ *
+ * El tracking de ubicación anterior queda fuera de operación.
+ * Este controller conserva únicamente las acciones comerciales que todavía
+ * viven en el módulo legacy hasta que sean extraídas a su propio contexto.
+ *
+ * El tracking oficial vive en:
+ * /real-time-location/tracking/*
+ */
 @Controller('location')
 export class LocationController {
   constructor(private readonly locationService: LocationService) {}
-
-  @Post('/send-position')
-  create(@Body() createLocationDto: CreateLocationDto) {
-    return this.locationService.createLocation(createLocationDto);
-  }
 
   @Post('/create-discount-from-request')
   createDiscountFromRequest(
@@ -31,6 +26,7 @@ export class LocationController {
     },
   ) {
     const { porcentaje, clienteId, vendedorId, requestId } = body;
+
     return this.locationService.createDiscountFromRequest(
       porcentaje,
       clienteId,
@@ -48,34 +44,7 @@ export class LocationController {
     },
   ) {
     const { vendedorId, requestId } = body;
+
     return this.locationService.deleteDiscountRegist(vendedorId, requestId);
-  }
-
-  @Get()
-  findAll() {
-    return this.locationService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.locationService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateLocationDto: UpdateLocationDto,
-  ) {
-    return this.locationService.update(+id, updateLocationDto);
-  }
-
-  @Delete('/delete-all')
-  async removeAll() {
-    return await this.locationService.removeAll();
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.locationService.remove(+id);
   }
 }

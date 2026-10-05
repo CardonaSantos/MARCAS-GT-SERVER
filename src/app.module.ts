@@ -8,7 +8,6 @@ import { ProductModule } from './product/product.module';
 import { LocationModule } from './location/location.module';
 import { DateModule } from './date/date.module';
 import { SaleModule } from './sale/sale.module';
-import { AttendanceModule } from './attendance/attendance.module';
 import { StockModule } from './stock/stock.module';
 import { ProviderModule } from './provider/provider.module';
 import { CategoriesModule } from './categories/categories.module';
@@ -52,7 +51,6 @@ import { TrackingModule } from './modules/tracking';
     LocationModule,
     DateModule,
     SaleModule,
-    AttendanceModule,
     StockModule,
     ProviderModule,
     CategoriesModule,
