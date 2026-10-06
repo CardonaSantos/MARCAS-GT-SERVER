@@ -15,6 +15,7 @@ import { RegisterDispatchOutputCommand } from '../models/dispatch.models';
 import { DispatchOperationCoordinator } from './dispatch-operation.coordinator';
 import {
   assertDispatchOperator,
+  assertNoFailedOperationPendingRetry,
   requireDispatchActor,
 } from './dispatch-use-case.helpers';
 
@@ -114,6 +115,12 @@ export class RegisterDispatchOutputUseCase {
 
       return this.coordinator.execute(existing.id, actor);
     }
+
+    await assertNoFailedOperationPendingRetry(
+      this.operations,
+      dispatch.id!,
+      'SALIDA_DESPACHO',
+    );
 
     if (!['PREPARADA', 'PARCIALMENTE_DESPACHADA'].includes(dispatch.estado)) {
       throw new DispatchInvalidStateError(

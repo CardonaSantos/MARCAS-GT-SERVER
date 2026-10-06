@@ -11,6 +11,7 @@ import { CancelDispatchCommand } from '../models/dispatch.models';
 import { DispatchOperationCoordinator } from './dispatch-operation.coordinator';
 import {
   assertDispatchOperator,
+  assertNoFailedOperationPendingRetry,
   requireDispatchActor,
 } from './dispatch-use-case.helpers';
 
@@ -59,6 +60,12 @@ export class CancelDispatchUseCase {
         'cancelar una orden con salida física',
       );
     }
+
+    await assertNoFailedOperationPendingRetry(
+      this.operations,
+      dispatch.id!,
+      'LIBERACION_RESERVA',
+    );
 
     const netReservations =
       await this.operations.netReservationsForDispatch(dispatch.id!);

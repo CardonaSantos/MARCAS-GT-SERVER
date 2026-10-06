@@ -4,6 +4,7 @@ import {
 import { OrderDirectoryPort } from '../../../pedidos';
 import { OrdenDespacho } from '../../domain/entities/dispatch-order.entity';
 import {
+  DispatchFailedOperationPendingRetryError,
   DispatchIdempotencyConflictError,
   DispatchInsufficientAvailabilityError,
 } from '../../domain/errors/dispatch.errors';
@@ -83,6 +84,7 @@ function setup() {
     prepare: jest.fn().mockResolvedValue(existingOperation()),
     findById: jest.fn(),
     findByIdempotencyKey: jest.fn().mockResolvedValue(null),
+    findFailedOperation: jest.fn().mockResolvedValue(null),
     beginAttempt: jest.fn(),
     recordInventoryResult: jest.fn(),
     markLineApplied: jest.fn(),
@@ -241,6 +243,30 @@ describe('StartDispatchPreparationUseCase', () => {
       100,
       expect.objectContaining({ id: 7 }),
     );
+  });
+
+  it('bloquea una nueva reserva si existe una operación fallida pendiente de reintento', async () => {
+    const fx = setup();
+    fx.operations.findFailedOperation.mockResolvedValue(
+      existingOperation(),
+    );
+
+    await expect(
+      fx.useCase.execute({
+        id: 50,
+        claveIdempotencia: 'DSP-PREP-NUEVA',
+        actorId: 7,
+      }),
+    ).rejects.toBeInstanceOf(
+      DispatchFailedOperationPendingRetryError,
+    );
+
+    expect(fx.operations.findFailedOperation).toHaveBeenCalledWith(
+      50,
+      'RESERVA_PREPARACION',
+    );
+    expect(fx.operations.prepare).not.toHaveBeenCalled();
+    expect(fx.availability.hasAvailability).not.toHaveBeenCalled();
   });
 
   it('rechaza una clave utilizada por otro despacho/tipo de operación', async () => {

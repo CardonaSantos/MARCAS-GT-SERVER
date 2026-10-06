@@ -2,13 +2,18 @@ import { BodegaDirectoryPort } from '../../../bodegas';
 import {
   DispatchActorNotFoundError,
   DispatchCompanyRequiredError,
+  DispatchFailedOperationPendingRetryError,
   DispatchForbiddenError,
   DispatchWarehouseCompanyMismatchError,
   DispatchWarehouseInactiveError,
   DispatchWarehouseNotFoundError,
 } from '../../domain/errors/dispatch.errors';
 import { DispatchActorDirectoryPort } from '../../domain/ports/dispatch-actor-directory.port';
-import { DispatchActorEntry } from '../../dispatch.types';
+import { DispatchOperationRepositoryPort } from '../../domain/ports/dispatch-operation.repository.port';
+import {
+  DispatchActorEntry,
+  DispatchOperationType,
+} from '../../dispatch.types';
 
 export async function requireDispatchActor(
   users: DispatchActorDirectoryPort,
@@ -52,6 +57,20 @@ export async function requireOperationalWarehouse(
     throw new DispatchWarehouseCompanyMismatchError(bodegaId, empresaId);
   }
   return bodega;
+}
+
+export async function assertNoFailedOperationPendingRetry(
+  operations: DispatchOperationRepositoryPort,
+  dispatchId: number,
+  type: DispatchOperationType,
+): Promise<void> {
+  const failed = await operations.findFailedOperation(dispatchId, type);
+  if (!failed) return;
+
+  throw new DispatchFailedOperationPendingRetryError(
+    failed.id,
+    failed.tipo,
+  );
 }
 
 export function errorMessage(error: unknown): string {

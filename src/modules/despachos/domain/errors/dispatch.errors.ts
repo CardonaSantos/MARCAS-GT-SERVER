@@ -186,3 +186,13 @@ export class DispatchOperationNotRetryableError extends DispatchError {
     );
   }
 }
+
+export class DispatchFailedOperationPendingRetryError extends DispatchError {
+  constructor(operationId: number, tipo: string) {
+    super(
+      'DISPATCH_FAILED_OPERATION_PENDING_RETRY',
+      'Existe una operación de despacho fallida que debe reintentarse antes de crear otra del mismo tipo.',
+      { operationId, tipo },
+    );
+  }
+}

@@ -1,6 +1,7 @@
 import { OrderDirectoryPort } from '../../../pedidos';
 import { OrdenDespacho } from '../../domain/entities/dispatch-order.entity';
 import {
+  DispatchFailedOperationPendingRetryError,
   DispatchIdempotencyConflictError,
   DispatchInvalidStateError,
   DispatchQuantityExceededError,
@@ -88,6 +89,7 @@ function setup(currentDispatch = dispatch()) {
     prepare: jest.fn().mockResolvedValue(existingOperation()),
     findById: jest.fn(),
     findByIdempotencyKey: jest.fn().mockResolvedValue(null),
+    findFailedOperation: jest.fn().mockResolvedValue(null),
     beginAttempt: jest.fn(),
     recordInventoryResult: jest.fn(),
     markLineApplied: jest.fn(),
@@ -254,6 +256,31 @@ describe('RegisterDispatchOutputUseCase', () => {
         actorId: 7,
       }),
     ).rejects.toBeInstanceOf(DispatchIdempotencyConflictError);
+  });
+
+  it('bloquea una salida nueva si existe una salida fallida pendiente de reintento', async () => {
+    const fx = setup();
+    fx.operations.findFailedOperation.mockResolvedValue(
+      existingOperation(),
+    );
+
+    await expect(
+      fx.useCase.execute({
+        id: 50,
+        claveIdempotencia: 'DSP-OUT-NUEVA',
+        detalles: [{ detalleId: 501, cantidad: 2 }],
+        actorId: 7,
+      }),
+    ).rejects.toBeInstanceOf(
+      DispatchFailedOperationPendingRetryError,
+    );
+
+    expect(fx.operations.findFailedOperation).toHaveBeenCalledWith(
+      50,
+      'SALIDA_DESPACHO',
+    );
+    expect(fx.operations.prepare).not.toHaveBeenCalled();
+    expect(fx.coordinator.execute).not.toHaveBeenCalled();
   });
 
   it('rechaza una nueva salida si el despacho no está preparado', async () => {

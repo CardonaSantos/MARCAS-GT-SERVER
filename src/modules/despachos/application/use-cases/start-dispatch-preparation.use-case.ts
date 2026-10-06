@@ -14,6 +14,7 @@ import { StartDispatchPreparationCommand } from '../models/dispatch.models';
 import { DispatchOperationCoordinator } from './dispatch-operation.coordinator';
 import {
   assertDispatchOperator,
+  assertNoFailedOperationPendingRetry,
   requireDispatchActor,
 } from './dispatch-use-case.helpers';
 
@@ -67,6 +68,12 @@ export class StartDispatchPreparationUseCase {
 
       return this.coordinator.execute(existing.id, actor);
     }
+
+    await assertNoFailedOperationPendingRetry(
+      this.operations,
+      dispatch.id!,
+      'RESERVA_PREPARACION',
+    );
 
     if (dispatch.estado !== 'PENDIENTE') {
       throw new DispatchOrderNotEligibleError(dispatch.estado, {

@@ -172,3 +172,17 @@ Operación:
 - BODEGA
 
 VENDEDOR queda limitado en el read side a pedidos propios.
+
+## Protección ante operaciones fallidas
+
+Antes de crear una nueva operación del mismo tipo, Despachos verifica si existe
+una `OperacionDespacho` en estado `FALLIDA` para la orden. Si existe, la
+nueva operación se rechaza con `DISPATCH_FAILED_OPERATION_PENDING_RETRY` y se
+debe resolver mediante `POST /despachos/operaciones/:operationId/reintentar`.
+Esto evita que una clave de idempotencia nueva salte una saga que ya produjo
+efectos parciales en Inventario o Pedido.
+
+La regla aplica a:
+- `RESERVA_PREPARACION`;
+- `SALIDA_DESPACHO`;
+- `LIBERACION_RESERVA`.

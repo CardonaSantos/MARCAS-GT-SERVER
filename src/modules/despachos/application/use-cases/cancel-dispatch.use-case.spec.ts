@@ -1,6 +1,9 @@
 import { OrderDirectoryPort } from '../../../pedidos';
 import { OrdenDespacho } from '../../domain/entities/dispatch-order.entity';
-import { DispatchInvalidStateError } from '../../domain/errors/dispatch.errors';
+import {
+  DispatchFailedOperationPendingRetryError,
+  DispatchInvalidStateError,
+} from '../../domain/errors/dispatch.errors';
 import { DispatchActorDirectoryPort } from '../../domain/ports/dispatch-actor-directory.port';
 import { DispatchOperationRepositoryPort } from '../../domain/ports/dispatch-operation.repository.port';
 import { DispatchRepositoryPort } from '../../domain/ports/dispatch.repository.port';
@@ -53,6 +56,7 @@ function setup(current = dispatch()) {
     }),
     findById: jest.fn(),
     findByIdempotencyKey: jest.fn(),
+    findFailedOperation: jest.fn().mockResolvedValue(null),
     beginAttempt: jest.fn(),
     recordInventoryResult: jest.fn(),
     markLineApplied: jest.fn(),
@@ -166,6 +170,48 @@ describe('CancelDispatchUseCase', () => {
       100,
       expect.objectContaining({ id: 7 }),
     );
+  });
+
+  it('bloquea una nueva cancelación si existe una liberación fallida pendiente de reintento', async () => {
+    const fx = setup(dispatch('PREPARANDO'));
+
+    fx.operations.findFailedOperation.mockResolvedValue({
+      id: 100,
+      ordenDespachoId: 50,
+      pedidoId: 20,
+      empresaId: 9,
+      bodegaId: 3,
+      usuarioId: 7,
+      tipo: 'LIBERACION_RESERVA',
+      estado: 'FALLIDA',
+      estadoDespacho: 'PREPARANDO',
+      claveIdempotencia: 'DSP-CANCEL-FALLIDA',
+      observaciones: 'Liberación previa',
+      ocurridaEn: new Date(),
+      intentos: 1,
+      version: 1,
+      repeated: false,
+      detalles: [],
+    });
+
+    await expect(
+      fx.useCase.execute({
+        id: 50,
+        motivo: 'Segundo intento con otra clave',
+        claveIdempotencia: 'DSP-CANCEL-NUEVA',
+        actorId: 7,
+      }),
+    ).rejects.toBeInstanceOf(
+      DispatchFailedOperationPendingRetryError,
+    );
+
+    expect(fx.operations.findFailedOperation).toHaveBeenCalledWith(
+      50,
+      'LIBERACION_RESERVA',
+    );
+    expect(fx.operations.netReservationsForDispatch).not.toHaveBeenCalled();
+    expect(fx.operations.prepare).not.toHaveBeenCalled();
+    expect(fx.repository.save).not.toHaveBeenCalled();
   });
 
   it('impide cancelar si ya existe evidencia de salida física', async () => {

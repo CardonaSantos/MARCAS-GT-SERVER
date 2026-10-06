@@ -58,6 +58,10 @@ export interface DispatchOperationRepositoryPort {
   prepare(command: PrepareDispatchOperationCommand): Promise<PreparedDispatchOperation>;
   findById(id: number): Promise<PreparedDispatchOperation | null>;
   findByIdempotencyKey(key: string): Promise<PreparedDispatchOperation | null>;
+  findFailedOperation(
+    dispatchId: number,
+    type: DispatchOperationType,
+  ): Promise<PreparedDispatchOperation | null>;
   beginAttempt(id: number): Promise<PreparedDispatchOperation>;
   recordInventoryResult(
     lineId: number,

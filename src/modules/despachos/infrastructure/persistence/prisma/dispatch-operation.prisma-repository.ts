@@ -145,6 +145,23 @@ export class DispatchOperationPrismaRepository
     return this.hydrateByKey(this.prisma, key.trim(), true);
   }
 
+  async findFailedOperation(
+    dispatchId: number,
+    type: DispatchOperationType,
+  ): Promise<PreparedDispatchOperation | null> {
+    const row = await this.prisma.operacionDespacho.findFirst({
+      where: {
+        ordenDespachoId: dispatchId,
+        tipo: type,
+        estado: 'FALLIDA',
+      },
+      orderBy: [{ fallidaEn: 'desc' }, { id: 'desc' }],
+      select: { id: true },
+    });
+
+    return row ? this.hydrate(this.prisma, row.id, false) : null;
+  }
+
   async beginAttempt(id: number): Promise<PreparedDispatchOperation> {
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.operacionDespacho.findUnique({
