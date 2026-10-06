@@ -92,6 +92,17 @@ export class ReleaseInventoryReservationUseCase {
           }),
         );
 
+        await tx.createOrderEvent({
+          pedidoId: detail.pedidoId,
+          actorId: command.actorId,
+          tipo: 'RESERVA_LIBERADA',
+          detalle: `Se liberaron ${command.cantidad} unidades de la reserva de inventario.`,
+          referencia: {
+            type: 'RESERVA_INVENTARIO',
+            id: reservation.id!,
+          },
+        });
+
         return this.coordinator.result(
           persistedStock,
           movement.id!,

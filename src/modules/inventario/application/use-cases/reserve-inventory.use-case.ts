@@ -5,6 +5,7 @@ import { StockBodega } from '../../domain/entities/stock-bodega.entity';
 import {
   InventoryOrderDetailCapacityExceededError,
   InventoryOrderDetailNotFoundError,
+  InventoryOrderNotReservableError,
 } from '../../domain/errors/inventory.errors';
 import { InventoryRepositoryPort } from '../../domain/ports/inventory.repository.port';
 import { ProductCatalogPort } from '../../domain/ports/product-catalog.port';
@@ -15,6 +16,12 @@ import {
   assertProduct,
   withOptimisticRetry,
 } from './inventory-use-case.helpers';
+
+const RESERVABLE_ORDER_STATES = [
+  'CONFIRMADO',
+  'EN_PREPARACION',
+  'PARCIALMENTE_DESPACHADO',
+] as const;
 
 export class ReserveInventoryUseCase {
   constructor(
@@ -38,6 +45,18 @@ export class ReserveInventoryUseCase {
         const detail = await tx.findOrderDetailContext(command.pedidoDetalleId);
         if (!detail) {
           throw new InventoryOrderDetailNotFoundError(command.pedidoDetalleId);
+        }
+
+        if (
+          !RESERVABLE_ORDER_STATES.includes(
+            detail.pedidoEstado as (typeof RESERVABLE_ORDER_STATES)[number],
+          )
+        ) {
+          throw new InventoryOrderNotReservableError(
+            detail.pedidoId,
+            detail.pedidoEstado,
+            RESERVABLE_ORDER_STATES,
+          );
         }
 
         await assertProduct(this.products, detail.productoId);
@@ -118,6 +137,17 @@ export class ReserveInventoryUseCase {
             claveIdempotencia: command.claveIdempotencia,
           }),
         );
+
+        await tx.createOrderEvent({
+          pedidoId: detail.pedidoId,
+          actorId: command.actorId,
+          tipo: 'RESERVA_CREADA',
+          detalle: `Reserva de inventario creada por ${command.cantidad} unidades.`,
+          referencia: {
+            type: 'RESERVA_INVENTARIO',
+            id: reservation.id!,
+          },
+        });
 
         return this.coordinator.result(
           persistedStock,

@@ -1,7 +1,10 @@
 import { MovimientoInventario } from '../entities/movimiento-inventario.entity';
 import { ReservaInventario } from '../entities/reserva-inventario.entity';
 import { StockBodega } from '../entities/stock-bodega.entity';
-import { OrderDetailInventoryContext } from '../inventory.types';
+import {
+  InventoryOrderEventDraft,
+  OrderDetailInventoryContext,
+} from '../inventory.types';
 
 export interface InventoryTransactionPort {
   findStockByBodegaProducto(bodegaId: number, productoId: number): Promise<StockBodega | null>;
@@ -26,6 +29,8 @@ export interface InventoryTransactionPort {
     expectedReserved: number,
     nextReserved: number,
   ): Promise<void>;
+
+  createOrderEvent(event: InventoryOrderEventDraft): Promise<void>;
 }
 
 export interface InventoryRepositoryPort {
