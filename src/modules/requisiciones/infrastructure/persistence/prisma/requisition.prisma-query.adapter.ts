@@ -240,11 +240,20 @@ export class RequisitionPrismaQueryAdapter implements RequisitionQueryPort {
         },
       },
     });
-    const ids = rows.map((row) => row.id);
-    const receiptGroups = ids.length
+    // Las requisiciones rechazadas/canceladas se conservan en los conteos
+    // históricos por estado, pero no representan abastecimiento operativo ni
+    // mercadería pendiente. Excluirlas evita inflar unidades, costo y alertas.
+    const operationalRows = rows.filter(
+      (row) => !['RECHAZADA', 'CANCELADA'].includes(row.estado),
+    );
+    const operationalIds = operationalRows.map((row) => row.id);
+    const receiptGroups = operationalIds.length
       ? await this.prisma.recepcionRequisicion.groupBy({
           by: ['estado'],
-          where: { requisicionId: { in: ids }, estado: { in: ['PENDIENTE', 'FALLIDA'] } },
+          where: {
+            requisicionId: { in: operationalIds },
+            estado: { in: ['PENDIENTE', 'FALLIDA'] },
+          },
           _count: { _all: true },
         })
       : [];
@@ -253,7 +262,7 @@ export class RequisitionPrismaQueryAdapter implements RequisitionQueryPort {
     let requested = 0;
     let received = 0;
     let estimated = new Prisma.Decimal(0);
-    for (const row of rows) {
+    for (const row of operationalRows) {
       for (const detail of row.detalles) {
         requested += detail.cantidadSolicitada;
         received += detail.cantidadRecibida;
