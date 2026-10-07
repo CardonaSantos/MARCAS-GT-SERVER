@@ -198,3 +198,6 @@ export class PageDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page = 1;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit = 20;
 }
+export class IncidentListDto extends PageDto {
+  @IsOptional() @IsIn(['ABIERTA', 'EN_ATENCION', 'RESUELTA']) estado?: any;
+}

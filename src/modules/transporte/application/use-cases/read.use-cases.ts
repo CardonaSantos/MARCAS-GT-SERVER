@@ -3,6 +3,7 @@ import { TransportActorDirectoryPort } from '../ports/transport-actor-directory.
 import { TransportQueryPort } from '../ports/transport-query.port';
 import { requireTransportActor, transportReadScope } from './transport.helpers';
 import { TransportNotFoundError } from '../../domain/errors/transport.errors';
+import { ShipmentIncidentState } from '../../transport.types';
 export class ListShipmentsUseCase {
   constructor(
     private readonly query: TransportQueryPort,
@@ -53,6 +54,49 @@ export class ListShipmentCandidatesUseCase {
       ...filters,
       scope: transportReadScope(actor),
     });
+  }
+}
+export class ListShipmentEventsUseCase {
+  constructor(
+    private readonly query: TransportQueryPort,
+    private readonly actors: TransportActorDirectoryPort,
+  ) {}
+  async execute(
+    id: number,
+    filters: { page: number; limit: number },
+    actorId: number,
+  ) {
+    const actor = await requireTransportActor(this.actors, actorId);
+    return this.query.listEvents(
+      id,
+      transportReadScope(actor),
+      filters.page,
+      filters.limit,
+    );
+  }
+}
+export class ListShipmentIncidentsUseCase {
+  constructor(
+    private readonly query: TransportQueryPort,
+    private readonly actors: TransportActorDirectoryPort,
+  ) {}
+  async execute(
+    id: number,
+    filters: {
+      page: number;
+      limit: number;
+      estado?: ShipmentIncidentState;
+    },
+    actorId: number,
+  ) {
+    const actor = await requireTransportActor(this.actors, actorId);
+    return this.query.listIncidents(
+      id,
+      transportReadScope(actor),
+      filters.page,
+      filters.limit,
+      filters.estado,
+    );
   }
 }
 export class GetTransportSummaryUseCase {

@@ -35,6 +35,8 @@ import {
   GetTransportOperationalReportUseCase,
   GetTransportSummaryUseCase,
   ListShipmentCandidatesUseCase,
+  ListShipmentEventsUseCase,
+  ListShipmentIncidentsUseCase,
   ListShipmentsUseCase,
 } from './application/use-cases/read.use-cases';
 import {
@@ -209,6 +211,18 @@ import {
       provide: ListShipmentCandidatesUseCase,
       useFactory: (q: TransportQueryPort, a: TransportActorDirectoryPort) =>
         new ListShipmentCandidatesUseCase(q, a),
+      inject: [TRANSPORT_QUERY, TRANSPORT_ACTOR_DIRECTORY],
+    },
+    {
+      provide: ListShipmentEventsUseCase,
+      useFactory: (q: TransportQueryPort, a: TransportActorDirectoryPort) =>
+        new ListShipmentEventsUseCase(q, a),
+      inject: [TRANSPORT_QUERY, TRANSPORT_ACTOR_DIRECTORY],
+    },
+    {
+      provide: ListShipmentIncidentsUseCase,
+      useFactory: (q: TransportQueryPort, a: TransportActorDirectoryPort) =>
+        new ListShipmentIncidentsUseCase(q, a),
       inject: [TRANSPORT_QUERY, TRANSPORT_ACTOR_DIRECTORY],
     },
     {

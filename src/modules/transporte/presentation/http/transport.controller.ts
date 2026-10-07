@@ -30,6 +30,8 @@ import {
   GetTransportOperationalReportUseCase,
   GetTransportSummaryUseCase,
   ListShipmentCandidatesUseCase,
+  ListShipmentEventsUseCase,
+  ListShipmentIncidentsUseCase,
   ListShipmentsUseCase,
 } from '../../application/use-cases/read.use-cases';
 import { TransportExceptionFilter } from './transport-exception.filter';
@@ -40,8 +42,10 @@ import {
   ConfirmLoadDto,
   CreateShipmentDto,
   IncidentDto,
+  IncidentListDto,
   ListDto,
   ObservationDto,
+  PageDto,
   RangeDto,
   ResolveIncidentDto,
   RouteDto,
@@ -68,6 +72,8 @@ export class TransportController {
     private readonly listUse: ListShipmentsUseCase,
     private readonly getUse: GetShipmentUseCase,
     private readonly candidatesUse: ListShipmentCandidatesUseCase,
+    private readonly eventsUse: ListShipmentEventsUseCase,
+    private readonly incidentsUse: ListShipmentIncidentsUseCase,
     private readonly summaryUse: GetTransportSummaryUseCase,
     private readonly reportUse: GetTransportOperationalReportUseCase,
     private readonly observationUse: AddShipmentObservationUseCase,
@@ -104,6 +110,24 @@ export class TransportController {
   @Roles('ADMIN', 'BODEGA', 'CONTABILIDAD', 'VENDEDOR', 'REPARTIDOR')
   get(@Param('id', ParseIntPipe) id: number, @CurrentActorId() a: number) {
     return this.getUse.execute(id, a);
+  }
+  @Get(':id/eventos')
+  @Roles('ADMIN', 'BODEGA', 'CONTABILIDAD', 'VENDEDOR', 'REPARTIDOR')
+  events(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() q: PageDto,
+    @CurrentActorId() a: number,
+  ) {
+    return this.eventsUse.execute(id, q, a);
+  }
+  @Get(':id/incidencias')
+  @Roles('ADMIN', 'BODEGA', 'CONTABILIDAD', 'VENDEDOR', 'REPARTIDOR')
+  incidents(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() q: IncidentListDto,
+    @CurrentActorId() a: number,
+  ) {
+    return this.incidentsUse.execute(id, q, a);
   }
   @Post(':id/asignar') @Roles('ADMIN', 'BODEGA') assign(
     @Param('id', ParseIntPipe) id: number,
