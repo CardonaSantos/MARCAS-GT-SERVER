@@ -758,7 +758,10 @@ export class BillingPrismaQueryAdapter
           _sum: { total: true, impuestoTotal: true },
         }),
         this.prisma.factura.aggregate({
-          where,
+          where: {
+            ...where,
+            estado: { in: ['LISTA_EMISION', 'EMITIDA'] },
+          },
           _sum: { total: true, impuestoTotal: true, descuentoTotal: true },
         }),
         this.prisma.factura.count({

@@ -457,9 +457,16 @@ describe('Facturación HTTP E2E', () => {
 
     expect(summary.body).toEqual(
       expect.objectContaining({
-        total: expect.any(Number),
-        porEstado: expect.any(Object),
-        montos: expect.any(Object),
+        total: 2,
+        porEstado: expect.objectContaining({
+          LISTA_EMISION: 1,
+          DESCARTADA: 1,
+        }),
+        montos: {
+          facturado: '54.00',
+          impuestos: '5.79',
+          descuentos: '6.00',
+        },
         fel: expect.any(Object),
         cartera: expect.any(Object),
       }),
