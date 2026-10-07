@@ -7,6 +7,7 @@ import {
 import { Request, Response } from 'express';
 import {
   PaymentAvailableAmountExceededError,
+  PaymentBankNotFoundError,
   PaymentConcurrentModificationError,
   PaymentDomainError,
   PaymentForbiddenError,
@@ -26,7 +27,10 @@ export class PaymentExceptionFilter implements ExceptionFilter {
 
     let status = HttpStatus.BAD_REQUEST;
 
-    if (exception instanceof PaymentNotFoundError) {
+    if (
+      exception instanceof PaymentNotFoundError ||
+      exception instanceof PaymentBankNotFoundError
+    ) {
       status = HttpStatus.NOT_FOUND;
     } else if (exception instanceof PaymentForbiddenError) {
       status = HttpStatus.FORBIDDEN;

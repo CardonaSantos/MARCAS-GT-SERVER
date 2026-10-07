@@ -254,3 +254,51 @@ export class PaymentPageDto {
   @Max(100)
   limit = 20;
 }
+
+
+export class CreatePaymentBankDto {
+  @Transform(trimmed)
+  @IsString()
+  @Length(2, 160)
+  nombre: string;
+
+  @IsOptional()
+  @Transform(trimmed)
+  @IsString()
+  @MaxLength(80)
+  codigo?: string;
+
+  @IsOptional()
+  @Transform(trimmed)
+  @IsString()
+  @MaxLength(160)
+  cuenta?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  activo?: boolean;
+}
+
+export class UpdatePaymentBankDto {
+  @IsOptional()
+  @Transform(trimmed)
+  @IsString()
+  @Length(2, 160)
+  nombre?: string;
+
+  @IsOptional()
+  @Transform(trimmed)
+  @IsString()
+  @MaxLength(80)
+  codigo?: string | null;
+
+  @IsOptional()
+  @Transform(trimmed)
+  @IsString()
+  @MaxLength(160)
+  cuenta?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  activo?: boolean;
+}

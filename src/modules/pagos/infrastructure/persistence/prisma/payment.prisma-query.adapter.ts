@@ -29,6 +29,22 @@ export class PaymentPrismaQueryAdapter
     });
   }
 
+  async listBanksAdmin(scope: PaymentReadScope) {
+    return this.prisma.banco.findMany({
+      where: { empresaId: scope.empresaId },
+      orderBy: [{ activo: 'desc' }, { nombre: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        nombre: true,
+        codigo: true,
+        cuenta: true,
+        activo: true,
+        creadoEn: true,
+        actualizadoEn: true,
+      },
+    });
+  }
+
   async list(filters: Parameters<PaymentQueryPort['list']>[0]) {
     const where: any = {
       ...scopeWhere(filters.scope),

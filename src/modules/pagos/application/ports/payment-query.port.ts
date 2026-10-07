@@ -16,8 +16,21 @@ export type PaymentBankOption = Readonly<{
   codigo: string | null;
 }>;
 
+export type PaymentBankAdminView = Readonly<{
+  id: number;
+  nombre: string;
+  codigo: string | null;
+  cuenta: string | null;
+  activo: boolean;
+  creadoEn: Date;
+  actualizadoEn: Date;
+}>;
+
 export interface PaymentQueryPort {
   listBanks(scope: PaymentReadScope): Promise<readonly PaymentBankOption[]>;
+  listBanksAdmin(
+    scope: PaymentReadScope,
+  ): Promise<readonly PaymentBankAdminView[]>;
 
   list(filters: {
     page: number;

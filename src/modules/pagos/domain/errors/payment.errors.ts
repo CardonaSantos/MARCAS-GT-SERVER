@@ -80,3 +80,10 @@ export class PaymentConcurrentModificationError extends PaymentDomainError {
     );
   }
 }
+
+
+export class PaymentBankNotFoundError extends PaymentDomainError {
+  constructor(id: number) {
+    super('PAYMENT_BANK_NOT_FOUND', `El banco #${id} no existe.`, { id });
+  }
+}

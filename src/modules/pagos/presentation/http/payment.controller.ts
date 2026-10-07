@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
   UseFilters,
@@ -17,10 +18,12 @@ import { CurrentActorId } from 'src/shared/security/current-actor.decorator';
 import { Roles } from 'src/shared/security/roles.decorator';
 import { AddPaymentProofUseCase } from '../../application/use-cases/add-payment-proof.use-case';
 import { ApplyPaymentUseCase } from '../../application/use-cases/apply-payment.use-case';
+import { PaymentBankCommands } from '../../application/use-cases/payment-bank.commands';
 import {
   GetPaymentSummaryUseCase,
   GetPaymentUseCase,
   ListPaymentApplicationsUseCase,
+  ListPaymentBanksAdminUseCase,
   ListPaymentBanksUseCase,
   ListPaymentEventsUseCase,
   ListPaymentsUseCase,
@@ -34,12 +37,14 @@ import { VoidPaymentUseCase } from '../../application/use-cases/void-payment.use
 import {
   AddPaymentProofDto,
   ApplyPaymentDto,
+  CreatePaymentBankDto,
   PaymentActionDto,
   PaymentListDto,
   PaymentPageDto,
   PaymentRangeDto,
   PaymentReasonActionDto,
   RegisterPaymentDto,
+  UpdatePaymentBankDto,
 } from './dto/payment-http.dto';
 import { PaymentExceptionFilter } from './payment-exception.filter';
 
@@ -71,6 +76,8 @@ export class PaymentController {
     private readonly eventsUse: ListPaymentEventsUseCase,
     private readonly applicationsUse: ListPaymentApplicationsUseCase,
     private readonly banksUse: ListPaymentBanksUseCase,
+    private readonly banksAdminUse: ListPaymentBanksAdminUseCase,
+    private readonly bankCommands: PaymentBankCommands,
     private readonly candidatesUse: ListReceivableCandidatesUseCase,
     private readonly summaryUse: GetPaymentSummaryUseCase,
   ) {}
@@ -88,6 +95,31 @@ export class PaymentController {
   @Roles(...READ)
   banks(@CurrentActorId() actorId: number) {
     return this.banksUse.execute(actorId);
+  }
+
+  @Get('bancos/administracion')
+  @Roles(...OPERATE)
+  banksAdmin(@CurrentActorId() actorId: number) {
+    return this.banksAdminUse.execute(actorId);
+  }
+
+  @Post('bancos')
+  @Roles(...OPERATE)
+  createBank(
+    @Body() dto: CreatePaymentBankDto,
+    @CurrentActorId() actorId: number,
+  ) {
+    return this.bankCommands.create({ ...dto, actorId });
+  }
+
+  @Patch('bancos/:bancoId')
+  @Roles(...OPERATE)
+  updateBank(
+    @Param('bancoId', ParseIntPipe) id: number,
+    @Body() dto: UpdatePaymentBankDto,
+    @CurrentActorId() actorId: number,
+  ) {
+    return this.bankCommands.update({ id, ...dto, actorId });
   }
 
   @Get('resumen')

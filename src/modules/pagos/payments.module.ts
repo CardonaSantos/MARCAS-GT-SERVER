@@ -3,6 +3,7 @@ import { PrismaService } from 'src/prisma.service';
 import { ActiveUserRolesGuard } from 'src/shared/security/active-user-roles.guard';
 import { PaymentActorDirectoryPort } from './application/ports/payment-actor-directory.port';
 import { PaymentContextPort } from './application/ports/payment-context.port';
+import { PaymentBankRepositoryPort } from './application/ports/payment-bank.port';
 import {
   PaymentDirectoryPort,
   PaymentQueryPort,
@@ -10,10 +11,12 @@ import {
 import { PaymentWorkflowPort } from './application/ports/payment-workflow.port';
 import { AddPaymentProofUseCase } from './application/use-cases/add-payment-proof.use-case';
 import { ApplyPaymentUseCase } from './application/use-cases/apply-payment.use-case';
+import { PaymentBankCommands } from './application/use-cases/payment-bank.commands';
 import {
   GetPaymentSummaryUseCase,
   GetPaymentUseCase,
   ListPaymentApplicationsUseCase,
+  ListPaymentBanksAdminUseCase,
   ListPaymentBanksUseCase,
   ListPaymentEventsUseCase,
   ListPaymentsUseCase,
@@ -26,6 +29,7 @@ import { VerifyPaymentUseCase } from './application/use-cases/verify-payment.use
 import { VoidPaymentUseCase } from './application/use-cases/void-payment.use-case';
 import {
   PAYMENT_ACTOR_DIRECTORY,
+  PAYMENT_BANK_REPOSITORY,
   PAYMENT_CONTEXT_DIRECTORY,
   PAYMENT_DIRECTORY,
   PAYMENT_QUERY,
@@ -33,6 +37,7 @@ import {
 } from './payment.tokens';
 import { PaymentActorDirectoryPrismaAdapter } from './infrastructure/adapters/payment-actor-directory.prisma-adapter';
 import { PaymentContextPrismaAdapter } from './infrastructure/adapters/payment-context.prisma-adapter';
+import { PaymentBankPrismaRepository } from './infrastructure/persistence/prisma/payment-bank.prisma-repository';
 import { PaymentPrismaQueryAdapter } from './infrastructure/persistence/prisma/payment.prisma-query.adapter';
 import { PaymentWorkflowPrismaAdapter } from './infrastructure/persistence/prisma/payment-workflow.prisma-adapter';
 import { PaymentController } from './presentation/http/payment.controller';
@@ -44,6 +49,7 @@ import { PaymentController } from './presentation/http/payment.controller';
     ActiveUserRolesGuard,
     PaymentActorDirectoryPrismaAdapter,
     PaymentContextPrismaAdapter,
+    PaymentBankPrismaRepository,
     PaymentWorkflowPrismaAdapter,
     PaymentPrismaQueryAdapter,
 
@@ -54,6 +60,10 @@ import { PaymentController } from './presentation/http/payment.controller';
     {
       provide: PAYMENT_CONTEXT_DIRECTORY,
       useExisting: PaymentContextPrismaAdapter,
+    },
+    {
+      provide: PAYMENT_BANK_REPOSITORY,
+      useExisting: PaymentBankPrismaRepository,
     },
     {
       provide: PAYMENT_WORKFLOW,
@@ -68,6 +78,14 @@ import { PaymentController } from './presentation/http/payment.controller';
       useExisting: PaymentPrismaQueryAdapter,
     },
 
+    {
+      provide: PaymentBankCommands,
+      useFactory: (
+        banks: PaymentBankRepositoryPort,
+        actors: PaymentActorDirectoryPort,
+      ) => new PaymentBankCommands(banks, actors),
+      inject: [PAYMENT_BANK_REPOSITORY, PAYMENT_ACTOR_DIRECTORY],
+    },
     {
       provide: RegisterPaymentUseCase,
       useFactory: (
@@ -158,6 +176,7 @@ function readProviders() {
 
   return [
     make(ListPaymentBanksUseCase),
+    make(ListPaymentBanksAdminUseCase),
     make(ListPaymentsUseCase),
     make(GetPaymentUseCase),
     make(ListPaymentEventsUseCase),

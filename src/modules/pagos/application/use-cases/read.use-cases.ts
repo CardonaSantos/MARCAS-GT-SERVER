@@ -2,6 +2,7 @@ import { PaymentNotFoundError } from '../../domain/errors/payment.errors';
 import { PaymentActorDirectoryPort } from '../ports/payment-actor-directory.port';
 import { PaymentQueryPort } from '../ports/payment-query.port';
 import {
+  assertPaymentOperator,
   paymentReadScope,
   requirePaymentActor,
 } from './payment.helpers';
@@ -15,6 +16,20 @@ export class ListPaymentBanksUseCase {
   async execute(actorId: number) {
     const actor = await requirePaymentActor(this.actors, actorId);
     return this.query.listBanks(paymentReadScope(actor));
+  }
+}
+
+export class ListPaymentBanksAdminUseCase {
+  constructor(
+    private readonly query: PaymentQueryPort,
+    private readonly actors: PaymentActorDirectoryPort,
+  ) {}
+
+  async execute(actorId: number) {
+    const actor = await requirePaymentActor(this.actors, actorId);
+
+    assertPaymentOperator(actor);
+    return this.query.listBanksAdmin(paymentReadScope(actor));
   }
 }
 
