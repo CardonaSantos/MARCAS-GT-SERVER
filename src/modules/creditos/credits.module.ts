@@ -18,6 +18,7 @@ import {
 } from './application/use-cases/credit-decision.commands';
 import { CreditEvidenceCommands } from './application/use-cases/credit-evidence.commands';
 import { CreditPolicyCommands } from './application/use-cases/credit-policy.commands';
+import { CreditPaymentPlanCommands } from './application/use-cases/credit-payment-plan.commands';
 import { CreditQueries } from './application/use-cases/credit-queries';
 import { CreditActorDirectoryPort } from './domain/ports/credit-actor-directory.port';
 import {
@@ -26,11 +27,13 @@ import {
   CreditEvidenceRepositoryPort,
   CreditIntegrationRepositoryPort,
   CreditPolicyRepositoryPort,
+  CreditPaymentPlanRepositoryPort,
 } from './domain/ports/credit.repositories';
 import { CreditActorDirectoryPrismaAdapter } from './infrastructure/adapters/credit-actor-directory.prisma-adapter';
 import { CreditAuthorizationAdapter } from './infrastructure/adapters/credit-authorization.adapter';
 import { CreditDirectoryAdapter } from './infrastructure/adapters/credit-directory.adapter';
 import { CreditPolicyPrismaRepository } from './infrastructure/persistence/prisma/credit-policy.prisma-repository';
+import { CreditPaymentPlanPrismaRepository } from './infrastructure/persistence/prisma/credit-payment-plan.prisma-repository';
 import { CreditPrismaQueryAdapter } from './infrastructure/persistence/prisma/credit.prisma-query.adapter';
 import { CreditPrismaRepository } from './infrastructure/persistence/prisma/credit.prisma-repository';
 import {
@@ -42,6 +45,7 @@ import {
   CREDIT_EVIDENCE_REPOSITORY,
   CREDIT_INTEGRATION_REPOSITORY,
   CREDIT_POLICY_REPOSITORY,
+  CREDIT_PAYMENT_PLAN_REPOSITORY,
   CREDIT_QUERY,
 } from './credit.tokens';
 import { CreditController } from './presentation/http/credit.controller';
@@ -60,6 +64,7 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
     ActiveUserRolesGuard,
     CreditPrismaRepository,
     CreditPolicyPrismaRepository,
+    CreditPaymentPlanPrismaRepository,
     CreditPrismaQueryAdapter,
     CreditActorDirectoryPrismaAdapter,
     CreditDirectoryAdapter,
@@ -84,6 +89,10 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
     {
       provide: CREDIT_POLICY_REPOSITORY,
       useExisting: CreditPolicyPrismaRepository,
+    },
+    {
+      provide: CREDIT_PAYMENT_PLAN_REPOSITORY,
+      useExisting: CreditPaymentPlanPrismaRepository,
     },
     { provide: CREDIT_QUERY, useExisting: CreditPrismaQueryAdapter },
     {
@@ -175,6 +184,14 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
         ORDER_DIRECTORY,
         CreditOrderIntegrationService,
       ],
+    },
+    {
+      provide: CreditPaymentPlanCommands,
+      useFactory: (
+        plans: CreditPaymentPlanRepositoryPort,
+        users: CreditActorDirectoryPort,
+      ) => new CreditPaymentPlanCommands(plans, users),
+      inject: [CREDIT_PAYMENT_PLAN_REPOSITORY, CREDIT_ACTOR_DIRECTORY],
     },
     {
       provide: CreditPolicyCommands,

@@ -60,6 +60,7 @@ model Empresa {
   pagos              Pago[]
   cuentasPorCobrar   CuentaPorCobrar[]
   facturas           Factura[]
+  planesPagoCredito  CreditoPlanPago[]
 
   perfilFiscal             EmpresaPerfilFiscal?
   establecimientosFiscales EstablecimientoFiscal[]
@@ -541,6 +542,11 @@ model Usuario {
 
   operacionesIntegracionCreditoPedido OperacionIntegracionCreditoPedido[] @relation("OperacionIntegracionCreditoPedidoActor")
 
+  planesPagoCreditoCreados    CreditoPlanPago[]       @relation("CreditoPlanPagoCreadoPor")
+  planesPagoCreditoActivados  CreditoPlanPago[]       @relation("CreditoPlanPagoActivadoPor")
+  planesPagoCreditoCancelados CreditoPlanPago[]       @relation("CreditoPlanPagoCanceladoPor")
+  eventosPlanPagoCredito      CreditoPlanPagoEvento[] @relation("CreditoPlanPagoEventoUsuario")
+
   enviosCreados         Envio[]         @relation("EnvioCreadoPor")
   enviosAsignados       Envio[]         @relation("EnvioAsignadoPor")
   enviosCargaConfirmada Envio[]         @relation("EnvioCargaConfirmadaPor")
@@ -611,6 +617,7 @@ model Credito {
 
   solicitudOrigen  SolicitudCredito?
   cuentasPorCobrar CuentaPorCobrar[]
+  planPago         CreditoPlanPago?
 
   @@index([empresaId, estado, createdAt])
   @@index([clienteId, estado])
@@ -686,6 +693,27 @@ enum FrecuenciaPago {
 enum EstadoCredito {
   ACTIVO
   CERRADO
+}
+
+enum EstadoPlanPagoCredito {
+  BORRADOR
+  ACTIVO
+  CANCELADO
+}
+
+enum FrecuenciaPlanPagoCredito {
+  SEMANAL
+  QUINCENAL
+  MENSUAL
+  PERSONALIZADA
+}
+
+enum TipoEventoPlanPagoCredito {
+  CREADO
+  ACTUALIZADO
+  ACTIVADO
+  CANCELADO
+  OBSERVACION
 }
 
 enum Rol {
@@ -3415,6 +3443,99 @@ model FacturaDetalleImpuesto {
 
 
 
+
+// ============================================================================
+// PLAN DE PAGOS DE CREDITO — FLUJO MODERNO
+// ============================================================================
+
+model CreditoPlanPago {
+  id        Int @id @default(autoincrement())
+  empresaId Int
+  creditoId Int @unique
+
+  estado     EstadoPlanPagoCredito     @default(BORRADOR)
+  frecuencia FrecuenciaPlanPagoCredito
+
+  montoProgramado         Decimal  @db.Decimal(12, 2)
+  numeroCuotas            Int
+  primeraFechaVencimiento DateTime
+
+  creadoPorId    Int?
+  activadoPorId  Int?
+  canceladoPorId Int?
+
+  activadoEn  DateTime?
+  canceladoEn DateTime?
+
+  motivoCancelacion String?
+
+  claveIdempotenciaCreacion   String? @unique
+  claveIdempotenciaActivacion String? @unique
+
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  credito Credito @relation(fields: [creditoId], references: [id], onDelete: Restrict)
+
+  creadoPor    Usuario? @relation("CreditoPlanPagoCreadoPor", fields: [creadoPorId], references: [id], onDelete: SetNull)
+  activadoPor  Usuario? @relation("CreditoPlanPagoActivadoPor", fields: [activadoPorId], references: [id], onDelete: SetNull)
+  canceladoPor Usuario? @relation("CreditoPlanPagoCanceladoPor", fields: [canceladoPorId], references: [id], onDelete: SetNull)
+
+  cuotas  CreditoCuota[]
+  eventos CreditoPlanPagoEvento[]
+
+  @@index([empresaId, estado, creadoEn])
+  @@index([creadoPorId])
+  @@index([activadoPorId])
+  @@index([canceladoPorId])
+}
+
+model CreditoCuota {
+  id       Int @id @default(autoincrement())
+  planPagoId Int
+  numero     Int
+
+  montoProgramado Decimal  @db.Decimal(12, 2)
+  fechaVencimiento DateTime
+
+  cuentaPorCobrarId Int? @unique
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  planPago CreditoPlanPago @relation(fields: [planPagoId], references: [id], onDelete: Cascade)
+  cuentaPorCobrar CuentaPorCobrar? @relation(fields: [cuentaPorCobrarId], references: [id], onDelete: SetNull)
+
+  @@unique([planPagoId, numero])
+  @@index([planPagoId, fechaVencimiento])
+}
+
+model CreditoPlanPagoEvento {
+  id        Int @id @default(autoincrement())
+  planPagoId Int
+  usuarioId  Int?
+
+  tipo   TipoEventoPlanPagoCredito
+  estado EstadoPlanPagoCredito
+
+  detalle String?
+  metadata Json?
+
+  claveIdempotencia String? @unique
+
+  creadoEn DateTime @default(now())
+
+  planPago CreditoPlanPago @relation(fields: [planPagoId], references: [id], onDelete: Cascade)
+  usuario  Usuario? @relation("CreditoPlanPagoEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([planPagoId, creadoEn])
+  @@index([tipo, creadoEn])
+  @@index([usuarioId, creadoEn])
+}
+
 model CuentaPorCobrar {
   id        Int @id @default(autoincrement())
   empresaId Int
@@ -3450,6 +3571,7 @@ model CuentaPorCobrar {
   credito Credito? @relation(fields: [creditoId], references: [id], onDelete: SetNull)
 
   aplicaciones PagoAplicacion[]
+  cuotaCredito CreditoCuota?
 
   @@index([empresaId, estado, fechaVencimiento])
   @@index([clienteId, estado])

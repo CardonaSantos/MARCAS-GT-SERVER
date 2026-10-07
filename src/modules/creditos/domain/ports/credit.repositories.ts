@@ -1,4 +1,4 @@
-import { CreditAuditDraft, CreditDecisionType, CreditDocumentState, CreditDocumentType, CreditIntegrationState, CreditIntegrationType, CreditReferenceResult, CreditReferenceType, CreditRequirementState } from '../../credit.types';
+import { CreditAuditDraft, CreditDecisionType, CreditDocumentState, CreditDocumentType, CreditIntegrationState, CreditIntegrationType, CreditPaymentPlanFrequency, CreditPaymentPlanState, CreditReferenceResult, CreditReferenceType, CreditRequirementState } from '../../credit.types';
 import { CreditApplication } from '../entities/credit-application.entity';
 import { CreditPolicy } from '../entities/credit-policy.entity';
 export type CreditRequirementSnapshot=Readonly<{politicaRequisitoId:number|null;codigo:string;nombre:string;descripcion:string|null;obligatorio:boolean;orden:number}>;
@@ -36,4 +36,71 @@ export interface CreditPolicyRepositoryPort{
  createPolicy(entity:CreditPolicy):Promise<CreditPolicyEntry>;
  updatePolicy(entity:CreditPolicy,expectedVersion:number,replaceRequirements:boolean):Promise<CreditPolicyEntry>;
  setPolicyStatus(entity:CreditPolicy,expectedVersion:number):Promise<CreditPolicyEntry>;
+}
+
+export type CreditPaymentPlanCreditSnapshot = Readonly<{
+ id:number;
+ empresaId:number|null;
+ clienteId:number|null;
+ numero:string|null;
+ estado:string;
+ montoFinanciado:string|null;
+ pedidoId:number|null;
+ moneda:string;
+}>;
+
+export type CreditPaymentPlanInstallmentSnapshot = Readonly<{
+ id:number;
+ numero:number;
+ montoProgramado:string;
+ fechaVencimiento:Date;
+ cuentaPorCobrarId:number|null;
+}>;
+
+export type CreditPaymentPlanSnapshot = Readonly<{
+ id:number;
+ empresaId:number;
+ creditoId:number;
+ estado:CreditPaymentPlanState;
+ frecuencia:CreditPaymentPlanFrequency;
+ montoProgramado:string;
+ numeroCuotas:number;
+ primeraFechaVencimiento:Date;
+ version:number;
+ activadoEn:Date|null;
+ cuotas:readonly CreditPaymentPlanInstallmentSnapshot[];
+}>;
+
+export type CreditPaymentPlanDraftInstallment = Readonly<{
+ numero:number;
+ montoProgramado:string;
+ fechaVencimiento:Date;
+}>;
+
+export interface CreditPaymentPlanRepositoryPort {
+ findCreditForPlan(creditoId:number):Promise<CreditPaymentPlanCreditSnapshot|null>;
+ createPaymentPlan(input:{
+  creditoId:number;
+  empresaId:number;
+  frecuencia:CreditPaymentPlanFrequency;
+  cuotas:readonly CreditPaymentPlanDraftInstallment[];
+  actorId:number;
+  claveIdempotencia:string;
+ }):Promise<CreditPaymentPlanSnapshot>;
+ updatePaymentPlan(input:{
+  creditoId:number;
+  empresaId:number;
+  frecuencia:CreditPaymentPlanFrequency;
+  cuotas:readonly CreditPaymentPlanDraftInstallment[];
+  expectedVersion:number;
+  actorId:number;
+  claveIdempotencia:string;
+ }):Promise<CreditPaymentPlanSnapshot>;
+ activatePaymentPlan(input:{
+  creditoId:number;
+  empresaId:number;
+  expectedVersion:number;
+  actorId:number;
+  claveIdempotencia:string;
+ }):Promise<CreditPaymentPlanSnapshot>;
 }
