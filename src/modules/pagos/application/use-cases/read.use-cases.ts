@@ -6,6 +6,18 @@ import {
   requirePaymentActor,
 } from './payment.helpers';
 
+export class ListPaymentBanksUseCase {
+  constructor(
+    private readonly query: PaymentQueryPort,
+    private readonly actors: PaymentActorDirectoryPort,
+  ) {}
+
+  async execute(actorId: number) {
+    const actor = await requirePaymentActor(this.actors, actorId);
+    return this.query.listBanks(paymentReadScope(actor));
+  }
+}
+
 export class ListPaymentsUseCase {
   constructor(
     private readonly query: PaymentQueryPort,

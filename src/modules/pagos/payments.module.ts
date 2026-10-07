@@ -14,6 +14,7 @@ import {
   GetPaymentSummaryUseCase,
   GetPaymentUseCase,
   ListPaymentApplicationsUseCase,
+  ListPaymentBanksUseCase,
   ListPaymentEventsUseCase,
   ListPaymentsUseCase,
   ListReceivableCandidatesUseCase,
@@ -156,6 +157,7 @@ function readProviders() {
   });
 
   return [
+    make(ListPaymentBanksUseCase),
     make(ListPaymentsUseCase),
     make(GetPaymentUseCase),
     make(ListPaymentEventsUseCase),

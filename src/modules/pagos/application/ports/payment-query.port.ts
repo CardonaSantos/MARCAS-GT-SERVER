@@ -10,7 +10,15 @@ export type PaymentPage<T> = Readonly<{
   }>;
 }>;
 
+export type PaymentBankOption = Readonly<{
+  id: number;
+  nombre: string;
+  codigo: string | null;
+}>;
+
 export interface PaymentQueryPort {
+  listBanks(scope: PaymentReadScope): Promise<readonly PaymentBankOption[]>;
+
   list(filters: {
     page: number;
     limit: number;

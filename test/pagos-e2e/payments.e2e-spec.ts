@@ -102,6 +102,27 @@ describe('Pagos HTTP E2E', () => {
       .expect(403);
   });
 
+  it('expone bancos activos seleccionables dentro de la empresa', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/pagos/bancos')
+      .set(auth(tokens.vendedor))
+      .expect(200);
+
+    expect(response.body).toEqual(
+      expect.arrayContaining([
+        {
+          id: fixture.banco.id,
+          nombre: fixture.banco.nombre,
+          codigo: fixture.banco.codigo,
+        },
+      ]),
+    );
+
+    expect(
+      response.body.every((row: Record<string, unknown>) => !('cuenta' in row)),
+    ).toBe(true);
+  });
+
   it('rechaza transferencia sin banco y referencia', async () => {
     const response = await request(app.getHttpServer())
       .post('/pagos')

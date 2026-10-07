@@ -14,6 +14,21 @@ export class PaymentPrismaQueryAdapter
 {
   constructor(private readonly prisma: PrismaService) {}
 
+  async listBanks(scope: PaymentReadScope) {
+    return this.prisma.banco.findMany({
+      where: {
+        empresaId: scope.empresaId,
+        activo: true,
+      },
+      orderBy: [{ nombre: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        nombre: true,
+        codigo: true,
+      },
+    });
+  }
+
   async list(filters: Parameters<PaymentQueryPort['list']>[0]) {
     const where: any = {
       ...scopeWhere(filters.scope),

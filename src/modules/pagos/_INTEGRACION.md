@@ -80,6 +80,7 @@ VENDEDOR:
 ## Endpoints
 
 - GET /pagos
+- GET /pagos/bancos
 - GET /pagos/resumen
 - POST /pagos
 - GET /pagos/:id
@@ -93,6 +94,12 @@ VENDEDOR:
 - POST /pagos/:pagoId/aplicaciones/:aplicacionId/revertir
 - POST /pagos/:id/anular
 
+
+## Catálogo UI
+
+`GET /pagos/bancos` devuelve únicamente bancos activos de la empresa del actor,
+ordenados por nombre. Está disponible para ADMIN, CONTABILIDAD y VENDEDOR para
+alimentar selectores de registro y filtros sin exponer cuentas bancarias.
 
 ## Validación recomendada
 

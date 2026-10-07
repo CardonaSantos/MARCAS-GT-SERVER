@@ -21,6 +21,7 @@ import {
   GetPaymentSummaryUseCase,
   GetPaymentUseCase,
   ListPaymentApplicationsUseCase,
+  ListPaymentBanksUseCase,
   ListPaymentEventsUseCase,
   ListPaymentsUseCase,
   ListReceivableCandidatesUseCase,
@@ -69,6 +70,7 @@ export class PaymentController {
     private readonly getUse: GetPaymentUseCase,
     private readonly eventsUse: ListPaymentEventsUseCase,
     private readonly applicationsUse: ListPaymentApplicationsUseCase,
+    private readonly banksUse: ListPaymentBanksUseCase,
     private readonly candidatesUse: ListReceivableCandidatesUseCase,
     private readonly summaryUse: GetPaymentSummaryUseCase,
   ) {}
@@ -80,6 +82,12 @@ export class PaymentController {
     @CurrentActorId() actorId: number,
   ) {
     return this.listUse.execute(query, actorId);
+  }
+
+  @Get('bancos')
+  @Roles(...READ)
+  banks(@CurrentActorId() actorId: number) {
+    return this.banksUse.execute(actorId);
   }
 
   @Get('resumen')
