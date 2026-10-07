@@ -16,11 +16,13 @@ export class TransportDeliveryGateAdapter implements TransportDeliveryGatePort {
         include: { envio: true },
       });
       if (!stop) throw new Error('Parada de envío no encontrada.');
-      const attended = ['ENTREGADA', 'PARCIAL'].includes(input.resultado);
+      // Entregas comunica un resultado terminal del intento de atención.
+      // Incluso RECHAZADA/NO_ENTREGADA significa que la parada ya fue visitada;
+      // no debe convertirse en una incidencia técnica huérfana de Transporte.
       await tx.envioDespacho.update({
         where: { id: stop.id },
         data: {
-          estado: attended ? 'ATENDIDA' : 'INCIDENCIA',
+          estado: 'ATENDIDA',
           version: { increment: 1 },
         },
       });
@@ -28,13 +30,8 @@ export class TransportDeliveryGateAdapter implements TransportDeliveryGatePort {
         where: { envioId: stop.envioId, id: { not: stop.id } },
         select: { estado: true },
       });
-      const all = attended && siblings.every((x) => x.estado === 'ATENDIDA');
-      const any = attended || siblings.some((x) => x.estado === 'ATENDIDA');
-      const next = all
-        ? 'COMPLETADO'
-        : any
-          ? 'ENTREGADO_PARCIAL'
-          : 'INCIDENCIA';
+      const all = siblings.every((x) => x.estado === 'ATENDIDA');
+      const next = all ? 'COMPLETADO' : 'ENTREGADO_PARCIAL';
       await tx.envio.update({
         where: { id: stop.envioId },
         data: {
@@ -61,11 +58,7 @@ export class TransportDeliveryGateAdapter implements TransportDeliveryGatePort {
         data: {
           envioId: stop.envioId,
           usuarioId: input.actorId,
-          tipo: all
-            ? 'COMPLETADO'
-            : attended
-              ? 'ENTREGA_PARCIAL'
-              : 'INCIDENCIA_REPORTADA',
+          tipo: all ? 'COMPLETADO' : 'PARADA_ATENDIDA',
           estado: next,
           descripcion:
             input.detalle ?? `Resultado de parada: ${input.resultado}`,

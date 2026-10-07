@@ -108,7 +108,7 @@ export class DeliveryController {
     return this.getUse.execute(id, actorId);
   }
 
-  @Post(':id/observaciones') @Roles(...READ)
+  @Post(':id/observaciones') @Roles(...OPERATE)
   async observation(@Param('id', ParseIntPipe) id: number, @Body() dto: DeliveryObservationDto, @CurrentActorId() actorId: number) {
     await this.observationUse.execute(id, dto.detalle, dto.claveIdempotencia, actorId);
     return this.getUse.execute(id, actorId);

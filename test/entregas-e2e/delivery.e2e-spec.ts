@@ -281,11 +281,38 @@ describe('Entregas HTTP E2E', () => {
     expect(transportEvents).toBe(1);
   });
 
-  it('VENDEDOR ve su entrega y otro vendedor queda fuera del scope', async () => {
-    await request(app.getHttpServer())
+  it('VENDEDOR ve su entrega en solo lectura y otro vendedor queda fuera del scope', async () => {
+    const own = await request(app.getHttpServer())
       .get(`/entregas/${deliveryId}`)
       .set(auth(tokens.vendedor))
       .expect(200);
+
+    expect(own.body.acciones.puedeAgregarObservacion).toBe(false);
+
+    await request(app.getHttpServer())
+      .post(`/entregas/${deliveryId}/observaciones`)
+      .set(auth(tokens.vendedor))
+      .send({
+        detalle: 'No debe permitirse.',
+        claveIdempotencia: `DEL-E2E-SELLER-OBS-${fixture.suffix}`,
+      })
+      .expect(403);
+
+    const accounting = await request(app.getHttpServer())
+      .get(`/entregas/${deliveryId}`)
+      .set(auth(tokens.contabilidad))
+      .expect(200);
+
+    expect(accounting.body.acciones.puedeAgregarObservacion).toBe(false);
+
+    await request(app.getHttpServer())
+      .post(`/entregas/${deliveryId}/observaciones`)
+      .set(auth(tokens.contabilidad))
+      .send({
+        detalle: 'Tampoco debe permitirse.',
+        claveIdempotencia: `DEL-E2E-ACCOUNTING-OBS-${fixture.suffix}`,
+      })
+      .expect(403);
 
     await request(app.getHttpServer())
       .get(`/entregas/${deliveryId}`)

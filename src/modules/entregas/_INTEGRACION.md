@@ -56,6 +56,13 @@ PENDIENTE -> EN_RUTA -> ENTREGADA | PARCIAL | RECHAZADA | NO_ENTREGADA
 
 Los estados finales son terminales para operación V1.
 
+Al finalizar una entrega, cualquier resultado terminal
+(ENTREGADA, PARCIAL, RECHAZADA o NO_ENTREGADA) cierra el intento de atención
+de la parada en Transporte. La parada queda ATENDIDA; el resultado físico
+permanece en Entrega. Esto evita crear incidencias técnicas huérfanas para
+rechazos o no-entregas y permite cerrar/liberar la ruta cuando todas las
+paradas fueron intentadas.
+
 ## Idempotencia de finalización
 
 La finalización coordina:
@@ -111,6 +118,9 @@ VENDEDOR:
 
 CONTABILIDAD:
 - lectura y reportería global de su empresa.
+
+VENDEDOR y CONTABILIDAD no pueden ejecutar comandos operativos ni agregar
+observaciones. REPARTIDOR sólo opera las paradas donde es responsable.
 
 empresaId nunca proviene del frontend.
 

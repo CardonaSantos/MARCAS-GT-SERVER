@@ -78,7 +78,7 @@ export class DeliveryPrismaQueryAdapter implements DeliveryQueryPort, DeliveryDi
     });
   }
 
-  private enrich(row: any) {
+  private enrich(row: any, scope: DeliveryReadScope) {
     const invoices = (row.facturas ?? []).map((link: any) => link.factura);
     const activeInvoice = invoices.find((invoice: any) =>
       ['BORRADOR', 'LISTA_EMISION', 'EMITIDA'].includes(invoice.estado),
@@ -97,6 +97,7 @@ export class DeliveryPrismaQueryAdapter implements DeliveryQueryPort, DeliveryDi
       ? Math.round(((row.finalizadaEn.getTime() - row.iniciadaEn.getTime()) / 3600000) * 100) / 100
       : null;
     const warnings: any[] = [];
+    const canOperate = ['ADMIN', 'BODEGA', 'REPARTIDOR'].includes(scope.rol);
     if (terminal.includes(row.estado) && !row.evidencias.length) warnings.push({ codigo: 'SIN_EVIDENCIA', nivel: 'ADVERTENCIA', mensaje: 'La entrega finalizó sin evidencia adjunta.' });
     if (['ENTREGADA', 'PARCIAL'].includes(row.estado) && !row.evidencias.some((x: any) => x.tipo === 'FIRMA')) warnings.push({ codigo: 'SIN_FIRMA', nivel: 'INFO', mensaje: 'No hay firma registrada.' });
     if (lat == null || lng == null) warnings.push({ codigo: 'SIN_GPS', nivel: 'ADVERTENCIA', mensaje: 'No hay ubicación final registrada.' });
@@ -211,12 +212,15 @@ export class DeliveryPrismaQueryAdapter implements DeliveryQueryPort, DeliveryDi
       }),
       eventosRecientes: row.eventos,
       acciones: {
-        puedeIniciar: row.estado === 'PENDIENTE',
-        puedeEditarResultado: ['PENDIENTE', 'EN_RUTA'].includes(row.estado),
-        puedeAgregarEvidencia: ['PENDIENTE', 'EN_RUTA'].includes(row.estado),
-        puedeEliminarEvidencia: ['PENDIENTE', 'EN_RUTA'].includes(row.estado),
-        puedeFinalizar: row.estado === 'EN_RUTA',
-        puedeAgregarObservacion: true,
+        puedeIniciar: canOperate && row.estado === 'PENDIENTE',
+        puedeEditarResultado:
+          canOperate && ['PENDIENTE', 'EN_RUTA'].includes(row.estado),
+        puedeAgregarEvidencia:
+          canOperate && ['PENDIENTE', 'EN_RUTA'].includes(row.estado),
+        puedeEliminarEvidencia:
+          canOperate && ['PENDIENTE', 'EN_RUTA'].includes(row.estado),
+        puedeFinalizar: canOperate && row.estado === 'EN_RUTA',
+        puedeAgregarObservacion: canOperate,
       },
       advertencias: warnings,
     };
@@ -252,7 +256,7 @@ export class DeliveryPrismaQueryAdapter implements DeliveryQueryPort, DeliveryDi
       this.prisma.entrega.count({ where }),
       this.rawList(where, (page - 1) * limit, limit, { [filters.sortBy || 'creadoEn']: filters.sortDir === 'asc' ? 'asc' : 'desc' }),
     ]);
-    return { data: rows.map((x: any) => this.enrich(x)), meta: pageMeta(page, limit, total) };
+    return { data: rows.map((x: any) => this.enrich(x, filters.scope)), meta: pageMeta(page, limit, total) };
   }
 
   async listCandidates(filters: any) {
@@ -312,7 +316,7 @@ export class DeliveryPrismaQueryAdapter implements DeliveryQueryPort, DeliveryDi
 
   async get(id: number, scope: DeliveryReadScope) {
     const rows = await this.rawList({ id, ...scopeWhere(scope) }, 0, 1);
-    return rows[0] ? this.enrich(rows[0]) : null;
+    return rows[0] ? this.enrich(rows[0], scope) : null;
   }
 
   async listEvents(id: number, scope: DeliveryReadScope, filters: any) {
@@ -352,7 +356,7 @@ export class DeliveryPrismaQueryAdapter implements DeliveryQueryPort, DeliveryDi
     const rows = await this.rawList(where);
     const states = ['PENDIENTE','EN_RUTA','PARCIAL','ENTREGADA','RECHAZADA','NO_ENTREGADA','CANCELADA'];
     const porEstado = Object.fromEntries(states.map((s) => [s, rows.filter((x: any) => x.estado === s).length]));
-    const enriched = rows.map((x: any) => this.enrich(x));
+    const enriched = rows.map((x: any) => this.enrich(x, scope));
     const units = enriched.reduce((a: any, x: any) => ({
       cargadas: a.cargadas + x.resultado.unidadesCargadas,
       entregadas: a.entregadas + x.resultado.unidadesEntregadas,
@@ -401,7 +405,7 @@ export class DeliveryPrismaQueryAdapter implements DeliveryQueryPort, DeliveryDi
     const from = filters.fechaDesde ? new Date(filters.fechaDesde) : new Date(now.getTime() - 30 * 86400000);
     const to = filters.fechaHasta ? new Date(filters.fechaHasta) : now;
     const rows = await this.rawList({ ...scopeWhere(scope), creadoEn: { gte: from, lte: to } });
-    const enriched = rows.map((x: any) => this.enrich(x));
+    const enriched = rows.map((x: any) => this.enrich(x, scope));
     const done = rows.filter((x: any) => terminal.includes(x.estado));
     const byReason = new Map<string, number>();
     rows.filter((x: any) => x.motivoNoEntrega).forEach((x: any) => byReason.set(x.motivoNoEntrega, (byReason.get(x.motivoNoEntrega) || 0) + 1));
