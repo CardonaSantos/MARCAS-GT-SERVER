@@ -4,10 +4,7 @@ import { ActiveUserRolesGuard } from 'src/shared/security/active-user-roles.guar
 import { PaymentActorDirectoryPort } from './application/ports/payment-actor-directory.port';
 import { PaymentContextPort } from './application/ports/payment-context.port';
 import { PaymentBankRepositoryPort } from './application/ports/payment-bank.port';
-import {
-  PaymentDirectoryPort,
-  PaymentQueryPort,
-} from './application/ports/payment-query.port';
+import { PaymentQueryPort } from './application/ports/payment-query.port';
 import { PaymentWorkflowPort } from './application/ports/payment-workflow.port';
 import { AddPaymentProofUseCase } from './application/use-cases/add-payment-proof.use-case';
 import { ApplyPaymentUseCase } from './application/use-cases/apply-payment.use-case';
