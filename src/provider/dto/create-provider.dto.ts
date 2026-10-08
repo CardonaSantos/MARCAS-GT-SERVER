@@ -1,79 +1,70 @@
 import {
+  IsBoolean,
   IsEmail,
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsBoolean,
-  IsArray,
-  IsLatitude,
-  IsLongitude,
-  Length,
-  IsNumber,
 } from 'class-validator';
 
+/**
+ * Solo el nombre es obligatorio. El id lo asigna Prisma.
+ * Los otros campos son opcionales y admiten null para poder vaciarlos
+ * mediante PATCH sin enviar valores inventados.
+ */
 export class CreateProviderDto {
-  @IsNumber()
-  id: number;
-
   @IsString()
   @IsNotEmpty()
   nombre: string;
 
+  @IsOptional()
   @IsEmail()
-  @IsNotEmpty()
-  correo: string;
+  correo?: string | null;
 
-  @IsString()
-  @IsNotEmpty()
-  telefono: string;
-
-  @IsString()
   @IsOptional()
-  direccion?: string;
-
   @IsString()
-  @IsOptional()
-  razonSocial?: string;
+  telefono?: string | null;
 
+  @IsOptional()
   @IsString()
-  @IsOptional()
-  rfc?: string;
+  direccion?: string | null;
 
+  @IsOptional()
   @IsString()
-  @IsOptional()
-  nombreContacto?: string;
+  razonSocial?: string | null;
 
+  @IsOptional()
   @IsString()
-  @IsOptional()
-  telefonoContacto?: string;
+  rfc?: string | null;
 
+  @IsOptional()
+  @IsString()
+  nombreContacto?: string | null;
+
+  @IsOptional()
+  @IsString()
+  telefonoContacto?: string | null;
+
+  @IsOptional()
   @IsEmail()
-  @IsOptional()
-  emailContacto?: string;
+  emailContacto?: string | null;
 
+  @IsOptional()
   @IsString()
-  @IsOptional()
-  pais?: string;
+  pais?: string | null;
 
+  @IsOptional()
   @IsString()
-  @IsOptional()
-  ciudad?: string;
+  ciudad?: string | null;
 
+  @IsOptional()
   @IsString()
+  codigoPostal?: string | null;
+
   @IsOptional()
-  codigoPostal?: string;
-
-  @IsNumber()
-  latitud?: number;
-
-  @IsNumber()
-  longitud?: number;
-
   @IsBoolean()
-  @IsOptional()
   activo?: boolean;
 
-  @IsString()
   @IsOptional()
-  notas?: string;
+  @IsString()
+  notas?: string | null;
 }

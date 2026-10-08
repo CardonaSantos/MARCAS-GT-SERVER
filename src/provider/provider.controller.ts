@@ -44,8 +44,9 @@ export class ProviderController {
     return await this.providerService.remove(id);
   }
 
+  // Compatibilidad con los clientes legacy, sin exponer eliminación masiva.
   @Delete(':id')
-  async removeAll() {
-    return await this.providerService.removeAll();
+  async removeById(@Param('id', ParseIntPipe) id: number) {
+    return await this.providerService.remove(id);
   }
 }
