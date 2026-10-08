@@ -9,16 +9,28 @@ import {
   ParseIntPipe,
   Query,
   BadRequestException,
+  Req,
+  UseGuards,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { AuthGuard } from '@nestjs/passport';
+import { ProductCatalogAccessGuard } from './catalog/catalog-access.guard';
+import { ProductCatalogListQueryDto } from './catalog/catalog-query.dto';
+import { ProductCatalogQueryService } from './catalog/product-catalog-query.service';
+
 
 import { join } from 'path';
 
 @Controller('product')
 export class ProductController {
-  constructor(private readonly productService: ProductService) {}
+  constructor(
+    private readonly productService: ProductService,
+    private readonly catalog: ProductCatalogQueryService,
+  ) {}
 
   @Post()
   async create(@Body() createProductDto: CreateProductDto) {
@@ -47,6 +59,33 @@ export class ProductController {
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
     return await this.productService.findAllProducts(pageNumber, limitNumber);
+  }
+
+  /**
+   * Contrato nuevo para Catálogo de productos (solo ADMIN).
+   * La antigua ruta /get-product-to-inventary se mantiene hasta migrar la UI.
+   */
+  @Get('catalogo')
+  @UseGuards(AuthGuard('jwt'), ProductCatalogAccessGuard)
+  @UsePipes(new ValidationPipe({
+    transform: true,
+    whitelist: true,
+    forbidNonWhitelisted: true,
+  }))
+  catalogList(
+    @Query() query: ProductCatalogListQueryDto,
+    @Req() request: { catalogEmpresaId: number },
+  ) {
+    return this.catalog.list(query, request.catalogEmpresaId);
+  }
+
+  @Get('catalogo/:id')
+  @UseGuards(AuthGuard('jwt'), ProductCatalogAccessGuard)
+  catalogDetail(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() request: { catalogEmpresaId: number },
+  ) {
+    return this.catalog.detail(id, request.catalogEmpresaId);
   }
 
   @Get('/get-product-to-inventary')
