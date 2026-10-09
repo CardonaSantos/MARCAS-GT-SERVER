@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ArchivosModule } from 'src/modules/archivos';
 import { PrismaService } from 'src/prisma.service';
 import { ActiveUserRolesGuard } from 'src/shared/security/active-user-roles.guard';
 import { PaymentActorDirectoryPort } from './application/ports/payment-actor-directory.port';
@@ -38,12 +39,16 @@ import { PaymentBankPrismaRepository } from './infrastructure/persistence/prisma
 import { PaymentPrismaQueryAdapter } from './infrastructure/persistence/prisma/payment.prisma-query.adapter';
 import { PaymentWorkflowPrismaAdapter } from './infrastructure/persistence/prisma/payment-workflow.prisma-adapter';
 import { PaymentController } from './presentation/http/payment.controller';
+import { PaymentProofFileService } from './presentation/http/payment-proof-file.service';
+import { PaymentProofFileController } from './presentation/http/payment-proof-file.controller';
 
 @Module({
-  controllers: [PaymentController],
+  imports: [ArchivosModule],
+  controllers: [PaymentController, PaymentProofFileController],
   providers: [
     PrismaService,
     ActiveUserRolesGuard,
+    PaymentProofFileService,
     PaymentActorDirectoryPrismaAdapter,
     PaymentContextPrismaAdapter,
     PaymentBankPrismaRepository,

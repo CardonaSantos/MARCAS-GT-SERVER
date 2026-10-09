@@ -171,6 +171,7 @@ export class PaymentPrismaQueryAdapter
           select: { id: true, nombre: true, correo: true, rol: true },
         },
         comprobantes: {
+          where: { eliminadoEn: null },
           orderBy: { creadoEn: 'asc' },
           include: {
             subidoPor: {
@@ -623,7 +624,7 @@ function paymentListInclude(): any {
     },
     _count: {
       select: {
-        comprobantes: true,
+        comprobantes: { where: { eliminadoEn: null } },
       },
     },
   };
