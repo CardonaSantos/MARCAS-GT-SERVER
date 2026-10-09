@@ -68,6 +68,9 @@ export interface DeliveryRepositoryPort {
 
   updateResult(input: {
     id: number;
+    actorId: number;
+    claveIdempotencia?: string;
+    iniciarAtencion: boolean;
     expectedVersion: number;
     receptorNombre?: string | null;
     receptorDocumento?: string | null;
