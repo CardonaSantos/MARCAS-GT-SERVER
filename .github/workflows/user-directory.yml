@@ -6,6 +6,8 @@ on:
       - "src/users/**"
       - "src/auth/**"
       - ".github/workflows/user-directory.yml"
+  pull_request:
+    branches: [update-requerimientos]
   workflow_dispatch:
 permissions:
   contents: read
