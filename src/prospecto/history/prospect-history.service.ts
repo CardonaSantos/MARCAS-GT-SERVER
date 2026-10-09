@@ -55,9 +55,14 @@ export class ProspectHistoryService {
 
   async list(userId: number, query: ProspectHistoryQueryDto) {
     const actor = await this.actor(userId);
-    if (query.desde && query.hasta && new Date(query.desde) > new Date(query.hasta)) {
+    if (query.desde && query.hasta && query.desde > query.hasta) {
       throw new BadRequestException('La fecha inicial no puede superar a la final.');
     }
+    // Guatemala usa UTC-06:00 todo el año. El límite superior es exclusivo
+    // para incluir el día "hasta" completo y evitar errores de medianoche.
+    const gtmStart = (day: string) => new Date(`${day}T00:00:00-06:00`);
+    const gtmNextDay = (day: string) =>
+      new Date(gtmStart(day).getTime() + 24 * 60 * 60 * 1000);
     const terms = query.search?.split(/\s+/).filter(Boolean).slice(0, 8) ?? [];
     const where: Prisma.ProspectoWhereInput = {
       ...((actor.rol === 'VENDEDOR' || !query.vendedorId)
@@ -71,8 +76,8 @@ export class ProspectHistoryService {
       ...(query.convertido === 'false' ? { clienteId: null } : {}),
       ...(query.desde || query.hasta ? {
         creadoEn: {
-          ...(query.desde ? { gte: new Date(query.desde) } : {}),
-          ...(query.hasta ? { lte: new Date(query.hasta) } : {}),
+          ...(query.desde ? { gte: gtmStart(query.desde) } : {}),
+          ...(query.hasta ? { lt: gtmNextDay(query.hasta) } : {}),
         },
       } : {}),
       ...(terms.length ? {

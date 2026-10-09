@@ -1,7 +1,7 @@
 import { Transform, Type } from 'class-transformer';
 import { EstadoProspecto, TipoCliente } from '@prisma/client';
 import {
-  IsDateString, IsEnum, IsIn, IsInt, IsOptional, IsString,
+  IsDateString, IsEnum, IsIn, IsInt, IsOptional, IsString, Matches,
   Max, MaxLength, Min,
 } from 'class-validator';
 
@@ -42,10 +42,10 @@ export class ProspectHistoryQueryDto {
   @IsOptional() @IsIn(['true', 'false'])
   convertido?: 'true' | 'false';
 
-  @IsOptional() @IsDateString({ strict: true })
+  @IsOptional() @Matches(/^\\d{4}-\\d{2}-\\d{2}$/) @IsDateString({ strict: true })
   desde?: string;
 
-  @IsOptional() @IsDateString({ strict: true })
+  @IsOptional() @Matches(/^\\d{4}-\\d{2}-\\d{2}$/) @IsDateString({ strict: true })
   hasta?: string;
 
   @IsOptional() @IsIn(PROSPECT_HISTORY_SORT_FIELDS)

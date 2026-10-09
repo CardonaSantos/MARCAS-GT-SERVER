@@ -61,6 +61,20 @@ describe('ProspectHistoryService', () => {
     }));
   });
 
+  it('includes the complete selected end date in Guatemala time', async () => {
+    await service.list(2, {
+      ...query, page: 1, desde: '2026-10-01', hasta: '2026-10-08',
+    });
+    expect(prospecto.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        creadoEn: {
+          gte: new Date('2026-10-01T00:00:00-06:00'),
+          lt: new Date('2026-10-09T00:00:00-06:00'),
+        },
+      }),
+    }));
+  });
+
   it('allows administrators to filter across vendors', async () => {
     usuario.findUnique.mockResolvedValue({ id: 2, rol: 'ADMIN', activo: true });
     await service.list(2, query);
