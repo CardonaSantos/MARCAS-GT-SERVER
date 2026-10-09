@@ -1555,8 +1555,8 @@ function actionsFor(
   role: string,
   integrationState?: string | null,
 ) {
-  const writer = ['ADMIN', 'VENDEDOR'].includes(role);
-  const reviewer = ['ADMIN', 'CONTABILIDAD'].includes(role);
+  const writer = ['ADMIN', 'VENDEDOR', 'BODEGA'].includes(role);
+  const reviewer = role === 'ADMIN';
   return {
     puedeEditar: writer && state === 'PENDIENTE',
     puedeEnviarRevision: writer && state === 'PENDIENTE',
