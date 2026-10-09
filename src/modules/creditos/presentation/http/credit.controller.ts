@@ -19,11 +19,13 @@ import { Roles } from 'src/shared/security/roles.decorator';
 import { CreditApplicationCommands } from '../../application/use-cases/credit-application.commands';
 import { CreditDecisionCommands } from '../../application/use-cases/credit-decision.commands';
 import { CreditEvidenceCommands } from '../../application/use-cases/credit-evidence.commands';
+import { ApproveCreditWithScheduleUseCase } from '../../application/use-cases/approve-credit-with-schedule.use-case';
 import { CreditQueries } from '../../application/use-cases/credit-queries';
 import {
   AddCreditDocumentDto,
   AddCreditReferenceDto,
   ApproveCreditDto,
+  ApproveCreditWithScheduleDto,
   CreateCreditApplicationDto,
   RequestCreditFromOrderDto,
   CreditEventQueryDto,
@@ -58,6 +60,7 @@ export class CreditController {
     private readonly evidence: CreditEvidenceCommands,
     private readonly decisions: CreditDecisionCommands,
     private readonly queries: CreditQueries,
+    private readonly schedule: ApproveCreditWithScheduleUseCase,
   ) {}
 
   @Post()
@@ -248,6 +251,16 @@ export class CreditController {
       actorId,
     );
     return this.queries.get(id, actorId);
+  }
+
+  @Post(':id/aprobar-con-cuotas')
+  @Roles('ADMIN')
+  async approveAndSchedule(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ApproveCreditWithScheduleDto,
+    @CurrentActorId() actorId: number,
+  ) {
+    return this.schedule.execute({ ...dto, id, actorId });
   }
 
   @Patch(':id/aprobar')
