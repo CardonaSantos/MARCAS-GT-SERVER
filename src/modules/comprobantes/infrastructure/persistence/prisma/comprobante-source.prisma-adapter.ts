@@ -180,7 +180,7 @@ export class ComprobanteSourcePrismaAdapter implements ComprobanteSourcePort {
         motivoRechazo: line.motivoRechazo,
       };
     });
-    const cierre = row.eventos.find((e) => TERMINAL_DELIVERY.includes(e.tipo));
+    const cierre = row.eventos.find((e) => [...TERMINAL_DELIVERY, 'ENTREGA_PARCIAL'].includes(e.tipo));
     const accepted = lineas.reduce((sum, l) => sum + l.cantidadAceptada, 0);
     const rejected = lineas.reduce((sum, l) => sum + l.cantidadRechazada, 0);
     const loaded = stop ? stop.cargas.reduce((sum, c) => sum + c.cantidadCargada, 0) : null;
