@@ -59,6 +59,7 @@ model Empresa {
   pedidos            Pedido[]
   pagos              Pago[]
   cuentasPorCobrar   CuentaPorCobrar[]
+  comprobantesOperativos ComprobanteOperativo[]
   facturas           Factura[]
   planesPagoCredito  CreditoPlanPago[]
 
@@ -493,6 +494,8 @@ model Usuario {
   movimientosInventario     MovimientoInventario[]  @relation("MovimientoInventarioCreadoPor")
   requisicionesSolicitadas  Requisicion[]           @relation("RequisicionSolicitante")
   transferenciasCreadas     TransferenciaBodega[]   @relation("TransferenciaCreadaPor")
+  comprobantesEmitidos ComprobanteOperativo[] @relation("ComprobanteEmitidoPor")
+  eventosComprobante ComprobanteOperativoEvento[] @relation("ComprobanteEventoUsuario")
   pedidosCreados            Pedido[]                @relation("PedidoVendedor")
   eventosPedido             PedidoEvento[]          @relation("PedidoEventoUsuario")
   pagosRegistrados          Pago[]                  @relation("PagoRegistradoPor")
@@ -3940,4 +3943,58 @@ enum TipoEventoPago {
   APLICACION_REVERTIDA
   ANULADO
   OBSERVACION
+}
+
+
+// ============================================================================
+// COMPROBANTES OPERATIVOS — NO SON FACTURAS NI DTE
+// ============================================================================
+
+enum TipoComprobanteOperativo {
+  SALIDA_DESPACHO
+  ENTREGA
+}
+
+enum AccionComprobanteOperativo {
+  EMITIDO
+  IMPRESION_SOLICITADA
+  DESCARGA_SOLICITADA
+  COMPARTICION_PREPARADA
+}
+
+model ComprobanteOperativo {
+  id            Int                      @id @default(autoincrement())
+  empresaId     Int
+  tipo          TipoComprobanteOperativo
+  referenciaId  Int
+  numero        String                   @unique
+  version       Int                      @default(1)
+  snapshot      Json
+  huellaSha256  String                   @db.VarChar(64)
+  emitidoPorId  Int
+  emitidoEn     DateTime                 @default(now())
+
+  empresa       Empresa                  @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  emitidoPor    Usuario                  @relation("ComprobanteEmitidoPor", fields: [emitidoPorId], references: [id], onDelete: Restrict)
+  eventos       ComprobanteOperativoEvento[]
+
+  @@unique([empresaId, tipo, referenciaId])
+  @@index([empresaId, emitidoEn])
+  @@index([emitidoPorId, emitidoEn])
+}
+
+model ComprobanteOperativoEvento {
+  id              Int                      @id @default(autoincrement())
+  comprobanteId   Int
+  usuarioId       Int
+  accion          AccionComprobanteOperativo
+  canal           String?                  @db.VarChar(32)
+  claveIdempotencia String                 @unique @db.VarChar(128)
+  creadoEn        DateTime                 @default(now())
+
+  comprobante     ComprobanteOperativo      @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
+  usuario         Usuario                  @relation("ComprobanteEventoUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([comprobanteId, creadoEn])
+  @@index([usuarioId, creadoEn])
 }
