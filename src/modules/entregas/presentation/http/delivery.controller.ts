@@ -1,8 +1,11 @@
 import {
-  Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query,
-  UseFilters, UseGuards, UsePipes, ValidationPipe,
+  BadRequestException, Body, Controller, Delete, Get, Inject, NotFoundException,
+  Param, ParseIntPipe, Patch, Post, Query, UploadedFile,
+  UseFilters, UseGuards, UseInterceptors, UsePipes, ValidationPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { FILE_STORAGE_PORT, FileStoragePort } from '../../../archivos';
 import { ActiveUserRolesGuard } from 'src/shared/security/active-user-roles.guard';
 import { CurrentActorId } from 'src/shared/security/current-actor.decorator';
 import { Roles } from 'src/shared/security/roles.decorator';
@@ -47,6 +50,7 @@ export class DeliveryController {
     private readonly evidenceUse: ListDeliveryEvidenceUseCase,
     private readonly summaryUse: GetDeliverySummaryUseCase,
     private readonly reportUse: GetDeliveryOperationalReportUseCase,
+    @Inject(FILE_STORAGE_PORT) private readonly files: FileStoragePort,
   ) {}
 
   @Get() @Roles(...READ)
@@ -88,6 +92,92 @@ export class DeliveryController {
   async result(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateDeliveryResultDto, @CurrentActorId() actorId: number) {
     await this.resultUse.execute({ id, ...dto, actorId });
     return this.getUse.execute(id, actorId);
+  }
+
+  // Carga binaria: mismo UploadFileUseCase y bucket privado usados por Pagos.
+  @Post(':id/evidencias/archivo') @Roles(...OPERATE)
+  @UseInterceptors(FileInterceptor('archivo', {
+    limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  }))
+  async uploadEvidenceFile(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentActorId() actorId: number,
+    @UploadedFile() archivo: { buffer: Buffer; originalname: string } | undefined,
+    @Body('tipo') tipo: string,
+    @Body('descripcion') descripcion: string | undefined,
+    @Body('claveIdempotencia') claveIdempotencia: string,
+  ) {
+    if (!archivo?.buffer) {
+      throw new BadRequestException('Selecciona una imagen o PDF de evidencia.');
+    }
+    if (!['FIRMA', 'FOTO', 'DOCUMENTO', 'OTRO'].includes(tipo)) {
+      throw new BadRequestException('Tipo de evidencia inválido.');
+    }
+    if (!claveIdempotencia || claveIdempotencia.length < 8 || claveIdempotencia.length > 200) {
+      throw new BadRequestException('Clave de idempotencia inválida.');
+    }
+    if ((descripcion ?? '').length > 1000) {
+      throw new BadRequestException('Descripción demasiado larga.');
+    }
+    const evidence = await this.addEvidenceUse.execute(id, {
+      tipo, buffer: archivo.buffer, filename: archivo.originalname,
+      descripcion: descripcion?.trim() || archivo.originalname,
+      claveIdempotencia,
+    }, actorId);
+    return { evidence, entrega: await this.getUse.execute(id, actorId) };
+  }
+
+  @Get(':id/evidencias/:evidenciaId/archivo') @Roles(...READ)
+  async evidenceAccess(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('evidenciaId', ParseIntPipe) evidenciaId: number,
+    @CurrentActorId() actorId: number,
+  ) {
+    // GetDeliveryUseCase verifica pertenencia a empresa y scope del usuario.
+    const delivery = await this.getUse.execute(id, actorId);
+    const evidence = delivery.evidencias.items.find((item: { id: number }) => item.id === evidenciaId);
+    if (!evidence) throw new NotFoundException('Evidencia no encontrada.');
+    if (evidence.url.startsWith('spaces://')) {
+      const expected = new RegExp('^marcas-gt/empresas/\\d+/entregas/' + id + '/evidencias/');
+      if (!evidence.key || !expected.test(evidence.key) ||
+          evidence.url !== 'spaces://' + evidence.key) {
+        throw new BadRequestException('Referencia privada de evidencia inválida.');
+      }
+      return { url: await this.files.signedReadUrl(evidence.key, 60), mimeType: evidence.mimeType };
+    }
+    // Compatibilidad de lectura con evidencias históricas de Cloudinary.
+    if (/^https:\/\//i.test(evidence.url)) {
+      return { url: evidence.url, mimeType: evidence.mimeType };
+    }
+    throw new BadRequestException('Esta evidencia antigua no tiene una URL segura disponible.');
+  }
+
+  // Sólo las firmas JPG/PNG almacenadas en Spaces se pueden incrustar.
+  // La lectura se hace en el servidor para no depender del CORS del bucket.
+  @Get(':id/evidencias/:evidenciaId/imagen') @Roles(...READ)
+  async evidenceImageForReceipt(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('evidenciaId', ParseIntPipe) evidenciaId: number,
+    @CurrentActorId() actorId: number,
+  ) {
+    const delivery = await this.getUse.execute(id, actorId);
+    const evidence = delivery.evidencias.items.find((item: { id: number }) => item.id === evidenciaId);
+    if (!evidence || evidence.tipo !== 'FIRMA' ||
+        !evidence.url.startsWith('spaces://') ||
+        !['image/jpeg', 'image/png'].includes(evidence.mimeType ?? '')) {
+      throw new BadRequestException('La firma no permite vista previa incrustada.');
+    }
+    const file = await this.evidenceAccess(id, evidenciaId, actorId);
+    const response = await fetch(file.url);
+    if (!response.ok ||
+        Number(response.headers.get('content-length') || 0) > 10 * 1024 * 1024) {
+      throw new BadRequestException('La firma privada no está disponible.');
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (!buffer.length || buffer.length > 10 * 1024 * 1024) {
+      throw new BadRequestException('La firma es demasiado grande.');
+    }
+    return { dataUrl: 'data:' + evidence.mimeType + ';base64,' + buffer.toString('base64') };
   }
 
   @Post(':id/evidencias') @Roles(...OPERATE)

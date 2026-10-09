@@ -14,6 +14,7 @@ export type StartDeliveryCommand = Readonly<{
 
 export type UpdateDeliveryResultCommand = Readonly<{
   id: number;
+  claveIdempotencia?: string;
   receptorNombre?: string | null;
   receptorDocumento?: string | null;
   latitud?: number | null;

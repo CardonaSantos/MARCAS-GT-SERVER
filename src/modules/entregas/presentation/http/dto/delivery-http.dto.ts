@@ -47,6 +47,7 @@ export class DeliveryLineResultDto {
 }
 
 export class UpdateDeliveryResultDto {
+  @IsOptional() @Transform(trimmed) @IsString() @Length(8, 200) claveIdempotencia?: string;
   @IsOptional() @Transform(trimmed) @IsString() @MaxLength(160) receptorNombre?: string;
   @IsOptional() @Transform(trimmed) @IsString() @MaxLength(80) receptorDocumento?: string;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(-90) @Max(90) latitud?: number;

@@ -1,4 +1,5 @@
 import { DispatchDirectoryPort } from '../../../despachos';
+import { InvalidUploadError } from '../../../archivos';
 import { TransportDirectoryPort } from '../../../transporte';
 import { DeliveryRepositoryPort } from '../../domain/ports/delivery.repository.port';
 import { Delivery } from '../../domain/entities/delivery.entity';
@@ -22,32 +23,76 @@ export class AddDeliveryEvidenceUseCase {
     );
     Delivery.restore({ estado: delivery.estado, version: delivery.version, detalles: [] }).assertEvidenceEditable();
 
-    if (!input.url && !input.contenido) {
-      throw new DeliveryValidationError('Debe proporcionar url o contenido para la evidencia.');
+    if (!input.claveIdempotencia || !/^.{8,200}$/.test(input.claveIdempotencia)) {
+      throw new DeliveryValidationError('Clave de idempotencia inválida.');
+    }
+    // Evita volver a subir el mismo objeto si el cliente reintenta.
+    const previous = await this.repository.findEvidenceByIdempotencyKey(input.claveIdempotencia);
+    if (previous) {
+      if (previous.entregaId !== delivery.id) {
+        throw new DeliveryValidationError('La clave de evidencia pertenece a otra entrega.');
+      }
+      return { id: previous.id };
+    }
+    if (!input.buffer && !input.contenido && !input.url) {
+      throw new DeliveryValidationError('Selecciona un archivo para la evidencia.');
     }
 
-    const uploaded = input.contenido
-      ? await this.storage.upload({
-          entregaId: delivery.id,
-          tipo: input.tipo,
-          content: input.contenido,
-          mimeType: input.mimeType,
-        })
-      : {
-          url: input.url,
-          key: input.key ?? null,
-          mimeType: input.mimeType ?? null,
-          size: input.size ?? null,
-        };
+    if (!['FIRMA', 'FOTO', 'DOCUMENTO', 'OTRO'].includes(input.tipo)) {
+      throw new DeliveryValidationError('Tipo de evidencia inválido.');
+    }
+    // Compatibilidad de clientes antiguos con URL: sin admitir claves de
+    // almacenamiento arbitrarias que pudieran apuntar a otra empresa.
+    if (!input.buffer && !input.contenido && !/^https:\/\//i.test(input.url ?? '')) {
+      throw new DeliveryValidationError('La evidencia externa requiere URL HTTPS.');
+    }
+    let uploaded: { url: string; key: string | null; mimeType: string | null; size: number | null };
+    try {
+      uploaded = input.buffer || input.contenido
+        ? await this.storage.upload({
+            empresaId: actor.empresaId,
+            entregaId: delivery.id,
+            tipo: input.tipo,
+            content: input.contenido,
+            buffer: input.buffer,
+            filename: input.filename,
+            mimeType: input.mimeType,
+          })
+        : {
+            url: input.url,
+            key: null,
+            mimeType: input.mimeType ?? null,
+            size: input.size ?? null,
+          };
+    } catch (error) {
+      if (error instanceof InvalidUploadError) {
+        throw new DeliveryValidationError(error.message);
+      }
+      throw error;
+    }
 
-    return this.repository.addEvidence({
-      entregaId: delivery.id,
-      tipo: input.tipo,
-      ...uploaded,
-      descripcion: input.descripcion,
-      claveIdempotencia: input.claveIdempotencia,
-      actorId: actor.id,
-    });
+    try {
+      const evidence = await this.repository.addEvidence({
+        entregaId: delivery.id,
+        tipo: input.tipo,
+        ...uploaded,
+        descripcion: input.descripcion,
+        claveIdempotencia: input.claveIdempotencia,
+        actorId: actor.id,
+      });
+      if (uploaded.key) {
+        const stored = await this.repository.findEvidenceByIdempotencyKey(input.claveIdempotencia);
+        if (stored?.key !== uploaded.key) {
+          await this.storage.remove(uploaded.key).catch(() => undefined);
+        }
+      }
+      return evidence;
+    } catch (error) {
+      if (uploaded.key) {
+        await this.storage.remove(uploaded.key).catch(() => undefined);
+      }
+      throw error;
+    }
   }
 }
 

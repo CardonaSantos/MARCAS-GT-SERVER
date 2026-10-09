@@ -68,6 +68,9 @@ export interface DeliveryRepositoryPort {
 
   updateResult(input: {
     id: number;
+    actorId: number;
+    claveIdempotencia?: string;
+    iniciarAtencion: boolean;
     expectedVersion: number;
     receptorNombre?: string | null;
     receptorDocumento?: string | null;
@@ -81,6 +84,8 @@ export interface DeliveryRepositoryPort {
       motivoRechazo?: string | null;
     }[];
   }): Promise<void>;
+
+  findEvidenceByIdempotencyKey(key: string): Promise<{ id: number; entregaId: number; key: string | null } | null>;
 
   addEvidence(input: {
     entregaId: number;

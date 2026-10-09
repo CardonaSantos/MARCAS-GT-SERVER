@@ -120,10 +120,28 @@ export class DeliveryPrismaRepository implements DeliveryRepositoryPort {
   }
 
   async updateResult(input: any): Promise<void> {
+    // Repetir exactamente el mismo envío del formulario no duplica el inicio.
+    if (input.claveIdempotencia) {
+      const previous = await this.prisma.entregaEvento.findUnique({
+        where: { claveIdempotencia: input.claveIdempotencia },
+        select: { entregaId: true },
+      });
+      if (previous) {
+        if (previous.entregaId !== input.id) {
+          throw new DeliveryIdempotencyConflictError({ claveIdempotencia: input.claveIdempotencia });
+        }
+        return;
+      }
+    }
     await this.prisma.$transaction(async (tx) => {
       const parent = await tx.entrega.updateMany({
-        where: { id: input.id, version: input.expectedVersion, estado: { in: ['PENDIENTE', 'EN_RUTA'] } },
+        where: {
+          id: input.id,
+          version: input.expectedVersion,
+          estado: input.iniciarAtencion ? 'PENDIENTE' : 'EN_RUTA',
+        },
         data: {
+          ...(input.iniciarAtencion ? { estado: 'EN_RUTA' as const, iniciadaEn: new Date() } : {}),
           receptorNombre: input.receptorNombre === undefined ? undefined : input.receptorNombre?.trim() || null,
           receptorDocumento: input.receptorDocumento === undefined ? undefined : input.receptorDocumento?.trim() || null,
           latitud: input.latitud === undefined ? undefined : input.latitud,
@@ -148,6 +166,51 @@ export class DeliveryPrismaRepository implements DeliveryRepositoryPort {
         });
         if (changed.count !== 1) throw new DeliveryConcurrentModificationError({ entregaDetalleId: current.id });
       }
+
+      if (input.iniciarAtencion) {
+        await tx.entregaEvento.create({
+          data: {
+            entregaId: input.id,
+            usuarioId: input.actorId,
+            tipo: 'INICIADA',
+            estado: 'EN_RUTA',
+            detalle: 'Atención iniciada al registrar el resultado físico.',
+            claveIdempotencia: 'DELIVERY:AUTO_START:' + input.id,
+            metadata: {
+              origen: 'REGISTRO_RESULTADO',
+              latitudInicial: input.latitud ?? null,
+              longitudInicial: input.longitud ?? null,
+            },
+          },
+        });
+      }
+      if (input.claveIdempotencia) {
+        await tx.entregaEvento.create({
+          data: {
+            entregaId: input.id,
+            usuarioId: input.actorId,
+            tipo: 'OBSERVACION',
+            estado: 'EN_RUTA',
+            detalle: 'Resultado físico registrado.',
+            claveIdempotencia: input.claveIdempotencia,
+            metadata: {
+              origen: 'REGISTRO_RESULTADO',
+              lineas: input.detalles.map((x: any) => ({
+                detalleId: x.id,
+                entregada: x.cantidadEntregada,
+                rechazada: x.cantidadRechazada,
+              })),
+            },
+          },
+        });
+      }
+    });
+  }
+
+  async findEvidenceByIdempotencyKey(key: string) {
+    return this.prisma.entregaEvidencia.findUnique({
+      where: { claveIdempotencia: key },
+      select: { id: true, entregaId: true, key: true },
     });
   }
 
