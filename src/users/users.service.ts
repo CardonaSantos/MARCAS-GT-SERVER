@@ -30,6 +30,22 @@ export class UsersService {
     });
   }
 
+  async findSelectables(actorId: number) {
+    if (!Number.isSafeInteger(actorId) || actorId < 1) {
+      throw new UnauthorizedException('Sesión inválida.');
+    }
+    const actor = await this.prisma.usuario.findUnique({
+      where: { id: actorId },
+      select: { activo: true, empresaId: true },
+    });
+    if (!actor?.activo || !actor.empresaId) throw new UnauthorizedException('Sesión sin empresa activa.');
+    return this.prisma.usuario.findMany({
+      where: { empresaId: actor.empresaId, activo: true },
+      select: PUBLIC_USER_SELECT,
+      orderBy: [{ nombre: 'asc' }, { id: 'asc' }],
+    });
+  }
+
   private async requireAdmin(actorId: number) {
     if (!Number.isSafeInteger(actorId) || actorId < 1) {
       throw new UnauthorizedException('Sesión inválida.');
