@@ -12,51 +12,25 @@ export class AuthService {
   ) {}
 
   async validateMyUser(loginDto: loginDTO) {
-    const user = await this.userService.findByEmail(loginDto.correo);
-
-    if (!user) {
-      return null;
-    }
-
-    const passwordValid = await bcrypt.compare(
-      loginDto.contrasena,
-      user.contrasena,
-    );
-
-    if (!passwordValid) {
-      return null;
-    }
-
-    return user;
+    const user = await this.userService.findByEmail(loginDto.correo.trim().toLowerCase());
+    if (!user?.activo) return null;
+    const passwordValid = await bcrypt.compare(loginDto.contrasena, user.contrasena);
+    return passwordValid ? user : null;
   }
 
   async loginUser(usuario: {
-    id: number;
-    nombre: string;
-    correo: string;
-    rol: string;
-    empresaId: number | null;
-    activo: boolean;
+    id: number; nombre: string; correo: string; rol: string;
+    empresaId: number | null; activo: boolean;
   }) {
     const payload = {
-      sub: usuario.id,
-      nombre: usuario.nombre,
-      correo: usuario.correo,
-      rol: usuario.rol,
-      empresaId: usuario.empresaId,
-      activo: usuario.activo,
+      sub: usuario.id, nombre: usuario.nombre, correo: usuario.correo,
+      rol: usuario.rol, empresaId: usuario.empresaId, activo: usuario.activo,
     };
-
     return {
       authToken: this.jwtService.sign(payload),
-
       usuario: {
-        id: usuario.id,
-        nombre: usuario.nombre,
-        correo: usuario.correo,
-        rol: usuario.rol,
-        empresaId: usuario.empresaId,
-        activo: usuario.activo,
+        id: usuario.id, nombre: usuario.nombre, correo: usuario.correo,
+        rol: usuario.rol, empresaId: usuario.empresaId, activo: usuario.activo,
       },
     };
   }
