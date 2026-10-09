@@ -8,6 +8,7 @@ import {
   OrderDirectoryPort,
   PedidosModule,
 } from '../pedidos';
+import { RequestOrderValidationUseCase } from '../pedidos/application/use-cases/request-order-validation.use-case';
 import { CreditAuthorizationPort } from './application/ports/credit-authorization.port';
 import { CreditDirectoryPort } from './application/ports/credit-directory.port';
 import { CreditQueryPort } from './application/ports/credit-query.port';
@@ -120,6 +121,7 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
         users: CreditActorDirectoryPort,
         orders: OrderDirectoryPort,
         integration: CreditOrderIntegrationService,
+        validateOrder: RequestOrderValidationUseCase,
       ) =>
         new CreditApplicationCommands(
           repository,
@@ -129,6 +131,7 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
           users,
           orders,
           integration,
+          validateOrder,
         ),
       inject: [
         CREDIT_APPLICATION_REPOSITORY,
@@ -138,6 +141,7 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
         CREDIT_ACTOR_DIRECTORY,
         ORDER_DIRECTORY,
         CreditOrderIntegrationService,
+        RequestOrderValidationUseCase,
       ],
     },
     {
