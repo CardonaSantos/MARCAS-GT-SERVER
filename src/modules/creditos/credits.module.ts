@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
+import { ArchivosModule } from '../archivos';
 import { ActiveUserRolesGuard } from 'src/shared/security/active-user-roles.guard';
 import {
   ORDER_CREDIT_GATE,
@@ -8,9 +9,12 @@ import {
   OrderDirectoryPort,
   PedidosModule,
 } from '../pedidos';
+import { RequestOrderValidationUseCase } from '../pedidos/application/use-cases/request-order-validation.use-case';
 import { CreditAuthorizationPort } from './application/ports/credit-authorization.port';
 import { CreditDirectoryPort } from './application/ports/credit-directory.port';
 import { CreditQueryPort } from './application/ports/credit-query.port';
+import { CreditPlanAutoActivationService } from './application/use-cases/credit-plan-auto-activation.service';
+import { ApproveCreditWithScheduleUseCase } from './application/use-cases/approve-credit-with-schedule.use-case';
 import { CreditApplicationCommands } from './application/use-cases/credit-application.commands';
 import {
   CreditDecisionCommands,
@@ -53,7 +57,7 @@ import { CreditPolicyController } from './presentation/http/credit-policy.contro
 import { CreditPortfolioController } from './presentation/http/credit-portfolio.controller';
 
 @Module({
-  imports: [PedidosModule],
+  imports: [PedidosModule, ArchivosModule],
   controllers: [
     CreditController,
     CreditPolicyController,
@@ -64,6 +68,7 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
     ActiveUserRolesGuard,
     CreditPrismaRepository,
     CreditPolicyPrismaRepository,
+    CreditPlanAutoActivationService,
     CreditPaymentPlanPrismaRepository,
     CreditPrismaQueryAdapter,
     CreditActorDirectoryPrismaAdapter,
@@ -120,6 +125,7 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
         users: CreditActorDirectoryPort,
         orders: OrderDirectoryPort,
         integration: CreditOrderIntegrationService,
+        validateOrder: RequestOrderValidationUseCase,
       ) =>
         new CreditApplicationCommands(
           repository,
@@ -129,6 +135,7 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
           users,
           orders,
           integration,
+          validateOrder,
         ),
       inject: [
         CREDIT_APPLICATION_REPOSITORY,
@@ -138,6 +145,7 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
         CREDIT_ACTOR_DIRECTORY,
         ORDER_DIRECTORY,
         CreditOrderIntegrationService,
+        RequestOrderValidationUseCase,
       ],
     },
     {
@@ -194,6 +202,21 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
       inject: [CREDIT_PAYMENT_PLAN_REPOSITORY, CREDIT_ACTOR_DIRECTORY],
     },
     {
+      provide: ApproveCreditWithScheduleUseCase,
+      useFactory: (
+        applications: CreditApplicationRepositoryPort,
+        actors: CreditActorDirectoryPort,
+        decisions: CreditDecisionCommands,
+        plans: CreditPaymentPlanCommands,
+      ) => new ApproveCreditWithScheduleUseCase(applications, actors, decisions, plans),
+      inject: [
+        CREDIT_APPLICATION_REPOSITORY,
+        CREDIT_ACTOR_DIRECTORY,
+        CreditDecisionCommands,
+        CreditPaymentPlanCommands,
+      ],
+    },
+    {
       provide: CreditPolicyCommands,
       useFactory: (
         policies: CreditPolicyRepositoryPort,
@@ -208,6 +231,6 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
       inject: [CREDIT_QUERY, CREDIT_ACTOR_DIRECTORY],
     },
   ],
-  exports: [CREDIT_DIRECTORY, CREDIT_AUTHORIZATION],
+  exports: [CREDIT_DIRECTORY, CREDIT_AUTHORIZATION, CreditPlanAutoActivationService],
 })
 export class CreditosModule {}
