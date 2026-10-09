@@ -1,34 +1,22 @@
-import {
-  IsEnum,
-  isNotEmpty,
-  IsNotEmpty,
-  IsNumber,
-  isString,
-  IsString,
-  MinLength,
-} from 'class-validator';
 import { Rol } from '@prisma/client';
+import { Transform, Type } from 'class-transformer';
+import { IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 
 export class CreateUserDto {
-  @IsString()
-  @IsNotEmpty()
+  @IsString() @IsNotEmpty() @MinLength(2) @MaxLength(120)
   nombre: string;
 
-  @IsNotEmpty()
-  @IsString()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim().toLowerCase() : value)
+  @IsEmail() @MaxLength(250)
   correo: string;
 
-  @IsNotEmpty()
-  @IsString()
-  @MinLength(8)
-  contrasena?: string;
+  @IsString() @MinLength(8) @MaxLength(128)
+  contrasena: string;
 
-  @IsNotEmpty()
-  @IsEnum(Rol) // Enum validado
+  @IsEnum(Rol)
   rol: Rol;
 
-  @IsNumber()
-  empresaId: number;
-
-  // Aquí podrías añadir más lógica para manejar las ubicaciones
+  /** Compatibilidad con el formulario existente; la empresa se obtiene del JWT/BD. */
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1)
+  empresaId?: number;
 }
