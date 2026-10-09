@@ -12,6 +12,7 @@ import { RequestOrderValidationUseCase } from '../pedidos/application/use-cases/
 import { CreditAuthorizationPort } from './application/ports/credit-authorization.port';
 import { CreditDirectoryPort } from './application/ports/credit-directory.port';
 import { CreditQueryPort } from './application/ports/credit-query.port';
+import { ApproveCreditWithScheduleUseCase } from './application/use-cases/approve-credit-with-schedule.use-case';
 import { CreditApplicationCommands } from './application/use-cases/credit-application.commands';
 import {
   CreditDecisionCommands,
@@ -196,6 +197,21 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
         users: CreditActorDirectoryPort,
       ) => new CreditPaymentPlanCommands(plans, users),
       inject: [CREDIT_PAYMENT_PLAN_REPOSITORY, CREDIT_ACTOR_DIRECTORY],
+    },
+    {
+      provide: ApproveCreditWithScheduleUseCase,
+      useFactory: (
+        applications: CreditApplicationRepositoryPort,
+        actors: CreditActorDirectoryPort,
+        decisions: CreditDecisionCommands,
+        plans: CreditPaymentPlanCommands,
+      ) => new ApproveCreditWithScheduleUseCase(applications, actors, decisions, plans),
+      inject: [
+        CREDIT_APPLICATION_REPOSITORY,
+        CREDIT_ACTOR_DIRECTORY,
+        CreditDecisionCommands,
+        CreditPaymentPlanCommands,
+      ],
     },
     {
       provide: CreditPolicyCommands,
