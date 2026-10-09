@@ -36,6 +36,7 @@ import { EntregasModule } from './modules/entregas';
 import { FacturacionModule } from './modules/facturacion';
 import { PagosModule } from './modules/pagos';
 import { TrackingModule } from './modules/tracking';
+import { ComprobantesModule } from './modules/comprobantes';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { TrackingModule } from './modules/tracking';
     FacturacionModule,
     PagosModule,
     TrackingModule,
+    ComprobantesModule,
   ],
   controllers: [],
   providers: [CloudinaryProvider],
