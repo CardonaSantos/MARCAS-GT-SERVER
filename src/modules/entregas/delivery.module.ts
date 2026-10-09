@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
+import { ArchivosModule, UploadFileUseCase, FILE_STORAGE_PORT, FileStoragePort } from '../archivos';
 import { ActiveUserRolesGuard } from 'src/shared/security/active-user-roles.guard';
 import {
   DespachosModule,
@@ -49,7 +50,7 @@ import {
   ListDeliveryEvidenceUseCase,
 } from './application/use-cases/read.use-cases';
 import { DeliveryActorDirectoryPrismaAdapter } from './infrastructure/adapters/delivery-actor-directory.prisma-adapter';
-import { DeliveryEvidenceCloudinaryAdapter } from './infrastructure/adapters/delivery-evidence.cloudinary-adapter';
+import { DeliveryEvidenceSpacesAdapter } from './infrastructure/adapters/delivery-evidence.spaces-adapter';
 import { DeliveryPrismaRepository } from './infrastructure/persistence/prisma/delivery.prisma-repository';
 import { DeliveryPrismaQueryAdapter } from './infrastructure/persistence/prisma/delivery.prisma-query.adapter';
 import { DeliveryController } from './presentation/http/delivery.controller';
@@ -62,7 +63,7 @@ import {
 } from './delivery.tokens';
 
 @Module({
-  imports: [PedidosModule, DespachosModule, TransporteModule, TrackingModule],
+  imports: [PedidosModule, DespachosModule, TransporteModule, TrackingModule, ArchivosModule],
   controllers: [DeliveryController],
   providers: [
     PrismaService,
@@ -70,13 +71,18 @@ import {
     DeliveryPrismaRepository,
     DeliveryPrismaQueryAdapter,
     DeliveryActorDirectoryPrismaAdapter,
-    DeliveryEvidenceCloudinaryAdapter,
+    {
+      provide: DeliveryEvidenceSpacesAdapter,
+      useFactory: (uploader: UploadFileUseCase, storage: FileStoragePort) =>
+        new DeliveryEvidenceSpacesAdapter(uploader, storage),
+      inject: [UploadFileUseCase, FILE_STORAGE_PORT],
+    },
 
     { provide: DELIVERY_REPOSITORY, useExisting: DeliveryPrismaRepository },
     { provide: DELIVERY_QUERY, useExisting: DeliveryPrismaQueryAdapter },
     { provide: DELIVERY_DIRECTORY, useExisting: DeliveryPrismaQueryAdapter },
     { provide: DELIVERY_ACTOR_DIRECTORY, useExisting: DeliveryActorDirectoryPrismaAdapter },
-    { provide: DELIVERY_EVIDENCE_STORAGE, useExisting: DeliveryEvidenceCloudinaryAdapter },
+    { provide: DELIVERY_EVIDENCE_STORAGE, useExisting: DeliveryEvidenceSpacesAdapter },
 
     {
       provide: CreateDeliveryUseCase,
