@@ -25,6 +25,7 @@ import {
   AddCreditReferenceDto,
   ApproveCreditDto,
   CreateCreditApplicationDto,
+  RequestCreditFromOrderDto,
   CreditEventQueryDto,
   CreditListQueryDto,
   CreditReasonDto,
@@ -68,6 +69,20 @@ export class CreditController {
     const created = await this.applications.create({ ...dto, actorId });
     if (!created.id) throw new Error('La solicitud persistida no tiene id.');
     return this.queries.get(created.id, actorId);
+  }
+
+  @Post('desde-pedido/:pedidoId/solicitar')
+  @Roles(...WRITE_ROLES)
+  async requestFromOrder(
+    @Param('pedidoId', ParseIntPipe) pedidoId: number,
+    @Body() dto: RequestCreditFromOrderDto,
+    @CurrentActorId() actorId: number,
+  ) {
+    const application = await this.applications.requestFromOrder({
+      ...dto, pedidoId, actorId,
+    });
+    if (!application.id) throw new Error('La solicitud no tiene id.');
+    return this.queries.get(application.id, actorId);
   }
 
   @Get()
