@@ -1,0 +1,31 @@
+name: Pedidos - Rol BODEGA
+on:
+  push:
+    branches: [fix-bodega-pedidos-20261009]
+    paths:
+      - "src/modules/pedidos/**"
+      - ".github/workflows/pedidos-rol-bodega.yml"
+  pull_request:
+    branches: [update-requerimientos]
+    paths:
+      - "src/modules/pedidos/**"
+      - ".github/workflows/pedidos-rol-bodega.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pedidos-test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://validation:validation@localhost:5432/validation?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm test -- --runInBand pedidos
+      - run: npm run build
