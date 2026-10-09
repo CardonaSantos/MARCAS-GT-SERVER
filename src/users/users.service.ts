@@ -1,183 +1,186 @@
 import {
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
+  BadRequestException, ConflictException, ForbiddenException, Injectable,
+  NotFoundException, UnauthorizedException,
 } from '@nestjs/common';
+import { Prisma, PrismaClient, Rol, Usuario } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { PrismaClient, Usuario } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UserDirectoryQueryDto } from './dto/user-directory-query.dto';
+
+const PUBLIC_USER_SELECT = Prisma.validator<Prisma.UsuarioSelect>()({
+  id: true, nombre: true, correo: true, rol: true, empresaId: true,
+  activo: true, creadoEn: true, actualizadoEn: true,
+});
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaClient) {}
-  async createUser(createUserDto: CreateUserDto) {
-    console.log('Los datos son: ', createUserDto);
+  constructor(private readonly prisma: PrismaClient) {}
 
-    const empresa = await this.prisma.empresa.findUnique({
-      where: {
-        id: createUserDto.empresaId,
-      },
+  /** Uso exclusivo de autenticación; nunca exponer su hash en controladores. */
+  findByEmail(email: string): Promise<Usuario | null> {
+    return this.prisma.usuario.findUnique({ where: { correo: email } });
+  }
+
+  findAuthUserById(id: number) {
+    return this.prisma.usuario.findUnique({
+      where: { id },
+      select: { id: true, nombre: true, correo: true, rol: true, empresaId: true, activo: true },
     });
-    console.log('La empresa es: ', empresa);
-
-    if (!empresa) console.log('No hay empresa');
-
-    try {
-      const hashedPassword = await bcrypt.hash(createUserDto.contrasena, 10);
-      const NewUser = await this.prisma.usuario.create({
-        data: { ...createUserDto, contrasena: hashedPassword },
-      });
-
-      // const newUser = await this.prisma.usuario.create({ data: createUserDto });
-      console.log('usuario creado exitosamente');
-      console.log(NewUser);
-
-      return NewUser;
-    } catch (error) {
-      console.log(error);
-      throw new InternalServerErrorException('Error al crear usuario');
-    }
   }
 
-  async findByEmail(email: string): Promise<Usuario> {
-    try {
-      const myUserFind = await this.prisma.usuario.findUnique({
-        where: { correo: email },
-      });
-
-      return myUserFind;
-    } catch (error) {
-      console.log(error);
-      throw new NotFoundException('Usuario no encontrado..');
+  private async requireAdmin(actorId: number) {
+    if (!Number.isSafeInteger(actorId) || actorId < 1) {
+      throw new UnauthorizedException('Sesión inválida.');
     }
+    const actor = await this.prisma.usuario.findUnique({
+      where: { id: actorId },
+      select: { id: true, rol: true, activo: true, empresaId: true },
+    });
+    if (!actor?.activo) throw new UnauthorizedException('Sesión inactiva.');
+    if (actor.rol !== Rol.ADMIN || !actor.empresaId) {
+      throw new ForbiddenException('Solo el administrador de una empresa puede gestionar usuarios.');
+    }
+    return { id: actor.id, empresaId: actor.empresaId };
   }
 
-  async findAllUsers() {
-    try {
-      const Users = await this.prisma.usuario.findMany({});
-      return Users;
-    } catch (error) {
-      console.log(error);
-      throw new NotFoundException('No se encontraron usuarios');
-    }
+  private async target(id: number, empresaId: number) {
+    if (!Number.isSafeInteger(id) || id < 1) throw new BadRequestException('ID de usuario inválido.');
+    const user = await this.prisma.usuario.findFirst({
+      where: { id, empresaId },
+      select: PUBLIC_USER_SELECT,
+    });
+    if (!user) throw new NotFoundException('Usuario no encontrado en esta empresa.');
+    return user;
   }
 
-  async findOneUser(id: number) {
-    try {
-      const user = await this.prisma.usuario.findUnique({
-        where: {
-          id: id,
-        },
-      });
-      return user;
-    } catch (error) {
-      console.log(error);
-      throw new NotFoundException('No se encontró el usuarios');
+  private translateWriteError(error: unknown): never {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new ConflictException('El correo electrónico ya está registrado.');
     }
+    throw error;
   }
 
-  //CAMBIAR DATOS PRIMARIOS DEL USER
-  async updateOneUser(id: number, updateUserDto: UpdateUserDto) {
+  async createUser(dto: CreateUserDto, actorId: number) {
+    const actor = await this.requireAdmin(actorId);
+    if (dto.empresaId !== undefined && dto.empresaId !== actor.empresaId) {
+      throw new ForbiddenException('La empresa del registro no corresponde a tu sesión.');
+    }
     try {
-      const user = await this.prisma.usuario.findUnique({ where: { id } });
-
-      if (!user) {
-        throw new Error('Usuario no encontrado');
-      }
-
-      // Eliminar cualquier intento de cambiar la contraseña desde el DTO
-      delete updateUserDto.contrasena;
-      delete updateUserDto.contrasenaActual;
-
-      // Actualizar usuario con los nuevos datos
-      const userToUpdate = await this.prisma.usuario.update({
-        where: { id },
+      const password = await bcrypt.hash(dto.contrasena, 12);
+      return await this.prisma.usuario.create({
         data: {
-          nombre: updateUserDto.nombre,
-          rol: updateUserDto.rol,
-          correo: updateUserDto.correo,
+          nombre: dto.nombre.trim(), correo: dto.correo.trim().toLowerCase(),
+          contrasena: password, rol: dto.rol, empresaId: actor.empresaId,
         },
+        select: PUBLIC_USER_SELECT,
       });
-
-      return userToUpdate;
     } catch (error) {
-      console.error('Error al actualizar usuario:', error);
-      throw new InternalServerErrorException('Error al actualizar usuario');
+      this.translateWriteError(error);
     }
   }
 
-  //CAMBIAR CONTRASEÑA
-  async changeUserPassword(
-    userId: number,
-    changePasswordDto: ChangePasswordDto,
-  ) {
+  /** Array acotado por tenant para componentes de selección existentes. */
+  async findAllUsers(actorId: number) {
+    const actor = await this.requireAdmin(actorId);
+    return this.prisma.usuario.findMany({
+      where: { empresaId: actor.empresaId },
+      select: PUBLIC_USER_SELECT,
+      orderBy: [{ nombre: 'asc' }, { id: 'asc' }],
+    });
+  }
+
+  async directory(actorId: number, q: UserDirectoryQueryDto) {
+    const actor = await this.requireAdmin(actorId);
+    const terms = q.search?.split(/\s+/).filter(Boolean).slice(0, 8) ?? [];
+    const where: Prisma.UsuarioWhereInput = {
+      empresaId: actor.empresaId,
+      ...(q.rol ? { rol: q.rol } : {}),
+      ...(q.activo ? { activo: q.activo === 'true' } : {}),
+      ...(terms.length ? { AND: terms.map((term) => ({
+        OR: [
+          { nombre: { contains: term, mode: 'insensitive' as const } },
+          { correo: { contains: term, mode: 'insensitive' as const } },
+        ],
+      })) } : {}),
+    };
+    const [total, rows, active, admins, companyTotal] = await this.prisma.$transaction([
+      this.prisma.usuario.count({ where }),
+      this.prisma.usuario.findMany({
+        where, select: PUBLIC_USER_SELECT, skip: (q.page - 1) * q.limit,
+        take: q.limit, orderBy: [{ [q.sortBy]: q.sortDir }, { id: 'asc' }],
+      }),
+      this.prisma.usuario.count({ where: { empresaId: actor.empresaId, activo: true } }),
+      this.prisma.usuario.count({ where: { empresaId: actor.empresaId, activo: true, rol: Rol.ADMIN } }),
+      this.prisma.usuario.count({ where: { empresaId: actor.empresaId } }),
+    ]);
+    return {
+      data: rows,
+      meta: { page: q.page, limit: q.limit, total, totalPages: Math.ceil(total / q.limit) },
+      summary: { total: companyTotal, active, inactive: companyTotal - active, admins },
+    };
+  }
+
+  async findOneUser(id: number, actorId: number) {
+    const actor = await this.requireAdmin(actorId);
+    return this.target(id, actor.empresaId);
+  }
+
+  async updateOneUser(id: number, dto: UpdateUserDto, actorId: number) {
+    const actor = await this.requireAdmin(actorId);
+    await this.target(id, actor.empresaId);
+    if (!Object.keys(dto).length) throw new BadRequestException('Indica un cambio para el usuario.');
+    if (id === actor.id && (dto.activo === false || (dto.rol && dto.rol !== Rol.ADMIN))) {
+      throw new ConflictException('No puedes desactivar ni quitar el rol ADMIN de tu propia cuenta.');
+    }
     try {
-      const { adminId, adminPassword, newPassword } = changePasswordDto;
-      const admin = await this.prisma.usuario.findUnique({
-        where: { id: adminId },
-      });
-
-      if (!admin) {
-        throw new Error('Administrador no encontrado');
-      }
-
-      if (admin.rol !== 'ADMIN') {
-        throw new Error('No tienes permisos para realizar esta acción');
-      }
-
-      const isAdminPassValid = await bcrypt.compare(
-        adminPassword,
-        admin.contrasena,
-      );
-      if (!isAdminPassValid) {
-        throw new Error('Contraseña de administrador incorrecta');
-      }
-
-      const user = await this.prisma.usuario.findUnique({
-        where: { id: userId },
-      });
-      if (!user) {
-        throw new Error('Usuario no encontrado');
-      }
-
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-      const updatedUser = await this.prisma.usuario.update({
-        where: { id: userId },
-        data: { contrasena: hashedPassword },
-      });
-
-      return {
-        message: 'Contraseña actualizada correctamente',
-        user: updatedUser,
-      };
+      return await this.prisma.$transaction(async (tx) => {
+        const previous = await tx.usuario.findFirst({
+          where: { id, empresaId: actor.empresaId },
+          select: { id: true, rol: true, activo: true },
+        });
+        if (!previous) throw new NotFoundException('Usuario no encontrado en esta empresa.');
+        const demotingLastAdmin = previous.activo && previous.rol === Rol.ADMIN &&
+          (dto.activo === false || (dto.rol && dto.rol !== Rol.ADMIN));
+        if (demotingLastAdmin) {
+          const activeAdmins = await tx.usuario.count({
+            where: { empresaId: actor.empresaId, rol: Rol.ADMIN, activo: true },
+          });
+          if (activeAdmins <= 1) throw new ConflictException('Debe existir al menos un administrador activo.');
+        }
+        return tx.usuario.update({
+          where: { id },
+          data: {
+            ...(dto.nombre !== undefined ? { nombre: dto.nombre.trim() } : {}),
+            ...(dto.correo !== undefined ? { correo: dto.correo.trim().toLowerCase() } : {}),
+            ...(dto.rol !== undefined ? { rol: dto.rol } : {}),
+            ...(dto.activo !== undefined ? { activo: dto.activo } : {}),
+          },
+          select: PUBLIC_USER_SELECT,
+        });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } catch (error) {
-      console.error('Error al cambiar la contraseña:', error);
-      throw new InternalServerErrorException('Error al cambiar la contraseña');
+      this.translateWriteError(error);
     }
   }
 
-  async removeOneUser(id: number) {
-    try {
-      const userRemoved = await this.prisma.usuario.delete({
-        where: { id: id },
-      });
-      return userRemoved;
-    } catch (error) {
-      console.log(error);
-      throw new NotFoundException('Usuario no encontrado');
-    }
+  async changeUserPassword(id: number, dto: ChangePasswordDto, actorId: number) {
+    const actor = await this.requireAdmin(actorId);
+    await this.target(id, actor.empresaId);
+    const admin = await this.prisma.usuario.findUnique({
+      where: { id: actor.id },
+      select: { contrasena: true },
+    });
+    const correct = admin && await bcrypt.compare(dto.adminPassword, admin.contrasena);
+    if (!correct) throw new ForbiddenException('La contraseña del administrador es incorrecta.');
+    const hashed = await bcrypt.hash(dto.newPassword, 12);
+    await this.prisma.usuario.update({ where: { id }, data: { contrasena: hashed } });
+    return { message: 'Contraseña actualizada correctamente.' };
   }
 
-  async deleteAllUsers() {
-    try {
-      const usersToDelete = await this.prisma.usuario.deleteMany({});
-      return usersToDelete;
-    } catch (error) {
-      console.log(error);
-      throw new InternalServerErrorException('Error al eliminar ususarios');
-    }
+  /** DELETE legacy se transforma en desactivación, sin cascadas ni pérdida de trazabilidad. */
+  removeOneUser(id: number, actorId: number) {
+    return this.updateOneUser(id, { activo: false }, actorId);
   }
 }
