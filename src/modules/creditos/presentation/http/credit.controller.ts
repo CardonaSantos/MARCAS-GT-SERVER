@@ -239,7 +239,8 @@ export class CreditController {
     if (!detail.acciones.puedeAgregarExpediente) {
       throw new BadRequestException('El expediente ya no admite documentos.');
     }
-    const prefix = 'marcas-gt/empresas/' + detail.empresaId +
+    const empresaId = await this.evidence.getAuthorizedCompanyId(id, actorId);
+    const prefix = 'marcas-gt/empresas/' + empresaId +
       '/creditos/solicitudes/' + id + '/documentos/';
     let uploaded: Awaited<ReturnType<UploadFileUseCase['execute']>>;
     try {
@@ -281,7 +282,8 @@ export class CreditController {
     const document = detail.documentos.find((d: { id: number }) => d.id === documentoId);
     if (!document) throw new BadRequestException('Documento no encontrado.');
     if (document.url.startsWith('spaces://')) {
-      const expectedPrefix = 'marcas-gt/empresas/' + detail.empresaId +
+      const empresaId = await this.evidence.getAuthorizedCompanyId(id, actorId);
+      const expectedPrefix = 'marcas-gt/empresas/' + empresaId +
         '/creditos/solicitudes/' + id + '/documentos/';
       if (!document.key?.startsWith(expectedPrefix) ||
           document.url !== 'spaces://' + document.key) {
