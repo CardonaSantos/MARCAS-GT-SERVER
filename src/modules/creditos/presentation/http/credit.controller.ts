@@ -37,9 +37,9 @@ import {
 } from './dto/credit-http.dto';
 import { CreditExceptionFilter } from './credit-exception.filter';
 
-const READ_ROLES = ['ADMIN', 'VENDEDOR', 'CONTABILIDAD'] as const;
-const WRITE_ROLES = ['ADMIN', 'VENDEDOR'] as const;
-const REVIEW_ROLES = ['ADMIN', 'CONTABILIDAD'] as const;
+const READ_ROLES = ['ADMIN', 'VENDEDOR', 'BODEGA', 'CONTABILIDAD'] as const;
+const WRITE_ROLES = ['ADMIN', 'VENDEDOR', 'BODEGA'] as const;
+const REVIEW_ROLES = ['ADMIN'] as const;
 
 @Controller('creditos/solicitudes')
 @UseGuards(AuthGuard('jwt'), ActiveUserRolesGuard)
