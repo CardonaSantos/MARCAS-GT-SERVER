@@ -29,6 +29,12 @@ export class UsersController {
     return this.usersService.findAllUsers(Number(req.user.userId));
   }
 
+  /** Catálogo de personal activo para asignaciones operativas (cualquier rol autenticado). */
+  @Get('seleccionables')
+  selectables(@Req() req: AuthenticatedRequest) {
+    return this.usersService.findSelectables(Number(req.user.userId));
+  }
+
   /** Nuevo contrato paginado, con filtros y totales reales. */
   @Get('directorio')
   directory(@Req() req: AuthenticatedRequest, @Query() query: UserDirectoryQueryDto) {
