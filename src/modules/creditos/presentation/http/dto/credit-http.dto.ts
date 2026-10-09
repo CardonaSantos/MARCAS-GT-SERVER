@@ -65,6 +65,19 @@ export class UpdateCreditApplicationDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) motivo?: string | null;
 }
 
+export class CreditReasonDto {
+  @Transform(trim) @IsString() @Length(3, 1000) motivo: string;
+  @Transform(trim) @IsString() @Length(8, 120) claveIdempotencia: string;
+}
+
+export class ApproveCreditDto {
+  @Transform(money) @Matches(/^\d{1,10}(?:\.\d{1,2})?$/) montoAutorizado: string;
+  @Type(() => Number) @IsInt() @Min(1) @Max(3650) plazoAutorizadoDias: number;
+  @Transform(money) @Matches(/^\d{1,10}(?:\.\d{1,2})?$/) anticipoRequerido: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) observaciones?: string | null;
+  @Transform(trim) @IsString() @Length(8, 120) claveIdempotencia: string;
+}
+
 export class ApproveCreditWithScheduleDto extends ApproveCreditDto {
   @Type(() => CreditScheduleDto)
   @ValidateNested()
@@ -78,18 +91,6 @@ export class CreditScheduleDto {
   @Type(() => Date) @IsDate() primeraFechaVencimiento: Date;
 }
 
-export class CreditReasonDto {
-  @Transform(trim) @IsString() @Length(3, 1000) motivo: string;
-  @Transform(trim) @IsString() @Length(8, 120) claveIdempotencia: string;
-}
-
-export class ApproveCreditDto {
-  @Transform(money) @Matches(/^\d{1,10}(?:\.\d{1,2})?$/) montoAutorizado: string;
-  @Type(() => Number) @IsInt() @Min(1) @Max(3650) plazoAutorizadoDias: number;
-  @Transform(money) @Matches(/^\d{1,10}(?:\.\d{1,2})?$/) anticipoRequerido: string;
-  @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) observaciones?: string | null;
-  @Transform(trim) @IsString() @Length(8, 120) claveIdempotencia: string;
-}
 
 export class AddCreditReferenceDto {
   @IsIn(['PERSONAL', 'COMERCIAL', 'LABORAL', 'OTRA']) tipo: CreditReferenceType;
