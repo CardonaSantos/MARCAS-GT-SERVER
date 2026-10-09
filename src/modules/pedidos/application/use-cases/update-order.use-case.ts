@@ -8,7 +8,7 @@ import { UpdateOrderCommand } from '../models/order.models';
 import {
   assertOrderCustomer,
   assertOrderVisit,
-  assertOrderWriteAccess,
+  assertOrderEditAccess,
   buildOrderDetails,
   requireOrderActor,
   resolveOrderSeller,
@@ -27,7 +27,7 @@ export class UpdateOrderUseCase {
     const actor = await requireOrderActor(this.users, command.actorId);
     const order = await this.repository.findById(command.id);
     if (!order) throw new OrderNotFoundError(command.id);
-    assertOrderWriteAccess(actor, order);
+    assertOrderEditAccess(actor, order);
 
     const vendedorId = command.vendedorId !== undefined
       ? await resolveOrderSeller(this.users, actor, command.vendedorId)

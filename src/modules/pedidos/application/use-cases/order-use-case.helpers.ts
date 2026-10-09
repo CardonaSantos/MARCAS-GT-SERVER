@@ -106,7 +106,7 @@ export function assertOrderWriteAccess(
     throw new OrderForbiddenError();
   }
 
-  if (actor.rol === 'ADMIN') {
+  if (actor.rol === 'ADMIN' || actor.rol === 'BODEGA') {
     return;
   }
 
@@ -125,18 +125,8 @@ export function assertOrderEditAccess(
   actor: ActiveOrderActor,
   order: Pedido,
 ): void {
-  if (order.empresaId !== actor.empresaId) {
-    throw new OrderForbiddenError('No puedes editar pedidos de otra empresa.');
-  }
-
-  // BODEGA puede editar borradores de la empresa.
-  // El dominio valida que el estado sea BORRADOR
-  // y que no exista actividad operativa incompatible.
-  if (actor.rol === 'BODEGA') {
-    return;
-  }
-
-  // ADMIN y VENDEDOR mantienen sus reglas originales.
+  // La edición conserva el mismo alcance: ADMIN/BODEGA en su empresa,
+  // VENDEDOR en pedidos propios. El dominio valida BORRADOR y reservas.
   assertOrderWriteAccess(actor, order);
 }
 
