@@ -106,7 +106,7 @@ export class PaymentPrismaQueryAdapter
       const mapped = rows
         .map(mapPaymentListRow)
         .filter((row: any) =>
-          PaymentMoney.from(row.montoDisponible).isPositive(),
+          PaymentMoney.from(row.montoLibreCxC).isPositive(),
         );
 
       return pageFromArray(mapped, filters.page, filters.limit);
@@ -222,6 +222,11 @@ export class PaymentPrismaQueryAdapter
     const available = PaymentMoney.from(row.monto.toFixed(2)).subtract(applied);
 
     const operator = ['ADMIN', 'CONTABILIDAD'].includes(scope.rol);
+    const directOrder = isDirectOrderPayment(row.pedido?.condicionPago);
+    const linked = row.estado === 'VERIFICADO' && directOrder
+      ? available : PaymentMoney.zero();
+    const freeForCxC = row.estado === 'VERIFICADO' && !directOrder
+      ? available : PaymentMoney.zero();
 
     return {
       id: row.id,
@@ -240,6 +245,8 @@ export class PaymentPrismaQueryAdapter
       monto: row.monto.toFixed(2),
       montoAplicado: applied.toString(),
       montoDisponible: available.toString(),
+      montoVinculadoPedido: linked.toString(),
+      montoLibreCxC: freeForCxC.toString(),
       referencia: row.referencia,
       fechaPago: row.fechaPago,
       observaciones: row.observaciones,
@@ -263,6 +270,7 @@ export class PaymentPrismaQueryAdapter
         puedeAplicar:
           operator &&
           row.estado === 'VERIFICADO' &&
+          !directOrder &&
           available.isPositive(),
         puedeAnular: operator && row.estado === 'VERIFICADO',
         puedeAgregarComprobante:
@@ -477,6 +485,7 @@ export class PaymentPrismaQueryAdapter
           where: { estado: 'ACTIVA' },
           select: { monto: true },
         },
+        pedido: { select: { condicionPago: true } },
       },
     });
 
@@ -485,6 +494,8 @@ export class PaymentPrismaQueryAdapter
     let verificado = PaymentMoney.zero();
     let pendiente = PaymentMoney.zero();
     let disponible = PaymentMoney.zero();
+    let vinculadoPedido = PaymentMoney.zero();
+    let libreCxC = PaymentMoney.zero();
 
     for (const row of rows) {
       porEstado[row.estado] = (porEstado[row.estado] ?? 0) + 1;
@@ -494,9 +505,13 @@ export class PaymentPrismaQueryAdapter
 
       if (row.estado === 'VERIFICADO') {
         verificado = verificado.add(amount);
-        disponible = disponible.add(
-          amount.subtract(activeApplied(row.aplicaciones)),
-        );
+        const remaining = amount.subtract(activeApplied(row.aplicaciones));
+        disponible = disponible.add(remaining);
+        if (isDirectOrderPayment(row.pedido?.condicionPago)) {
+          vinculadoPedido = vinculadoPedido.add(remaining);
+        } else {
+          libreCxC = libreCxC.add(remaining);
+        }
       } else if (row.estado === 'PENDIENTE') {
         pendiente = pendiente.add(amount);
       }
@@ -510,6 +525,8 @@ export class PaymentPrismaQueryAdapter
         verificado: verificado.toString(),
         pendiente: pendiente.toString(),
         disponibleNoAplicado: disponible.toString(),
+        vinculadoPedido: vinculadoPedido.toString(),
+        libreCxC: libreCxC.toString(),
       },
     };
   }
@@ -589,6 +606,10 @@ function dateWhere(fechaDesde?: Date, fechaHasta?: Date): any {
   };
 }
 
+function isDirectOrderPayment(value: string | null | undefined): boolean {
+  return value === 'PREPAGO' || value === 'CONTRAENTREGA';
+}
+
 function paymentListInclude(): any {
   return {
     cliente: {
@@ -603,6 +624,8 @@ function paymentListInclude(): any {
         id: true,
         numero: true,
         vendedorId: true,
+        condicionPago: true,
+        estadoPago: true,
       },
     },
     banco: {
@@ -646,6 +669,12 @@ function mapPaymentListRow(row: any) {
     monto: amount.toString(),
     montoAplicado: applied.toString(),
     montoDisponible: amount.subtract(applied).toString(),
+    montoVinculadoPedido: row.estado === 'VERIFICADO' &&
+      isDirectOrderPayment(row.pedido?.condicionPago)
+      ? amount.subtract(applied).toString() : '0.00',
+    montoLibreCxC: row.estado === 'VERIFICADO' &&
+      !isDirectOrderPayment(row.pedido?.condicionPago)
+      ? amount.subtract(applied).toString() : '0.00',
     referencia: row.referencia,
     fechaPago: row.fechaPago,
     comprobantes: row._count.comprobantes,

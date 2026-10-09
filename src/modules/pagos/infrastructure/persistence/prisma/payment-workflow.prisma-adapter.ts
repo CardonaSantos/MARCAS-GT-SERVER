@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma.service';
+import { reconcileVerifiedDirectPayment } from './reconcile-direct-payment.prisma';
 import {
   PaymentAvailableAmountExceededError,
   PaymentConcurrentModificationError,
@@ -234,6 +235,11 @@ export class PaymentWorkflowPrismaAdapter implements PaymentWorkflowPort {
           claveIdempotencia: input.claveIdempotencia,
         },
       });
+
+      // Si ya existe una CxC del pedido no financiado, la aplica sin
+      // intervención manual, dentro de la misma verificación transaccional.
+      // Si todavía no existe, el dinero continúa vinculado al pedido.
+      await reconcileVerifiedDirectPayment(tx, input.pagoId, input.actorId);
 
       if (payment.pedidoId) {
         await this.syncOrderPaymentState(tx, payment.pedidoId, input.actorId, input.pagoId);
