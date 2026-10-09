@@ -65,6 +65,19 @@ export class UpdateCreditApplicationDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) motivo?: string | null;
 }
 
+export class ApproveCreditWithScheduleDto extends ApproveCreditDto {
+  @Type(() => CreditScheduleDto)
+  @ValidateNested()
+  plan: CreditScheduleDto;
+}
+
+export class CreditScheduleDto {
+  @IsIn(['SEMANAL', 'QUINCENAL', 'MENSUAL'])
+  frecuencia: 'SEMANAL' | 'QUINCENAL' | 'MENSUAL';
+  @Type(() => Number) @IsInt() @Min(1) @Max(120) numeroCuotas: number;
+  @Type(() => Date) @IsDate() primeraFechaVencimiento: Date;
+}
+
 export class CreditReasonDto {
   @Transform(trim) @IsString() @Length(3, 1000) motivo: string;
   @Transform(trim) @IsString() @Length(8, 120) claveIdempotencia: string;
