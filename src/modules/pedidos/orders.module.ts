@@ -194,6 +194,7 @@ import { OrderController } from './presentation/http/order.controller';
     ORDER_CREDIT_GATE,
     ORDER_DISPATCH_GATE,
     ORDER_DELIVERY_GATE,
+    RequestOrderValidationUseCase,
   ],
 })
 export class PedidosModule {}
