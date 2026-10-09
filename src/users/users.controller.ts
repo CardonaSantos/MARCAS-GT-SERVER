@@ -1,83 +1,66 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  Query,
-  UsePipes,
-  ValidationPipe,
-  ParseIntPipe,
+  Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query,
+  Req, UseGuards, UsePipes, ValidationPipe,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { ValidatorUserPipe } from './pipes/validator-user/validator-user.pipe';
-import { AuthService } from 'src/auth/auth.service';
-import { Usuario } from '@prisma/client';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UserDirectoryQueryDto } from './dto/user-directory-query.dto';
 
+type AuthenticatedRequest = { user: { userId: number } };
+
+/** Todas las operaciones administrativas exigen JWT y un ADMIN activo validado en BD. */
 @Controller('users')
+@UseGuards(AuthGuard('jwt'))
+@UsePipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
 export class UsersController {
-  constructor(
-    private readonly usersService: UsersService,
-    private readonly authService: AuthService, //si vas a usar un service, esporta su service en su propio module | y luego importa su module en tu module correspondiente al resource donde lo quieres usar
-  ) {}
-  //CREAR UN USER
+  constructor(private readonly usersService: UsersService) {}
+
   @Post()
-  @UsePipes(new ValidationPipe())
-  async create(@Body() createUserDto: CreateUserDto) {
-    const newUser: Usuario = await this.usersService.createUser(createUserDto);
-    return this.authService.loginUser(newUser);
+  create(@Req() req: AuthenticatedRequest, @Body() dto: CreateUserDto) {
+    return this.usersService.createUser(dto, Number(req.user.userId));
   }
 
-  //BUSCAR TODOS
-  @Get('')
-  @UsePipes(new ValidationPipe())
-  async findAllUsers() {
-    return await this.usersService.findAllUsers();
+  /** Contrato anterior para selectables: array de usuarios sin credenciales. */
+  @Get()
+  findAll(@Req() req: AuthenticatedRequest) {
+    return this.usersService.findAllUsers(Number(req.user.userId));
   }
 
-  //BUSCAR UNO
+  /** Nuevo contrato paginado, con filtros y totales reales. */
+  @Get('directorio')
+  directory(@Req() req: AuthenticatedRequest, @Query() query: UserDirectoryQueryDto) {
+    return this.usersService.directory(Number(req.user.userId), query);
+  }
+
   @Get(':id')
-  @UsePipes(new ValidationPipe())
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    return await this.usersService.findOneUser(id);
+  findOne(@Req() req: AuthenticatedRequest, @Param('id', ParseIntPipe) id: number) {
+    return this.usersService.findOneUser(id, Number(req.user.userId));
+  }
+
+  @Patch('change-password/:id')
+  changePassword(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.usersService.changeUserPassword(id, dto, Number(req.user.userId));
   }
 
   @Patch(':id')
-  @UsePipes(new ValidationPipe())
-  async updateOne(
+  update(
+    @Req() req: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
-    @Body() updateUserDto: UpdateUserDto,
+    @Body() dto: UpdateUserDto,
   ) {
-    return await this.usersService.updateOneUser(id, updateUserDto);
+    return this.usersService.updateOneUser(id, dto, Number(req.user.userId));
   }
 
-  @Patch('/change-password/:id')
-  @UsePipes(new ValidationPipe())
-  async changePassword(
-    @Param('id', ParseIntPipe) userId: number,
-    @Body() changePasswordDto: ChangePasswordDto,
-  ) {
-    console.log('Datos recibidos:', changePasswordDto);
-    console.log('ID del usuario a cambiar contraseña:', userId);
-
-    return await this.usersService.changeUserPassword(
-      userId,
-      changePasswordDto,
-    );
-  }
-
-  @Delete('/delete-all')
-  async deleteAllUSers() {
-    return await this.usersService.deleteAllUsers();
-  }
-
+  /** Conserva URL legacy, pero desactiva la cuenta para preservar auditoría. */
   @Delete(':id')
-  async remove(@Param('id', ParseIntPipe) id: number) {
-    return await this.usersService.removeOneUser(id);
+  deactivate(@Req() req: AuthenticatedRequest, @Param('id', ParseIntPipe) id: number) {
+    return this.usersService.removeOneUser(id, Number(req.user.userId));
   }
 }
