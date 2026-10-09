@@ -207,6 +207,13 @@ export class DeliveryPrismaRepository implements DeliveryRepositoryPort {
     });
   }
 
+  async findEvidenceByIdempotencyKey(key: string) {
+    return this.prisma.entregaEvidencia.findUnique({
+      where: { claveIdempotencia: key },
+      select: { id: true, entregaId: true, key: true },
+    });
+  }
+
   async addEvidence(input: any) {
     const old = await this.prisma.entregaEvidencia.findUnique({ where: { claveIdempotencia: input.claveIdempotencia }, select: { id: true, entregaId: true } });
     if (old) {
