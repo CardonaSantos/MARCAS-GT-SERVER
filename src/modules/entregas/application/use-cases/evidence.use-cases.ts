@@ -1,4 +1,5 @@
 import { DispatchDirectoryPort } from '../../../despachos';
+import { InvalidUploadError } from '../../../archivos';
 import { TransportDirectoryPort } from '../../../transporte';
 import { DeliveryRepositoryPort } from '../../domain/ports/delivery.repository.port';
 import { Delivery } from '../../domain/entities/delivery.entity';
@@ -37,22 +38,38 @@ export class AddDeliveryEvidenceUseCase {
       throw new DeliveryValidationError('Selecciona un archivo para la evidencia.');
     }
 
-    const uploaded = input.buffer || input.contenido
-      ? await this.storage.upload({
-          empresaId: actor.empresaId,
-          entregaId: delivery.id,
-          tipo: input.tipo,
-          content: input.contenido,
-          buffer: input.buffer,
-          filename: input.filename,
-          mimeType: input.mimeType,
-        })
-      : {
-          url: input.url,
-          key: input.key ?? null,
-          mimeType: input.mimeType ?? null,
-          size: input.size ?? null,
-        };
+    if (!['FIRMA', 'FOTO', 'DOCUMENTO', 'OTRO'].includes(input.tipo)) {
+      throw new DeliveryValidationError('Tipo de evidencia inválido.');
+    }
+    // Compatibilidad de clientes antiguos con URL: sin admitir claves de
+    // almacenamiento arbitrarias que pudieran apuntar a otra empresa.
+    if (!input.buffer && !input.contenido && !/^https:\/\//i.test(input.url ?? '')) {
+      throw new DeliveryValidationError('La evidencia externa requiere URL HTTPS.');
+    }
+    let uploaded: { url: string; key: string | null; mimeType: string | null; size: number | null };
+    try {
+      uploaded = input.buffer || input.contenido
+        ? await this.storage.upload({
+            empresaId: actor.empresaId,
+            entregaId: delivery.id,
+            tipo: input.tipo,
+            content: input.contenido,
+            buffer: input.buffer,
+            filename: input.filename,
+            mimeType: input.mimeType,
+          })
+        : {
+            url: input.url,
+            key: null,
+            mimeType: input.mimeType ?? null,
+            size: input.size ?? null,
+          };
+    } catch (error) {
+      if (error instanceof InvalidUploadError) {
+        throw new DeliveryValidationError(error.message);
+      }
+      throw error;
+    }
 
     try {
       const evidence = await this.repository.addEvidence({
