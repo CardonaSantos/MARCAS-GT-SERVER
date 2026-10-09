@@ -1,0 +1,26 @@
+name: Visit history contract
+on:
+  push:
+    branches: [update-requerimientos]
+    paths:
+      - "src/date/**"
+      - ".github/workflows/visit-history.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  visit-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Visit history query and security tests
+        run: npm test -- --runInBand src/date/history
+      - name: TypeScript and NestJS build
+        run: npm run build

@@ -11,10 +11,13 @@ import {
   UseGuards,
   UsePipes,
   ValidationPipe,
+  Query,
 } from '@nestjs/common';
 import { DateService } from './date.service';
 import { AuthGuard } from '@nestjs/passport';
 import { VisitWorkflowService } from './workflow/visit-workflow.service';
+import { VisitHistoryService } from './history/visit-history.service';
+import { VisitHistoryQueryDto } from './history/visit-history-query.dto';
 import { VisitStartDto, VisitFinishDto, VisitCancelDto } from './workflow/visit-workflow.dto';
 import { CreateDateDto } from './dto/create-date.dto';
 import { UpdateDateDto } from './dto/update-date.dto';
@@ -24,7 +27,27 @@ export class DateController {
   constructor(
     private readonly dateService: DateService,
     private readonly visits: VisitWorkflowService,
+    private readonly history: VisitHistoryService,
   ) {}
+
+  @Get('historial')
+  @UseGuards(AuthGuard('jwt'))
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
+  findHistory(
+    @Req() req: { user: { userId: number } },
+    @Query() query: VisitHistoryQueryDto,
+  ) {
+    return this.history.list(Number(req.user.userId), query);
+  }
+
+  @Get('historial/:id')
+  @UseGuards(AuthGuard('jwt'))
+  findHistoryDetail(
+    @Req() req: { user: { userId: number } },
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.history.detail(Number(req.user.userId), id);
+  }
 
   // Contrato autenticado de visitas; rutas antiguas permanecen por compatibilidad.
   @Get('jornada/abierta')
