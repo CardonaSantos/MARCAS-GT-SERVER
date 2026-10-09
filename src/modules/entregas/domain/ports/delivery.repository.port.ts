@@ -85,6 +85,8 @@ export interface DeliveryRepositoryPort {
     }[];
   }): Promise<void>;
 
+  findEvidenceByIdempotencyKey(key: string): Promise<{ id: number; entregaId: number; key: string | null } | null>;
+
   addEvidence(input: {
     entregaId: number;
     tipo: string;
