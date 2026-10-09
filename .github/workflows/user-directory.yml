@@ -1,0 +1,29 @@
+name: Users administration contract
+on:
+  push:
+    branches: [update-requerimientos, enhancement-usuarios-20261008]
+    paths:
+      - "src/users/**"
+      - "src/auth/**"
+      - ".github/workflows/user-directory.yml"
+  pull_request:
+    branches: [update-requerimientos]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  users:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Users permissions and password tests
+        run: npm test -- --runInBand src/users/users.service.spec.ts
+      - name: NestJS compile
+        run: npm run build

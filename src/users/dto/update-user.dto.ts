@@ -1,26 +1,21 @@
-import { IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
 import { Rol } from '@prisma/client';
+import { Transform } from 'class-transformer';
+import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateUserDto {
-  @IsString()
-  @IsOptional() // Hacemos el nombre opcional para la actualización
+  @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @IsString() @MinLength(2) @MaxLength(120)
   nombre?: string;
 
-  @IsString()
-  @IsOptional() // El correo también debe ser opcional
+  @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim().toLowerCase() : value)
+  @IsEmail() @MaxLength(250)
   correo?: string;
 
-  @IsString()
-  @MinLength(8)
-  @IsOptional() // La contraseña debe ser opcional y solo válida si se proporciona
-  contrasena?: string;
-
-  @IsString()
-  @MinLength(8)
-  @IsOptional() // La contraseña actual también es opcional
-  contrasenaActual?: string;
-
-  @IsEnum(Rol)
-  @IsOptional() // El rol puede ser opcional
+  @IsOptional() @IsEnum(Rol)
   rol?: Rol;
+
+  @IsOptional() @IsBoolean()
+  activo?: boolean;
 }
