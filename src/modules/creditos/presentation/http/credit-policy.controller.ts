@@ -43,7 +43,7 @@ export class CreditPolicyController {
   ) {}
 
   @Get()
-  @Roles('ADMIN', 'CONTABILIDAD', 'VENDEDOR')
+  @Roles('ADMIN', 'CONTABILIDAD', 'VENDEDOR', 'BODEGA')
   list(
     @Query() query: CreditPolicyListQueryDto,
     @CurrentActorId() actorId: number,
@@ -52,7 +52,7 @@ export class CreditPolicyController {
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'CONTABILIDAD', 'VENDEDOR')
+  @Roles('ADMIN', 'CONTABILIDAD', 'VENDEDOR', 'BODEGA')
   detail(
     @Param('id', ParseIntPipe) id: number,
     @CurrentActorId() actorId: number,
