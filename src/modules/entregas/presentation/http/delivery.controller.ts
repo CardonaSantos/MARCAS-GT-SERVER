@@ -121,7 +121,8 @@ export class DeliveryController {
     }
     const evidence = await this.addEvidenceUse.execute(id, {
       tipo, buffer: archivo.buffer, filename: archivo.originalname,
-      descripcion, claveIdempotencia,
+      descripcion: descripcion?.trim() || archivo.originalname,
+      claveIdempotencia,
     }, actorId);
     return { evidence, entrega: await this.getUse.execute(id, actorId) };
   }
