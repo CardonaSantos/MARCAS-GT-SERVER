@@ -20,7 +20,10 @@ export class UsersService {
 
   /** Uso exclusivo de autenticación; nunca exponer su hash en controladores. */
   findByEmail(email: string): Promise<Usuario | null> {
-    return this.prisma.usuario.findUnique({ where: { correo: email } });
+    return this.prisma.usuario.findFirst({
+      where: { correo: { equals: email.trim(), mode: 'insensitive' } },
+      orderBy: { id: 'asc' },
+    });
   }
 
   findAuthUserById(id: number) {
