@@ -21,5 +21,6 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npm run build
+      - run: npm test -- --runInBand credit-http.dto.spec
       - run: npm test -- --runInBand credit-application.commands.spec
       - run: npm test -- --runInBand credit-payment-plan.commands.spec
