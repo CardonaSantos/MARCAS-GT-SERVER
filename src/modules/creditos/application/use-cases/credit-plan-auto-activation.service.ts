@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { CREDIT_PAYMENT_PLAN_REPOSITORY } from '../../credit.tokens';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from 'src/prisma.service';
 import { CreditPaymentPlanRepositoryPort } from '../../domain/ports/credit.repositories';
@@ -13,6 +14,7 @@ export class CreditPlanAutoActivationService {
 
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(CREDIT_PAYMENT_PLAN_REPOSITORY)
     private readonly plans: CreditPaymentPlanRepositoryPort,
   ) {}
 
