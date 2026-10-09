@@ -1,6 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { ProspectoService } from './prospecto.service';
 import { ProspectWorkflowService } from './workflow/prospect-workflow.service';
+import { ProspectHistoryService } from './history/prospect-history.service';
 import { ProspectoController } from './prospecto.controller';
 import { PrismaService } from 'src/prisma.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
@@ -12,6 +13,7 @@ import { LocationModule } from 'src/location/location.module';
   providers: [
     ProspectoService,
     ProspectWorkflowService,
+    ProspectHistoryService,
     PrismaService,
     NotificationsService,
     // LocationGateway,

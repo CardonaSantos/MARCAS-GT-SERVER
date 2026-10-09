@@ -11,10 +11,13 @@ import {
   UseGuards,
   UsePipes,
   ValidationPipe,
+  Query,
 } from '@nestjs/common';
 import { ProspectoService } from './prospecto.service';
 import { AuthGuard } from '@nestjs/passport';
 import { ProspectWorkflowService } from './workflow/prospect-workflow.service';
+import { ProspectHistoryService } from './history/prospect-history.service';
+import { ProspectHistoryQueryDto } from './history/prospect-history-query.dto';
 import {
   ProspectWorkflowStartDto, ProspectWorkflowFinishDto, ProspectWorkflowCancelDto,
 } from './workflow/prospect-workflow.dto';
@@ -27,7 +30,37 @@ export class ProspectoController {
   constructor(
     private readonly prospectoService: ProspectoService,
     private readonly workflow: ProspectWorkflowService,
+    private readonly history: ProspectHistoryService,
   ) {}
+  /** Historial paginado con alcance de seguridad por sesión. */
+  @Get('historial')
+  @UseGuards(AuthGuard('jwt'))
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
+  listHistory(
+    @Req() req: { user: { userId: number } },
+    @Query() query: ProspectHistoryQueryDto,
+  ) {
+    return this.history.list(Number(req.user.userId), query);
+  }
+
+  @Get('historial/:id')
+  @UseGuards(AuthGuard('jwt'))
+  detailHistory(
+    @Req() req: { user: { userId: number } },
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.history.detail(Number(req.user.userId), id);
+  }
+
+  @Post('historial/:id/convertir-cliente')
+  @UseGuards(AuthGuard('jwt'))
+  convertHistoryCustomer(
+    @Req() req: { user: { userId: number } },
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.history.convertToCustomer(Number(req.user.userId), id);
+  }
+
   @Get('jornada/abierto')
   @UseGuards(AuthGuard('jwt'))
   getOwnActive(@Req() req: { user: { userId: number } }) {
