@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
+import { ArchivosModule } from '../archivos';
 import { ActiveUserRolesGuard } from 'src/shared/security/active-user-roles.guard';
 import {
   ORDER_CREDIT_GATE,
@@ -56,7 +57,7 @@ import { CreditPolicyController } from './presentation/http/credit-policy.contro
 import { CreditPortfolioController } from './presentation/http/credit-portfolio.controller';
 
 @Module({
-  imports: [PedidosModule],
+  imports: [PedidosModule, ArchivosModule],
   controllers: [
     CreditController,
     CreditPolicyController,
