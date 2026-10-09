@@ -106,7 +106,7 @@ export class PaymentPrismaQueryAdapter
       const mapped = rows
         .map(mapPaymentListRow)
         .filter((row: any) =>
-          PaymentMoney.from(row.montoDisponible).isPositive(),
+          PaymentMoney.from(row.montoLibreCxC).isPositive(),
         );
 
       return pageFromArray(mapped, filters.page, filters.limit);
