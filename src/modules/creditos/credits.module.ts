@@ -68,12 +68,7 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
     ActiveUserRolesGuard,
     CreditPrismaRepository,
     CreditPolicyPrismaRepository,
-    {
-      provide: CreditPlanAutoActivationService,
-      useFactory: (prisma: PrismaService, plans: CreditPaymentPlanRepositoryPort) =>
-        new CreditPlanAutoActivationService(prisma, plans),
-      inject: [PrismaService, CREDIT_PAYMENT_PLAN_REPOSITORY],
-    },
+    CreditPlanAutoActivationService,
     CreditPaymentPlanPrismaRepository,
     CreditPrismaQueryAdapter,
     CreditActorDirectoryPrismaAdapter,
