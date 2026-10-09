@@ -43,7 +43,7 @@ export class CreditPortfolioController {
   ) {}
 
   @Get('cartera')
-  @Roles('ADMIN', 'VENDEDOR', 'CONTABILIDAD')
+  @Roles('ADMIN', 'VENDEDOR', 'BODEGA', 'CONTABILIDAD')
   portfolio(
     @Query() query: CreditPortfolioQueryDto,
     @CurrentActorId() actorId: number,
