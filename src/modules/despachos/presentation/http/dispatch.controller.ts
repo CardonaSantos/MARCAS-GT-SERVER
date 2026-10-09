@@ -159,17 +159,11 @@ export class DispatchController {
     @Param('operationId', ParseIntPipe) operationId: number,
     @CurrentActorId() actorId: number,
   ) {
-    const result = await this.retryOperation.execute(
-      operationId,
-      actorId,
-    );
+    const result = await this.retryOperation.execute(operationId, actorId);
 
     return {
       result,
-      despacho: await this.getDispatch.execute(
-        result.dispatchId,
-        actorId,
-      ),
+      despacho: await this.getDispatch.execute(result.dispatchId, actorId),
     };
   }
 

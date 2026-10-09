@@ -36,7 +36,8 @@ import {
 import { OrderExceptionFilter } from './order-exception.filter';
 
 const READ_ROLES = ['ADMIN', 'VENDEDOR', 'BODEGA', 'CONTABILIDAD'] as const;
-const WRITE_ROLES = ['ADMIN', 'VENDEDOR'] as const;
+const WRITE_ROLES = ['ADMIN', 'VENDEDOR', 'BODEGA'] as const;
+const EDIT_ROLES = ['ADMIN', 'VENDEDOR', 'BODEGA'] as const;
 
 @Controller('pedidos')
 @UseGuards(AuthGuard('jwt'), ActiveUserRolesGuard)
@@ -77,13 +78,19 @@ export class OrderController {
 
   @Get('resumen')
   @Roles(...READ_ROLES)
-  summary(@Query() query: OrderSummaryQueryDto, @CurrentActorId() actorId: number) {
+  summary(
+    @Query() query: OrderSummaryQueryDto,
+    @CurrentActorId() actorId: number,
+  ) {
     return this.getSummary.execute(query, actorId);
   }
 
   @Get(':id')
   @Roles(...READ_ROLES)
-  detail(@Param('id', ParseIntPipe) id: number, @CurrentActorId() actorId: number) {
+  detail(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentActorId() actorId: number,
+  ) {
     return this.getOrder.execute(id, actorId);
   }
 
@@ -98,7 +105,7 @@ export class OrderController {
   }
 
   @Patch(':id')
-  @Roles(...WRITE_ROLES)
+  @Roles(...EDIT_ROLES)
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateOrderDto,
