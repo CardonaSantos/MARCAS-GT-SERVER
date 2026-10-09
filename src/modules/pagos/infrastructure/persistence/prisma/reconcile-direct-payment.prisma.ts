@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { PaymentConcurrentModificationError } from '../../../domain/errors/payment.errors';
 import { PaymentMoney } from '../../../domain/value-objects/payment-money.vo';
 
 /**
@@ -95,7 +96,7 @@ export async function reconcileVerifiedDirectPayment(
       },
     });
     if (changed.count !== 1) {
-      throw new Error('Conflicto concurrente al conciliar una cuenta por cobrar.');
+      throw new PaymentConcurrentModificationError({ cuentaPorCobrarId: receivable.id });
     }
 
     await tx.pagoEvento.create({
