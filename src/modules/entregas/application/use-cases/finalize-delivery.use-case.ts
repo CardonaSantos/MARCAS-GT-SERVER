@@ -4,6 +4,7 @@ import {
   TransportDeliveryGatePort,
   TransportDirectoryPort,
 } from '../../../transporte';
+import { CreditPlanAutoActivationService } from '../../../creditos/application/use-cases/credit-plan-auto-activation.service';
 import { DeliveryRepositoryPort } from '../../domain/ports/delivery.repository.port';
 import { Delivery } from '../../domain/entities/delivery.entity';
 import {
@@ -24,6 +25,7 @@ export class FinalizeDeliveryUseCase {
     private readonly dispatches: DispatchDirectoryPort,
     private readonly orders: OrderDeliveryGatePort,
     private readonly transportGate: TransportDeliveryGatePort,
+    private readonly creditAutoActivation?: CreditPlanAutoActivationService,
   ) {}
 
   async execute(command: FinalizeDeliveryCommand) {
@@ -33,7 +35,10 @@ export class FinalizeDeliveryUseCase {
 
     // Un retry exacto después de haber cerrado localmente es un no-op exitoso.
     if (FINAL_STATES.includes(delivery.estado)) {
-      if (delivery.estado === command.resultado) return delivery;
+      if (delivery.estado === command.resultado) {
+        await this.activateIfDelivered(delivery.pedidoId, actor.empresaId);
+        return delivery;
+      }
       throw new DeliveryInvalidStateError(
         delivery.estado,
         `finalizar nuevamente como ${command.resultado}`,
@@ -88,7 +93,10 @@ export class FinalizeDeliveryUseCase {
     const refreshed = await this.repository.findById(delivery.id);
     if (!refreshed) throw new DeliveryValidationError('La entrega dejó de existir durante la finalización.');
     if (FINAL_STATES.includes(refreshed.estado)) {
-      if (refreshed.estado === command.resultado) return refreshed;
+      if (refreshed.estado === command.resultado) {
+        await this.activateIfDelivered(refreshed.pedidoId, actor.empresaId);
+        return refreshed;
+      }
       throw new DeliveryInvalidStateError(refreshed.estado, 'completar la recuperación de la entrega');
     }
 
@@ -107,6 +115,14 @@ export class FinalizeDeliveryUseCase {
       claveIdempotencia: command.claveIdempotencia,
     });
 
+    await this.activateIfDelivered(delivery.pedidoId, actor.empresaId);
     return this.repository.findById(delivery.id);
+  }
+
+  private async activateIfDelivered(pedidoId: number, empresaId: number) {
+    // El cierre físico no se revierte por una falla temporal de cartera.
+    // El reconciliador de Créditos reintenta cada diez minutos.
+    await this.creditAutoActivation?.activateForOrder(pedidoId, empresaId)
+      .catch(() => undefined);
   }
 }
