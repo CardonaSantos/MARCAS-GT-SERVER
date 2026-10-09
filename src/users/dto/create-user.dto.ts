@@ -3,6 +3,7 @@ import { Transform, Type } from 'class-transformer';
 import { IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 
 export class CreateUserDto {
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString() @IsNotEmpty() @MinLength(2) @MaxLength(120)
   nombre: string;
 
