@@ -151,6 +151,34 @@ export class DeliveryController {
     throw new BadRequestException('Esta evidencia antigua no tiene una URL segura disponible.');
   }
 
+  // Sólo las firmas JPG/PNG almacenadas en Spaces se pueden incrustar.
+  // La lectura se hace en el servidor para no depender del CORS del bucket.
+  @Get(':id/evidencias/:evidenciaId/imagen') @Roles(...READ)
+  async evidenceImageForReceipt(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('evidenciaId', ParseIntPipe) evidenciaId: number,
+    @CurrentActorId() actorId: number,
+  ) {
+    const delivery = await this.getUse.execute(id, actorId);
+    const evidence = delivery.evidencias.items.find((item: { id: number }) => item.id === evidenciaId);
+    if (!evidence || evidence.tipo !== 'FIRMA' ||
+        !evidence.url.startsWith('spaces://') ||
+        !['image/jpeg', 'image/png'].includes(evidence.mimeType ?? '')) {
+      throw new BadRequestException('La firma no permite vista previa incrustada.');
+    }
+    const file = await this.evidenceAccess(id, evidenciaId, actorId);
+    const response = await fetch(file.url);
+    if (!response.ok ||
+        Number(response.headers.get('content-length') || 0) > 10 * 1024 * 1024) {
+      throw new BadRequestException('La firma privada no está disponible.');
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (!buffer.length || buffer.length > 10 * 1024 * 1024) {
+      throw new BadRequestException('La firma es demasiado grande.');
+    }
+    return { dataUrl: 'data:' + evidence.mimeType + ';base64,' + buffer.toString('base64') };
+  }
+
   @Post(':id/evidencias') @Roles(...OPERATE)
   async addEvidence(@Param('id', ParseIntPipe) id: number, @Body() dto: AddDeliveryEvidenceDto, @CurrentActorId() actorId: number) {
     const evidence = await this.addEvidenceUse.execute(id, dto, actorId);
