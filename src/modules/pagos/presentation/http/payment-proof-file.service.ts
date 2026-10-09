@@ -70,7 +70,7 @@ export class PaymentProofFileService {
       if (error instanceof InvalidUploadError) {
         throw new BadRequestException(error.message);
       }
-      this.logger.error('No fue posible subir el comprobante a Spaces.', error);
+      this.logger.error('No fue posible subir el comprobante a Spaces.', String(error));
       throw new ServiceUnavailableException('No fue posible cargar el archivo.');
     }
 
@@ -122,7 +122,7 @@ export class PaymentProofFileService {
         descripcion: proof.descripcion,
       };
     } catch (error) {
-      this.logger.error('No fue posible generar enlace de lectura.', error);
+      this.logger.error('No fue posible generar enlace de lectura.', String(error));
       throw new ServiceUnavailableException('No fue posible abrir el comprobante.');
     }
   }
@@ -169,7 +169,7 @@ export class PaymentProofFileService {
         await this.storage.remove(proof.key);
       } catch (error) {
         storageDeleted = false;
-        this.logger.error('Pendiente de limpieza en Spaces para comprobante ' + proofId, error);
+        this.logger.error('Pendiente de limpieza en Spaces para comprobante ' + proofId, String(error));
       }
     }
     return { eliminado: true, storageDeleted };
