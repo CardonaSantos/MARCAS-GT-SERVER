@@ -4,6 +4,7 @@ on:
     branches: [update-requerimientos]
     paths:
       - "src/prospecto/**"
+      - "scripts/check-prospect-advisory-lock.cjs"
       - ".github/workflows/prospect-workflow.yml"
   workflow_dispatch:
 permissions:
@@ -12,6 +13,22 @@ jobs:
   prospect-workflow:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: marcas_prospect_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d marcas_prospect_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/marcas_prospect_test?schema=public
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,5 +39,7 @@ jobs:
       - run: npx prisma generate
       - name: Prospect workflow DTO tests
         run: npm test -- --runInBand src/prospecto/workflow
+      - name: PostgreSQL and Prisma advisory-lock integration
+        run: node scripts/check-prospect-advisory-lock.cjs
       - name: TypeScript and NestJS build
         run: npm run build

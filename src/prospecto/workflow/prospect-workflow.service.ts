@@ -63,7 +63,12 @@ export class ProspectWorkflowService {
 
     return this.prisma.$transaction(async (tx) => {
       // Serializa los inicios por usuario incluso con solicitudes simultáneas.
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(${actorId}::int, 907112)`;
+      // pg_advisory_xact_lock devuelve void; Prisma no puede deserializarlo.
+      // IS NULL obliga a evaluar el bloqueo pero solo retorna un booleano compatible.
+      // No interpretar ese booleano: completar la consulta indica que el lock se obtuvo.
+      await tx.$queryRaw<Array<{ lock_evaluated: boolean }>>`
+        SELECT pg_advisory_xact_lock(${actorId}::int, 907112) IS NULL AS lock_evaluated
+      `;
       const existing = await tx.prospecto.findFirst({
         where: { usuarioId: actorId, estado: 'EN_PROSPECTO', fin: null },
         select: { id: true },
