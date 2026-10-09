@@ -1,0 +1,26 @@
+name: Prospect workflow contract
+on:
+  push:
+    branches: [update-requerimientos]
+    paths:
+      - "src/prospecto/**"
+      - ".github/workflows/prospect-workflow.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prospect-workflow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Prospect workflow DTO tests
+        run: npm test -- --runInBand src/prospecto/workflow
+      - name: TypeScript and NestJS build
+        run: npm run build
