@@ -1,0 +1,26 @@
+name: Legacy Stock Backfill CI
+on:
+  pull_request:
+    branches: [update-requerimientos]
+  push:
+    branches: [update-requerimientos]
+permissions:
+  contents: read
+jobs:
+  stock-backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://validation:validation@localhost:5432/validation?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma validate
+      - run: npx tsc --noEmit --project tsconfig.json
+      - run: npm run build
+      - run: npm test -- --runInBand legacy-stock-backfill.spec
