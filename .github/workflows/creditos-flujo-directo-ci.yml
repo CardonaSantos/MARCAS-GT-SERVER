@@ -24,3 +24,6 @@ jobs:
       - run: npm test -- --runInBand credit-http.dto.spec
       - run: npm test -- --runInBand credit-application.commands.spec
       - run: npm test -- --runInBand credit-payment-plan.commands.spec
+      - run: npm test -- --runInBand reconcile-direct-payment.prisma.spec
+      - run: npm test -- --runInBand credit-plan-auto-activation.service.spec
+      - run: npm test -- --runInBand order-delivery-gate.adapter.spec
