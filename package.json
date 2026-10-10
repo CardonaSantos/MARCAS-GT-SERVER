@@ -18,7 +18,9 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed": "npx prisma db seed"
+    "seed": "npx prisma db seed",
+    "stock:legacy": "ts-node scripts/legacy-stock-backfill.ts",
+    "stock:legacy:fixture": "ts-node scripts/legacy-stock-fixture.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
@@ -40,6 +42,7 @@
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "dayjs": "^1.11.13",
+    "dotenv": "^16.4.5",
     "exceljs": "^4.4.0",
     "nodemailer": "^6.9.16",
     "passport": "^0.7.0",
@@ -85,6 +88,9 @@
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^src/(.*)$": "<rootDir>/$1"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"

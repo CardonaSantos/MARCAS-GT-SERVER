@@ -1,0 +1,26 @@
+name: Prospect history contract
+on:
+  push:
+    branches: [update-requerimientos]
+    paths:
+      - "src/prospecto/**"
+      - ".github/workflows/prospect-history.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prospect-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Prospect history query and security tests
+        run: npm test -- --runInBand src/prospecto/history
+      - name: TypeScript and NestJS build
+        run: npm run build

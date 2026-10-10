@@ -5,6 +5,7 @@ import { ReservaInventario } from '../domain/entities/reserva-inventario.entity'
 import { StockBodega } from '../domain/entities/stock-bodega.entity';
 import { InventoryConcurrentModificationError } from '../domain/errors/inventory.errors';
 import {
+  InventoryOrderEventDraft,
   OrderDetailInventoryContext,
   ProductCatalogEntry,
 } from '../domain/inventory.types';
@@ -51,6 +52,7 @@ export class InMemoryInventoryRepository implements InventoryRepositoryPort {
   reservations = new Map<number, ReservaInventario>();
   movements = new Map<number, MovimientoInventario>();
   orderDetails = new Map<number, OrderDetailInventoryContext>();
+  orderEvents: InventoryOrderEventDraft[] = [];
 
   private stockSequence = 1;
   private reservationSequence = 1;
@@ -277,6 +279,13 @@ export class InMemoryInventoryRepository implements InventoryRepositoryPort {
         this.orderDetails.set(pedidoDetalleId, {
           ...current,
           cantidadReservada: nextReserved,
+        });
+      },
+
+      createOrderEvent: async (event) => {
+        this.orderEvents.push({
+          ...event,
+          referencia: event.referencia ? { ...event.referencia } : null,
         });
       },
     };

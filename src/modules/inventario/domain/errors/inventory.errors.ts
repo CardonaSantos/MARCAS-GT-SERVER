@@ -12,6 +12,7 @@ export type InventoryErrorCode =
   | 'INVENTORY_RESERVATION_QUANTITY_EXCEEDED'
   | 'INVENTORY_ORDER_DETAIL_NOT_FOUND'
   | 'INVENTORY_ORDER_DETAIL_CAPACITY_EXCEEDED'
+  | 'INVENTORY_ORDER_NOT_RESERVABLE'
   | 'INVENTORY_CONCURRENT_MODIFICATION'
   | 'INVENTORY_INVALID_ADJUSTMENT_REASON'
   | 'INVENTORY_INVALID_REFERENCE';
@@ -116,6 +117,24 @@ export class InventoryOrderDetailCapacityExceededError extends InventoryError {
       availableToReserve,
       requested,
     });
+  }
+}
+
+export class InventoryOrderNotReservableError extends InventoryError {
+  constructor(
+    pedidoId: number,
+    estado: string,
+    allowedStates: readonly string[],
+  ) {
+    super(
+      'INVENTORY_ORDER_NOT_RESERVABLE',
+      'El pedido no está en un estado que permita reservar inventario.',
+      {
+        pedidoId,
+        estado,
+        estadosPermitidos: [...allowedStates],
+      },
+    );
   }
 }
 

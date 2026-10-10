@@ -1,0 +1,31 @@
+name: Provider contract and build
+
+on:
+  push:
+    branches: [update-requerimientos]
+    paths:
+      - "src/provider/**"
+      - ".github/workflows/provider-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-provider:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate Prisma client
+        run: npx prisma generate
+      - name: Provider DTO regression tests
+        run: npm test -- --runInBand src/provider/dto/create-provider.dto.spec.ts
+      - name: TypeScript and NestJS build
+        run: npm run build

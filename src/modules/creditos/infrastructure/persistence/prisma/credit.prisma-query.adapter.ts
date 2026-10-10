@@ -11,6 +11,7 @@ import {
   CreditPolicyView,
   CreditPortfolioFilters,
   CreditPortfolioItemView,
+  CreditPortfolioDetailView,
   CreditScope,
   CreditSummaryFilters,
   CreditSummaryView,
@@ -790,7 +791,8 @@ export class CreditPrismaQueryAdapter implements CreditQueryPort {
               anticipoRequerido: money(row.anticipoRequerido),
               financiado: money(row.montoFinanciado),
               cuentaOriginal: money(original),
-              saldoPendiente: money(pending),
+              saldoPendiente:
+                row.cuentasPorCobrar.length > 0 ? money(pending) : null,
               pagadoAplicado: money(applied),
             },
             plazoAutorizadoDias: row.plazoAutorizadoDias,
@@ -807,6 +809,316 @@ export class CreditPrismaQueryAdapter implements CreditQueryPort {
         ];
       }),
       meta: buildPageMeta(total, filters.page, filters.limit),
+    };
+  }
+
+  async getPortfolioById(
+    id: number,
+    scope: CreditScope,
+  ): Promise<CreditPortfolioDetailView | null> {
+    const row = await this.prisma.credito.findFirst({
+      where: {
+        id,
+        empresaId: scope.empresaId,
+        solicitudOrigen: {
+          is: {
+            empresaId: scope.empresaId,
+            ...(scope.vendedorId
+              ? { pedido: { is: { vendedorId: scope.vendedorId } } }
+              : {}),
+          },
+        },
+      },
+      include: {
+        aprobadoPor: { select: userSelect },
+        solicitudOrigen: {
+          include: {
+            cliente: {
+              select: {
+                id: true,
+                nombre: true,
+                apellido: true,
+                telefono: true,
+                correo: true,
+                direccion: true,
+              },
+            },
+            pedido: {
+              include: {
+                vendedor: { select: userSelect },
+                facturas: {
+                  orderBy: [{ creadoEn: 'desc' }, { id: 'desc' }],
+                  select: {
+                    id: true,
+                    estado: true,
+                    serie: true,
+                    numero: true,
+                    total: true,
+                    emitidaEn: true,
+                    fechaVencimiento: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        planPago: {
+          include: {
+            cuotas: {
+              orderBy: [{ numero: 'asc' }],
+              include: {
+                cuentaPorCobrar: {
+                  select: {
+                    id: true,
+                    estado: true,
+                    montoOriginal: true,
+                    saldoPendiente: true,
+                    fechaEmision: true,
+                    fechaVencimiento: true,
+                  },
+                },
+              },
+            },
+            eventos: {
+              orderBy: [{ creadoEn: 'desc' }, { id: 'desc' }],
+              take: 50,
+              include: { usuario: { select: userSelect } },
+            },
+          },
+        },
+        cuentasPorCobrar: {
+          orderBy: [{ fechaVencimiento: 'asc' }, { id: 'asc' }],
+          include: {
+            cuotaCredito: { select: { numero: true } },
+            aplicaciones: {
+              where: { estado: 'ACTIVA' },
+              select: { monto: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (
+      !row ||
+      !row.solicitudOrigen ||
+      row.montoAutorizado == null ||
+      row.anticipoRequerido == null ||
+      row.montoFinanciado == null ||
+      row.plazoAutorizadoDias == null
+    ) {
+      return null;
+    }
+
+    const application = row.solicitudOrigen;
+    const order = application.pedido;
+
+    const payments = await this.prisma.pago.findMany({
+      where: {
+        empresaId: scope.empresaId,
+        clienteId: application.clienteId,
+        OR: [
+          { pedidoId: order.id },
+          {
+            aplicaciones: {
+              some: {
+                estado: 'ACTIVA',
+                cuentaPorCobrar: { creditoId: row.id },
+              },
+            },
+          },
+        ],
+      },
+      orderBy: [{ fechaPago: 'desc' }, { id: 'desc' }],
+      take: 100,
+      include: {
+        aplicaciones: {
+          where: { estado: 'ACTIVA' },
+          select: {
+            monto: true,
+            cuentaPorCobrar: { select: { creditoId: true } },
+          },
+        },
+      },
+    });
+
+    const advanceAccount = row.anticipoRequerido.gt(0)
+      ? await this.prisma.cuentaPorCobrar.findUnique({
+          where: { claveIdempotencia: 'credit-advance:order:' + order.id },
+          select: { estado: true, montoOriginal: true, saldoPendiente: true },
+        })
+      : null;
+    const pendingAdvance = row.planPago?.estado === 'BORRADOR'
+      ? payments.find((payment) => payment.estado === 'PENDIENTE')
+      : null;
+
+    const verified = payments
+      .filter((payment) => payment.estado === 'VERIFICADO')
+      .reduce(
+        (total, payment) => total.plus(payment.monto),
+        new Prisma.Decimal(0),
+      );
+
+    const applied = row.cuentasPorCobrar.reduce(
+      (total, account) =>
+        total.plus(
+          account.aplicaciones.reduce(
+            (subtotal, item) => subtotal.plus(item.monto),
+            new Prisma.Decimal(0),
+          ),
+        ),
+      new Prisma.Decimal(0),
+    );
+
+    const pending =
+      row.cuentasPorCobrar.length > 0
+        ? row.cuentasPorCobrar.reduce(
+            (total, account) => total.plus(account.saldoPendiente),
+            new Prisma.Decimal(0),
+          )
+        : null;
+
+    const manager = ['ADMIN', 'CONTABILIDAD'].includes(scope.role);
+    const plan = row.planPago;
+
+    return {
+      id: row.id,
+      numero: row.numero ?? `CRE-${String(row.id).padStart(6, '0')}`,
+      estado: String(row.estado),
+      cliente: {
+        id: application.cliente.id,
+        nombre: application.cliente.nombre,
+        apellido: application.cliente.apellido,
+        nombreCompleto: [
+          application.cliente.nombre,
+          application.cliente.apellido,
+        ]
+          .filter(Boolean)
+          .join(' '),
+        telefono: application.cliente.telefono,
+        correo: application.cliente.correo,
+        direccion: application.cliente.direccion,
+      },
+      vendedor: this.user(order.vendedor),
+      aprobadoPor: row.aprobadoPor ? this.user(row.aprobadoPor) : null,
+      solicitud: {
+        id: application.id,
+        numero:
+          application.numero ??
+          `SOL-${String(application.id).padStart(6, '0')}`,
+        estado: application.estado as CreditApplicationState,
+      },
+      pedido: {
+        id: order.id,
+        numero: order.numero ?? `PED-${String(order.id).padStart(6, '0')}`,
+        estado: String(order.estado),
+        condicionPago: String(order.condicionPago),
+        estadoPago: String(order.estadoPago),
+        moneda: order.moneda,
+        total: money(order.total),
+      },
+      montos: {
+        autorizado: money(row.montoAutorizado),
+        anticipoRequerido: money(row.anticipoRequerido),
+        financiado: money(row.montoFinanciado),
+        pagadoVerificado: money(verified),
+        pagadoAplicado: money(applied),
+        anticipoAplicado: advanceAccount
+          ? money(advanceAccount.montoOriginal.minus(advanceAccount.saldoPendiente))
+          : '0.00',
+        saldoPendiente: pending ? money(pending) : null,
+      },
+      anticipo: advanceAccount
+        ? {
+            estado: String(advanceAccount.estado),
+            montoOriginal: money(advanceAccount.montoOriginal),
+            saldoPendiente: money(advanceAccount.saldoPendiente),
+            pagoPendienteId: pendingAdvance?.id ?? null,
+          }
+        : null,
+      plazoAutorizadoDias: row.plazoAutorizadoDias,
+      aprobadoEn: row.aprobadoEn,
+      cerradoEn: row.cerradoEn,
+      creadoEn: row.createdAt,
+      actualizadoEn: row.updatedAt,
+      planPago: plan
+        ? {
+            id: plan.id,
+            estado: plan.estado as any,
+            frecuencia: plan.frecuencia as any,
+            montoProgramado: money(plan.montoProgramado),
+            numeroCuotas: plan.numeroCuotas,
+            primeraFechaVencimiento: plan.primeraFechaVencimiento,
+            activadoEn: plan.activadoEn,
+            version: plan.version,
+            cuotas: plan.cuotas.map((cuota) => {
+              const account = cuota.cuentaPorCobrar;
+              const balance = account?.saldoPendiente ?? cuota.montoProgramado;
+              const paid = cuota.montoProgramado.minus(balance);
+              return {
+                id: cuota.id,
+                numero: cuota.numero,
+                montoProgramado: money(cuota.montoProgramado),
+                fechaVencimiento: cuota.fechaVencimiento,
+                estado: account ? String(account.estado) : 'BORRADOR',
+                cuentaPorCobrarId: cuota.cuentaPorCobrarId,
+                montoPagado: money(paid),
+                saldoPendiente: money(balance),
+              };
+            }),
+            eventos: plan.eventos.map((event) => ({
+              id: event.id,
+              tipo: event.tipo as any,
+              estado: event.estado as any,
+              detalle: event.detalle,
+              actor: event.usuario ? this.user(event.usuario) : null,
+              creadoEn: event.creadoEn,
+            })),
+          }
+        : null,
+      cuentasPorCobrar: row.cuentasPorCobrar.map((account) => ({
+        id: account.id,
+        numeroDocumento: account.numeroDocumento,
+        estado: String(account.estado),
+        montoOriginal: money(account.montoOriginal),
+        saldoPendiente: money(account.saldoPendiente),
+        fechaEmision: account.fechaEmision,
+        fechaVencimiento: account.fechaVencimiento,
+        cuotaNumero: account.cuotaCredito?.numero ?? null,
+      })),
+      pagos: payments.map((payment) => {
+        const appliedTotal = payment.aplicaciones.reduce(
+          (total, item) => total.plus(item.monto),
+          new Prisma.Decimal(0),
+        );
+        const available = payment.monto.minus(appliedTotal);
+        return {
+          id: payment.id,
+          metodo: String(payment.metodo),
+          estado: String(payment.estado),
+          monto: money(payment.monto),
+          montoAplicado: money(appliedTotal),
+          montoDisponible: money(available),
+          referencia: payment.referencia,
+          fechaPago: payment.fechaPago,
+          verificadoEn: payment.verificadoEn,
+        };
+      }),
+      facturas: order.facturas.map((invoice) => ({
+        id: invoice.id,
+        estado: String(invoice.estado),
+        serie: invoice.serie,
+        numero: invoice.numero,
+        total: money(invoice.total),
+        emitidaEn: invoice.emitidaEn,
+        fechaVencimiento: invoice.fechaVencimiento,
+      })),
+      acciones: {
+        puedeGestionarPlan:
+          manager && row.estado === 'ACTIVO' && (!plan || plan.estado === 'BORRADOR'),
+        puedeActivarPlan:
+          manager && row.estado === 'ACTIVO' && plan?.estado === 'BORRADOR',
+      },
     };
   }
 
@@ -1264,8 +1576,8 @@ function actionsFor(
   role: string,
   integrationState?: string | null,
 ) {
-  const writer = ['ADMIN', 'VENDEDOR'].includes(role);
-  const reviewer = ['ADMIN', 'CONTABILIDAD'].includes(role);
+  const writer = ['ADMIN', 'VENDEDOR', 'BODEGA'].includes(role);
+  const reviewer = role === 'ADMIN';
   return {
     puedeEditar: writer && state === 'PENDIENTE',
     puedeEnviarRevision: writer && state === 'PENDIENTE',

@@ -51,6 +51,13 @@ export class CreateCreditApplicationDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) motivo?: string | null;
 }
 
+export class RequestCreditFromOrderDto {
+  @Type(() => Number) @IsInt() @Min(1) @Max(3650) plazoDias: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) politicaId?: number | null;
+  @IsOptional() @Transform(money) @Matches(/^\d{1,10}(?:\.\d{1,2})?$/) anticipoPropuesto?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) motivo?: string | null;
+}
+
 export class UpdateCreditApplicationDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) politicaId?: number | null;
   @IsOptional() @Transform(money) @Matches(/^\d{1,10}(?:\.\d{1,2})?$/) montoSolicitado?: string;
@@ -71,6 +78,20 @@ export class ApproveCreditDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) observaciones?: string | null;
   @Transform(trim) @IsString() @Length(8, 120) claveIdempotencia: string;
 }
+
+export class CreditScheduleDto {
+  @IsIn(['SEMANAL', 'QUINCENAL', 'MENSUAL'])
+  frecuencia: 'SEMANAL' | 'QUINCENAL' | 'MENSUAL';
+  @Type(() => Number) @IsInt() @Min(1) @Max(120) numeroCuotas: number;
+  @Type(() => Date) @IsDate() primeraFechaVencimiento: Date;
+}
+
+export class ApproveCreditWithScheduleDto extends ApproveCreditDto {
+  @Type(() => CreditScheduleDto)
+  @ValidateNested()
+  plan: CreditScheduleDto;
+}
+
 
 export class AddCreditReferenceDto {
   @IsIn(['PERSONAL', 'COMERCIAL', 'LABORAL', 'OTRA']) tipo: CreditReferenceType;

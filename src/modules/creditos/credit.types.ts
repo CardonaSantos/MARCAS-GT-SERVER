@@ -9,6 +9,18 @@ export type CreditRequirementState = 'PENDIENTE' | 'CUMPLIDO' | 'NO_CUMPLE' | 'E
 export type CreditDecisionType = 'APROBADA' | 'RECHAZADA' | 'AJUSTADA';
 export type CreditIntegrationType = 'APROBACION' | 'RECHAZO';
 export type CreditIntegrationState = 'PENDIENTE' | 'APLICADA' | 'FALLIDA';
+export type CreditPaymentPlanState = 'BORRADOR' | 'ACTIVO' | 'CANCELADO';
+export type CreditPaymentPlanFrequency =
+  | 'SEMANAL'
+  | 'QUINCENAL'
+  | 'MENSUAL'
+  | 'PERSONALIZADA';
+export type CreditPaymentPlanEventType =
+  | 'CREADO'
+  | 'ACTUALIZADO'
+  | 'ACTIVADO'
+  | 'CANCELADO'
+  | 'OBSERVACION';
 export type CreditEventType =
   | 'CREADA' | 'ACTUALIZADA' | 'ENVIADA_REVISION'
   | 'REFERENCIA_AGREGADA' | 'REFERENCIA_ACTUALIZADA' | 'REFERENCIA_VERIFICADA'

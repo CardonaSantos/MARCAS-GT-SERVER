@@ -20,3 +20,7 @@ export class CreditDecisionNotReadyError extends CreditError { constructor(detai
 export class CreditAlreadyDecidedError extends CreditError { constructor(id:number){ super('CREDIT_ALREADY_DECIDED','La solicitud ya tiene una decisión final.',{id}); } }
 export class CreditIdempotencyConflictError extends CreditError { constructor(key:string){ super('CREDIT_IDEMPOTENCY_CONFLICT','La clave de idempotencia ya fue utilizada por otra operación.',{claveIdempotencia:key}); } }
 export class CreditIntegrationNotFoundError extends CreditError { constructor(id:number){ super('CREDIT_INTEGRATION_NOT_FOUND','La solicitud no tiene una operación de integración con Pedido.',{applicationId:id}); } }
+
+export class CreditNotFoundError extends CreditError { constructor(id:number){ super('CREDIT_NOT_FOUND','El crédito no existe.',{id}); } }
+export class CreditPaymentPlanNotFoundError extends CreditError { constructor(creditoId:number){ super('CREDIT_PAYMENT_PLAN_NOT_FOUND','El crédito no tiene un plan de pagos.',{creditoId}); } }
+export class CreditPaymentPlanExistsError extends CreditError { constructor(creditoId:number,planPagoId?:number){ super('CREDIT_PAYMENT_PLAN_EXISTS','El crédito ya tiene un plan de pagos.',{creditoId,planPagoId:planPagoId??null}); } }

@@ -59,7 +59,17 @@ model Empresa {
   pedidos            Pedido[]
   pagos              Pago[]
   cuentasPorCobrar   CuentaPorCobrar[]
+  comprobantesOperativos ComprobanteOperativo[]
   facturas           Factura[]
+  planesPagoCredito  CreditoPlanPago[]
+
+  perfilFiscal             EmpresaPerfilFiscal?
+  establecimientosFiscales EstablecimientoFiscal[]
+  configuracionesFel       EmpresaProveedorFel[]
+  secuenciasDte            DteSecuencia[]
+  documentosFiscales      DocumentoFiscal[]
+  contingenciasFel         FelContingencia[]
+
 }
 
 model Ubicacion {
@@ -98,6 +108,8 @@ model Producto {
   //
   imagenes       ImagenProducto[] // Relación con las imágenes
 
+  cargasEnvio EnvioCargaDetalle[]
+
   stocksBodega          StockBodega[]
   movimientosInventario MovimientoInventario[]
   requisicionDetalles   RequisicionDetalle[]
@@ -106,6 +118,7 @@ model Producto {
   despachoDetalles      OrdenDespachoDetalle[]
   entregaDetalles       EntregaDetalle[]
   facturaDetalles       FacturaDetalle[]
+  perfilFiscal ProductoPerfilFiscal?
 }
 
 model ImagenProducto {
@@ -251,13 +264,18 @@ model Asistencia {
   id        Int       @id @default(autoincrement())
   fecha     DateTime
   entrada   DateTime
-  salida    DateTime? // Puede estar en null si aún no ha salido
-  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  salida    DateTime?
   usuarioId Int
-  creadoEn  DateTime  @default(now())
 
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @default(now()) @updatedAt
+
+  usuario          Usuario                  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   sesionesTracking SesionTrackingUsuario[]
-}
+
+  @@unique([usuarioId, fecha])
+  @@index([fecha])
+} 
 
 //-----------------------------------------------
 
@@ -405,6 +423,9 @@ model Cliente {
 
   Credito Credito[]
 
+perfilFiscal ClientePerfilFiscal?
+  paradasEnvio EnvioDespacho[]
+
   pedidos            Pedido[]
   solicitudesCredito SolicitudCredito[]
   pagos              Pago[]
@@ -455,24 +476,26 @@ model Usuario {
   actualizadoEn          DateTime               @updatedAt
   visitas                Visita[]
   activo                 Boolean                @default(true)
-  NotificacionesLeidas   NotificacionesLeidas[] // Solo esta relación para manejar las notificaciones leídas
+  NotificacionesLeidas   NotificacionesLeidas[]
 
-  // Campos para la recuperación de contraseña
-  tokenRecuperacion String? // Token generado para restablecer contraseña
-  expiracionToken   DateTime? // Fecha de expiración del token
-  //
-  empresaId         Int? // FK opcional, en caso de que un usuario no tenga empresa
-  empresa           Empresa?  @relation(fields: [empresaId], references: [id])
+  tokenRecuperacion String?
+  expiracionToken   DateTime?
 
-  bodegasResponsable Bodega[] @relation("BodegaResponsable")
+  empresaId Int?
+  empresa   Empresa? @relation(fields: [empresaId], references: [id])
 
-  eventosBodega BodegaEvento[] @relation("BodegaEventoUsuario")
+  bodegasResponsable Bodega[]       @relation("BodegaResponsable")
+  eventosBodega      BodegaEvento[] @relation("BodegaEventoUsuario")
+
+  eventosFactura FacturaEvento[] @relation("FacturaEventoUsuario")
 
   sesionesTracking          SesionTrackingUsuario[]
   ubicacionActualTracking   UbicacionUsuarioActual?
   movimientosInventario     MovimientoInventario[]  @relation("MovimientoInventarioCreadoPor")
   requisicionesSolicitadas  Requisicion[]           @relation("RequisicionSolicitante")
   transferenciasCreadas     TransferenciaBodega[]   @relation("TransferenciaCreadaPor")
+  comprobantesEmitidos ComprobanteOperativo[] @relation("ComprobanteEmitidoPor")
+  eventosComprobante ComprobanteOperativoEvento[] @relation("ComprobanteEventoUsuario")
   pedidosCreados            Pedido[]                @relation("PedidoVendedor")
   eventosPedido             PedidoEvento[]          @relation("PedidoEventoUsuario")
   pagosRegistrados          Pago[]                  @relation("PagoRegistradoPor")
@@ -485,29 +508,65 @@ model Usuario {
   ordenesDespachoCanceladas  OrdenDespacho[]       @relation("OrdenDespachoCanceladoPor")
   eventosOrdenDespacho       OrdenDespachoEvento[] @relation("OrdenDespachoEventoUsuario")
 
+  // NUEVOS AJUSTES
+  pagosVerificados Pago[] @relation("PagoVerificadoPor")
+
+  pagosRechazados Pago[] @relation("PagoRechazadoPor")
+
+  pagosAnulados Pago[] @relation("PagoAnuladoPor")
+
+  comprobantesPagoSubidos PagoComprobante[] @relation("PagoComprobanteSubidoPor")
+
+  aplicacionesPagoRealizadas PagoAplicacion[] @relation("PagoAplicadoPor")
+
+  aplicacionesPagoRevertidas PagoAplicacion[] @relation("PagoAplicacionRevertidaPor")
+
+  eventosPago PagoEvento[] @relation("PagoEventoUsuario")
+
+  // NUEVO
+  operacionesDespacho OperacionDespacho[] @relation("OperacionDespachoUsuario")
+
   entregasRegistradas Entrega[]     @relation("EntregaRegistradaPor")
   enviosResponsable   Envio[]       @relation("EnvioResponsable")
   eventosEnvio        EnvioEvento[] @relation("EnvioEventoUsuario")
 
   recepcionesRequisicion RecepcionRequisicion[] @relation("RecepcionRequisicionRecibidoPor")
-
-  eventosRequisicion RequisicionEvento[] @relation("RequisicionEventoUsuario")
+  eventosRequisicion     RequisicionEvento[]    @relation("RequisicionEventoUsuario")
 
   operacionesTransferencia TransferenciaBodegaOperacion[] @relation("TransferenciaOperacionUsuario")
-
-  eventosTransferencia TransferenciaBodegaEvento[] @relation("TransferenciaEventoUsuario")
+  eventosTransferencia     TransferenciaBodegaEvento[]    @relation("TransferenciaEventoUsuario")
 
   creditosAprobados Credito[] @relation("CreditoAprobadoPor")
 
-  requisitosCreditoRevisados SolicitudCreditoRequisito[] @relation("SolicitudCreditoRequisitoRevisadoPor")
-
-  referenciasCreditoVerificadas ReferenciaCredito[] @relation("ReferenciaCreditoVerificadoPor")
-
-  documentosCreditoRevisados DocumentoCredito[] @relation("DocumentoCreditoRevisadoPor")
-
-  eventosSolicitudCredito SolicitudCreditoEvento[] @relation("SolicitudCreditoEventoUsuario")
+  requisitosCreditoRevisados    SolicitudCreditoRequisito[] @relation("SolicitudCreditoRequisitoRevisadoPor")
+  referenciasCreditoVerificadas ReferenciaCredito[]         @relation("ReferenciaCreditoVerificadoPor")
+  documentosCreditoRevisados    DocumentoCredito[]          @relation("DocumentoCreditoRevisadoPor")
+  eventosSolicitudCredito       SolicitudCreditoEvento[]    @relation("SolicitudCreditoEventoUsuario")
 
   operacionesIntegracionCreditoPedido OperacionIntegracionCreditoPedido[] @relation("OperacionIntegracionCreditoPedidoActor")
+
+  planesPagoCreditoCreados    CreditoPlanPago[]       @relation("CreditoPlanPagoCreadoPor")
+  planesPagoCreditoActivados  CreditoPlanPago[]       @relation("CreditoPlanPagoActivadoPor")
+  planesPagoCreditoCancelados CreditoPlanPago[]       @relation("CreditoPlanPagoCanceladoPor")
+  eventosPlanPagoCredito      CreditoPlanPagoEvento[] @relation("CreditoPlanPagoEventoUsuario")
+
+  enviosCreados         Envio[]         @relation("EnvioCreadoPor")
+  enviosAsignados       Envio[]         @relation("EnvioAsignadoPor")
+  enviosCargaConfirmada Envio[]         @relation("EnvioCargaConfirmadaPor")
+  enviosIniciados       Envio[]         @relation("EnvioIniciadoPor")
+  enviosCompletados     Envio[]         @relation("EnvioCompletadoPor")
+  enviosCancelados      Envio[]         @relation("EnvioCanceladoPor")
+  eventosEntrega        EntregaEvento[] @relation("EntregaEventoUsuario")
+
+  incidenciasEnvioReportadas EnvioIncidencia[] @relation("EnvioIncidenciaReportadaPor")
+  incidenciasEnvioResueltas  EnvioIncidencia[] @relation("EnvioIncidenciaResueltaPor")
+
+facturasCreadas          Factura[]              @relation("FacturaCreadaPor")
+eventosDocumentoFiscal   DocumentoFiscalEvento[] @relation("DocumentoFiscalEventoUsuario")
+contingenciasFelAbiertas FelContingencia[]       @relation("FelContingenciaAbiertaPor")
+contingenciasFelCerradas FelContingencia[]       @relation("FelContingenciaCerradaPor")
+
+
 }
 
 model Credito {
@@ -561,6 +620,7 @@ model Credito {
 
   solicitudOrigen  SolicitudCredito?
   cuentasPorCobrar CuentaPorCobrar[]
+  planPago         CreditoPlanPago?
 
   @@index([empresaId, estado, createdAt])
   @@index([clienteId, estado])
@@ -596,6 +656,37 @@ model PagoCredito {
   metodoPago MetodoPago // Cómo se realizó el pago
 }
 
+
+
+model FacturaEvento {
+  id        Int @id @default(autoincrement())
+  facturaId Int
+  usuarioId Int?
+
+  tipo   TipoEventoFactura
+  estado EstadoFactura
+
+  detalle String?
+
+  referenciaTipo String?
+  referenciaId   Int?
+
+  claveIdempotencia String? @unique
+  metadata          Json?
+
+  creadoEn DateTime @default(now())
+
+  factura Factura @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation("FacturaEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([facturaId, creadoEn])
+  @@index([tipo, creadoEn])
+  @@index([estado, creadoEn])
+  @@index([usuarioId, creadoEn])
+  @@index([referenciaTipo, referenciaId])
+}
+
+
 enum FrecuenciaPago {
   MENSUAL
   QUINCENAL
@@ -605,6 +696,27 @@ enum FrecuenciaPago {
 enum EstadoCredito {
   ACTIVO
   CERRADO
+}
+
+enum EstadoPlanPagoCredito {
+  BORRADOR
+  ACTIVO
+  CANCELADO
+}
+
+enum FrecuenciaPlanPagoCredito {
+  SEMANAL
+  QUINCENAL
+  MENSUAL
+  PERSONALIZADA
+}
+
+enum TipoEventoPlanPagoCredito {
+  CREADO
+  ACTUALIZADO
+  ACTIVADO
+  CANCELADO
+  OBSERVACION
 }
 
 enum Rol {
@@ -883,9 +995,297 @@ enum EstadoCuentaPorCobrar {
 
 enum EstadoFactura {
   BORRADOR
+  LISTA_EMISION
   EMITIDA
+  DESCARTADA
   ANULADA
 }
+
+enum TipoEventoFactura {
+  CREADA
+  ACTUALIZADA
+  PREPARADA
+  EMISION_SOLICITADA
+  EMITIDA
+  DESCARTADA
+  ANULACION_SOLICITADA
+  ANULADA
+  OBSERVACION
+}
+
+
+
+enum EntornoFel {
+  PRUEBAS
+  PRODUCCION
+}
+
+enum TipoIdentificacionFiscal {
+  NIT
+  CUI
+  CF
+  PASAPORTE
+  OTRO
+}
+
+enum TipoBienServicioFiscal {
+  BIEN
+  SERVICIO
+}
+
+enum EstadoDocumentoFiscal {
+  BORRADOR
+  PREPARADO
+  EN_PROCESO
+  CERTIFICACION_INCIERTA
+  CERTIFICADO
+  RECHAZADO
+  CONTINGENCIA
+  ANULACION_PENDIENTE
+  ANULADO
+}
+
+enum TipoOperacionFel {
+  GENERAR_XML
+  FIRMAR
+  CERTIFICAR
+  CONSULTAR
+  RECONCILIAR
+  OBTENER_PDF
+  ANULAR
+}
+
+enum EstadoOperacionFel {
+  PENDIENTE
+  EJECUTANDO
+  REINTENTABLE
+  INCIERTA
+  EXITOSA
+  RECHAZADA
+  FALLIDA
+  CANCELADA
+}
+
+enum TipoArtefactoFiscal {
+  XML_GENERADO
+  XML_FIRMADO
+  XML_CERTIFICADO
+  PDF
+  XML_ANULACION
+}
+
+enum EstadoContingenciaFel {
+  ABIERTA
+  CERRADA
+}
+
+enum TipoEventoDocumentoFiscal {
+  CREADO
+  PREPARADO
+  OPERACION_ENCOLADA
+  CERTIFICACION_SOLICITADA
+  CERTIFICACION_INCIERTA
+  CERTIFICADO
+  RECHAZADO
+  RECONCILIADO
+  CONTINGENCIA_ASIGNADA
+  ANULACION_SOLICITADA
+  ANULADO
+  OBSERVACION
+}
+
+
+// ============================================================================
+// PERFILES FISCALES MAESTROS
+// ============================================================================
+
+model EmpresaPerfilFiscal {
+  id            Int    @id @default(autoincrement())
+  empresaId     Int    @unique
+  nit           String @unique @db.VarChar(16)
+  razonSocial   String
+  afiliacionIva String @db.VarChar(16)
+  correoFiscal  String?
+
+  direccion    String
+  codigoPostal String?
+  municipio    String
+  departamento String
+  pais         String @default("GT") @db.VarChar(3)
+
+  preciosIncluyenImpuestos Boolean  @default(true)
+  tasaIvaDefault           Decimal? @db.Decimal(7, 4)
+
+  activo  Boolean @default(true)
+  version Int     @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+
+  @@index([activo])
+}
+
+model EstablecimientoFiscal {
+  id        Int @id @default(autoincrement())
+  empresaId Int
+
+  codigoSat       Int
+  nombreComercial String
+  correo          String?
+
+  direccion    String
+  codigoPostal String?
+  municipio    String
+  departamento String
+  pais         String @default("GT") @db.VarChar(3)
+
+  esPrincipal Boolean @default(false)
+  activo      Boolean @default(true)
+  version     Int     @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+
+  secuencias    DteSecuencia[]
+  documentos    DocumentoFiscal[]
+  contingencias FelContingencia[]
+
+  @@unique([empresaId, codigoSat])
+  @@index([empresaId, activo])
+}
+
+
+model ClientePerfilFiscal {
+  id        Int @id @default(autoincrement())
+  clienteId Int @unique
+
+  tipoIdentificacion TipoIdentificacionFiscal
+  identificacion     String @db.VarChar(32)
+  nombreFiscal       String
+  correoFiscal       String?
+
+  direccion    String?
+  codigoPostal String?
+  municipio    String?
+  departamento String?
+  pais         String @default("GT") @db.VarChar(3)
+
+  validadoEn       DateTime?
+  fuenteValidacion String?
+  version          Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([tipoIdentificacion, identificacion])
+}
+
+model ProductoPerfilFiscal {
+  id         Int @id @default(autoincrement())
+  productoId Int @unique
+
+  bienOServicio        TipoBienServicioFiscal @default(BIEN)
+  unidadMedida         String @default("UN") @db.VarChar(16)
+  descripcionFiscal    String?
+  nombreCortoImpuesto  String?
+  codigoUnidadGravable Int?
+
+  activo  Boolean @default(true)
+  version Int     @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+}
+
+
+
+// ============================================================================
+// PROVEEDORES FEL
+// ============================================================================
+
+model ProveedorFel {
+  id              Int     @id @default(autoincrement())
+  codigo          String  @unique @db.VarChar(32)
+  nombre          String
+  nitCertificador String?
+  activo          Boolean @default(true)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  configuraciones EmpresaProveedorFel[]
+}
+
+model EmpresaProveedorFel {
+  id             Int @id @default(autoincrement())
+  empresaId      Int
+  proveedorFelId Int
+
+  entorno   EntornoFel
+  activo    Boolean @default(true)
+  prioridad Int     @default(1)
+
+  appKeySecretRef String?
+  apiKeySecretRef String?
+
+  baseUrlOverride  String?
+  firmaConfigurada Boolean @default(false)
+  configuracion    Json?
+
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  empresa      Empresa      @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  proveedorFel ProveedorFel @relation(fields: [proveedorFelId], references: [id], onDelete: Restrict)
+
+  documentos DocumentoFiscal[]
+  operaciones FelOperacion[]
+
+  @@unique([empresaId, proveedorFelId, entorno])
+  @@index([empresaId, entorno, activo, prioridad])
+}
+
+// ============================================================================
+// SECUENCIA INTERNA PARA DTE
+// ============================================================================
+
+model DteSecuencia {
+  id                      Int @id @default(autoincrement())
+  empresaId               Int
+  establecimientoFiscalId Int
+
+  entorno         EntornoFel
+  serieInterna    String
+  siguienteNumero Int @default(1)
+
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  empresa         Empresa               @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  establecimiento EstablecimientoFiscal @relation(fields: [establecimientoFiscalId], references: [id], onDelete: Restrict)
+
+  @@unique([empresaId, establecimientoFiscalId, entorno, serieInterna])
+  @@index([empresaId, entorno])
+}
+
+
+
+
+
+
+
 
 enum EstadoSolicitudCredito {
   PENDIENTE
@@ -948,6 +1348,8 @@ enum TipoEventoOrdenDespacho {
   DESPACHO_PARCIAL
   DESPACHADA
   CANCELADA
+  OPERACION_FALLIDA
+  OPERACION_REINTENTADA
   OBSERVACION
 }
 
@@ -961,11 +1363,23 @@ enum EstadoEntrega {
   CANCELADA
 }
 
+enum TipoEventoEntrega {
+  CREADA
+  INICIADA
+  ENTREGA_PARCIAL
+  ENTREGADA
+  RECHAZADA
+  NO_ENTREGADA
+  CANCELADA
+  EVIDENCIA_AGREGADA
+  OBSERVACION
+}
+
 enum TipoEvidenciaEntrega {
   FIRMA
   FOTO
   DOCUMENTO
-  GPS
+  // GPS
   OTRO
 }
 
@@ -983,9 +1397,68 @@ enum EstadoVehiculo {
   INACTIVO
 }
 
+enum EstadoConductor {
+  DISPONIBLE
+  ASIGNADO
+  EN_RUTA
+  INACTIVO
+}
+
+enum EstadoParadaEnvio {
+  PENDIENTE
+  EN_RUTA
+  ATENDIDA
+  INCIDENCIA
+  CANCELADA
+}
+
+enum TipoEventoEnvio {
+  CREADO
+  ACTUALIZADO
+  CARGA_AJUSTADA
+  ASIGNADO
+  CARGA_CONFIRMADA
+  ENTREGADO_TRANSPORTISTA
+  RUTA_INICIADA
+  PARADA_ATENDIDA
+  INCIDENCIA_REPORTADA
+  INCIDENCIA_RESUELTA
+  ENTREGA_PARCIAL
+  COMPLETADO
+  CANCELADO
+  OBSERVACION
+}
+
+enum SeveridadIncidenciaEnvio {
+  BAJA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum EstadoIncidenciaEnvio {
+  ABIERTA
+  EN_ATENCION
+  RESUELTA
+}
+
+enum TipoIncidenciaEnvio {
+  AVERIA
+  ACCIDENTE
+  TRAFICO
+  BLOQUEO_RUTA
+  SEGURIDAD
+  DOCUMENTACION
+  CLIENTE_NO_DISPONIBLE
+  DIRECCION_INCORRECTA
+  MERCADERIA
+  OTRO
+}
+
 enum EstadoEnvio {
   PROGRAMADO
   ASIGNADO
+  CARGADO
   EN_RUTA
   ENTREGADO_PARCIAL
   COMPLETADO
@@ -994,7 +1467,7 @@ enum EstadoEnvio {
 }
 
 // ============================================================================
-// JORNADA Y TRACKING
+// JORNADA Y TRACKING - TRABAJAR
 // ============================================================================
 
 model SesionTrackingUsuario {
@@ -1002,14 +1475,17 @@ model SesionTrackingUsuario {
   usuarioId         Int
   asistenciaId      Int?
   estado            EstadoSesionTracking @default(ACTIVA)
-  iniciadaEn        DateTime             @default(now())
+
+  iniciadaEn        DateTime @default(now())
   finalizadaEn      DateTime?
-  ultimoHeartbeatEn DateTime             @default(now())
-  motivoCierre      String?
-  dispositivoId     String?
-  plataforma        String?
-  creadoEn          DateTime             @default(now())
-  actualizadoEn     DateTime             @updatedAt
+  ultimoHeartbeatEn DateTime @default(now())
+
+  motivoCierre  String?
+  dispositivoId String?
+  plataforma    String?
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   usuario         Usuario                     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   asistencia      Asistencia?                 @relation(fields: [asistenciaId], references: [id], onDelete: SetNull)
@@ -1017,22 +1493,26 @@ model SesionTrackingUsuario {
   ubicacionActual UbicacionUsuarioActual?
 
   @@index([usuarioId, estado])
-  @@index([asistenciaId])
-  @@index([ultimoHeartbeatEn])
+  @@index([usuarioId, iniciadaEn])
+  @@index([asistenciaId, iniciadaEn])
+  @@index([estado, ultimoHeartbeatEn])
 }
 
 model UbicacionUsuarioHistorial {
-  id           Int      @id @default(autoincrement())
-  sesionId     Int
+  id                 Int      @id @default(autoincrement())
+  sesionId           Int
+  claveIdempotencia  String   @unique
+
   latitud      Decimal  @db.Decimal(10, 7)
   longitud     Decimal  @db.Decimal(10, 7)
   precisionM   Decimal? @db.Decimal(10, 2)
   velocidadMps Decimal? @db.Decimal(10, 2)
   bateriaPct   Int?
+
   capturadoEn  DateTime
   persistidoEn DateTime @default(now())
 
-  sesion SesionTrackingUsuario @relation(fields: [sesionId], references: [id], onDelete: Cascade)
+  sesion SesionTrackingUsuario @relation(fields: [sesionId],references: [id],onDelete: Cascade)
 
   @@index([sesionId, capturadoEn])
 }
@@ -1086,6 +1566,7 @@ model Bodega {
   transferenciasOrigen  TransferenciaBodega[]  @relation("TransferenciaBodegaOrigen")
   transferenciasDestino TransferenciaBodega[]  @relation("TransferenciaBodegaDestino")
   ordenesDespacho       OrdenDespacho[]
+  enviosOrigen          Envio[]
 
   eventos BodegaEvento[]
 
@@ -2008,20 +2489,15 @@ model OrdenDespacho {
   pedidoId Int
   bodegaId Int
 
-  // Auditoría directa de los hitos principales.
-  // Opcionales para no romper registros históricos.
   creadoPorId     Int?
   preparadoPorId  Int?
   despachadoPorId Int?
   canceladoPorId  Int?
 
-  // Identificador humano generado por el servidor, p. ej. DSP-000001.
-  // Nullable para soportar registros históricos.
   numero String? @unique
 
   estado EstadoOrdenDespacho @default(PENDIENTE)
 
-  // Programación y timestamps del workflow.
   programadoEn          DateTime?
   preparacionIniciadaEn DateTime?
   preparadoEn           DateTime?
@@ -2031,7 +2507,6 @@ model OrdenDespacho {
   motivoCancelacion String?
   observaciones     String?
 
-  // Concurrencia optimista.
   version Int @default(0)
 
   creadoEn      DateTime @default(now())
@@ -2050,6 +2525,10 @@ model OrdenDespacho {
 
   detalles OrdenDespachoDetalle[]
   eventos  OrdenDespachoEvento[]
+
+  // NUEVO
+  operaciones OperacionDespacho[]
+
   envios   EnvioDespacho[]
   entregas Entrega[]
 
@@ -2063,37 +2542,110 @@ model OrdenDespacho {
   @@index([canceladoPorId, canceladoEn])
 }
 
+model OperacionDespacho {
+  id              Int @id @default(autoincrement())
+  ordenDespachoId Int
+  usuarioId       Int
+
+  tipo   TipoOperacionDespacho
+  estado EstadoOperacionDespacho @default(PENDIENTE)
+
+  claveIdempotencia String  @unique
+  observaciones     String?
+
+  ocurridaEn      DateTime  @default(now())
+  iniciadaEn      DateTime?
+  ultimoIntentoEn DateTime?
+  aplicadaEn      DateTime?
+  fallidaEn       DateTime?
+
+  intentos Int @default(0)
+
+  errorAplicacion String?
+
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @default(now()) @updatedAt
+
+  ordenDespacho OrdenDespacho @relation(fields: [ordenDespachoId], references: [id], onDelete: Restrict)
+
+  usuario Usuario @relation("OperacionDespachoUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  detalles OperacionDespachoDetalle[]
+
+  @@index([ordenDespachoId, ocurridaEn])
+  @@index([ordenDespachoId, tipo, estado])
+  @@index([usuarioId, ocurridaEn])
+  @@index([estado, actualizadoEn])
+  @@index([tipo, ocurridaEn])
+}
+
 model OrdenDespachoDetalle {
   id              Int @id @default(autoincrement())
   ordenDespachoId Int
   pedidoDetalleId Int
   productoId      Int
 
-  // Cantidad asignada específicamente a esta orden.
   cantidadProgramada Int @default(0)
-
-  // Cantidad físicamente preparada en bodega.
-  cantidadPreparada Int @default(0)
-
-  // Cantidad que ya salió físicamente de bodega.
+  cantidadPreparada  Int @default(0)
   cantidadDespachada Int @default(0)
 
   observaciones String?
-
-  // Concurrencia optimista por línea.
-  version Int @default(0)
+  version       Int     @default(0)
 
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @default(now()) @updatedAt
 
-  ordenDespacho   OrdenDespacho    @relation(fields: [ordenDespachoId], references: [id], onDelete: Cascade)
-  pedidoDetalle   PedidoDetalle    @relation(fields: [pedidoDetalleId], references: [id], onDelete: Restrict)
-  producto        Producto         @relation(fields: [productoId], references: [id], onDelete: Restrict)
+  ordenDespacho OrdenDespacho @relation(fields: [ordenDespachoId], references: [id], onDelete: Cascade)
+
+  pedidoDetalle PedidoDetalle @relation(fields: [pedidoDetalleId], references: [id], onDelete: Restrict)
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Restrict)
+
   entregaDetalles EntregaDetalle[]
+  cargasEnvio     EnvioCargaDetalle[]
+
+  // NUEVO
+  operacionDetalles OperacionDespachoDetalle[]
 
   @@unique([ordenDespachoId, pedidoDetalleId])
   @@index([pedidoDetalleId])
   @@index([productoId])
+}
+
+model OperacionDespachoDetalle {
+  id                     Int @id @default(autoincrement())
+  operacionId            Int
+  ordenDespachoDetalleId Int
+
+  cantidad Int
+
+  estado EstadoDetalleOperacionDespacho @default(PENDIENTE)
+
+  // REFERENCIAS LOGICAS A INVENTARIO.
+  // No llevan @relation ni FK.
+  reservaInventarioId    Int?
+  movimientoInventarioId Int? @unique
+
+  // Idempotencia por línea.
+  claveIdempotencia String @unique
+
+  aplicadaEn DateTime?
+
+  errorAplicacion String?
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @default(now()) @updatedAt
+
+  operacion OperacionDespacho @relation(fields: [operacionId], references: [id], onDelete: Cascade)
+
+  ordenDespachoDetalle OrdenDespachoDetalle @relation(fields: [ordenDespachoDetalleId], references: [id], onDelete: Restrict)
+
+  @@unique([operacionId, ordenDespachoDetalleId])
+  @@index([ordenDespachoDetalleId])
+  @@index([estado, actualizadoEn])
+  @@index([reservaInventarioId])
 }
 
 model OrdenDespachoEvento {
@@ -2130,66 +2682,175 @@ model OrdenDespachoEvento {
 }
 
 model Entrega {
-  id                Int           @id @default(autoincrement())
-  ordenDespachoId   Int
-  pedidoId          Int
-  clienteId         Int
-  registradoPorId   Int?
-  estado            EstadoEntrega @default(PENDIENTE)
+  id              Int @id @default(autoincrement())
+  ordenDespachoId Int
+  pedidoId        Int
+  clienteId       Int
+
+  registradoPorId Int?
+
+  estado EstadoEntrega @default(PENDIENTE)
+
+  // Datos de quien recibe físicamente la mercadería.
   receptorNombre    String?
   receptorDocumento String?
-  firmaUrl          String?
-  latitud           Decimal?      @db.Decimal(10, 7)
-  longitud          Decimal?      @db.Decimal(10, 7)
-  entregadoEn       DateTime?
-  observaciones     String?
-  creadoEn          DateTime      @default(now())
-  actualizadoEn     DateTime      @updatedAt
 
-  ordenDespacho OrdenDespacho      @relation(fields: [ordenDespachoId], references: [id], onDelete: Restrict)
-  pedido        Pedido             @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
-  cliente       Cliente            @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  registradoPor Usuario?           @relation("EntregaRegistradaPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
-  detalles      EntregaDetalle[]
-  evidencias    EntregaEvidencia[]
-  factura       Factura?
+  // Ubicación real donde se registró el resultado.
+  latitud  Decimal? @db.Decimal(10, 7)
+  longitud Decimal? @db.Decimal(10, 7)
 
+  // Workflow.
+  iniciadaEn   DateTime?
+  entregadoEn  DateTime?
+  finalizadaEn DateTime?
+
+  // Se utiliza cuando la entrega termina sin completarse.
+  motivoNoEntrega  MotivoNoEntrega?
+  detalleNoEntrega String?
+
+  observaciones String?
+
+  // Permite proteger la creación/reintento de una entrega.
+  claveIdempotencia String? @unique
+
+  // Concurrencia optimista.
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  // Relación pública con la parada de Transporte.
+  //
+  // Una parada solo puede producir una Entrega.
+  // Puede ser null para soportar una entrega manual/directa.
+  envioDespachoId Int?           @unique
+  envioDespacho   EnvioDespacho? @relation(fields: [envioDespachoId], references: [id], onDelete: SetNull)
+
+  ordenDespacho OrdenDespacho @relation(fields: [ordenDespachoId], references: [id], onDelete: Restrict)
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+
+  registradoPor Usuario? @relation("EntregaRegistradaPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
+
+  detalles   EntregaDetalle[]
+  evidencias EntregaEvidencia[]
+  eventos    EntregaEvento[]
+
+  facturas FacturaEntrega[]
+
+  @@index([envioDespachoId, estado])
   @@index([pedidoId, estado])
-  @@index([ordenDespachoId])
+  @@index([ordenDespachoId, estado])
+  @@index([clienteId, estado, creadoEn])
+  @@index([registradoPorId, creadoEn])
+  @@index([estado, creadoEn])
 }
 
 model EntregaDetalle {
-  id                     Int     @id @default(autoincrement())
+  id                     Int @id @default(autoincrement())
   entregaId              Int
   ordenDespachoDetalleId Int
   pedidoDetalleId        Int
   productoId             Int
-  cantidadEntregada      Int
-  cantidadRechazada      Int     @default(0)
-  motivoRechazo          String?
 
-  entrega              Entrega              @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+  cantidadEntregada Int @default(0)
+  cantidadRechazada Int @default(0)
+
+  motivoRechazo String?
+
+  // Concurrencia optimista.
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  entrega Entrega @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+
   ordenDespachoDetalle OrdenDespachoDetalle @relation(fields: [ordenDespachoDetalleId], references: [id], onDelete: Restrict)
-  pedidoDetalle        PedidoDetalle        @relation(fields: [pedidoDetalleId], references: [id], onDelete: Restrict)
-  producto             Producto             @relation(fields: [productoId], references: [id], onDelete: Restrict)
-  facturaDetalles      FacturaDetalle[]
+
+  pedidoDetalle PedidoDetalle @relation(fields: [pedidoDetalleId], references: [id], onDelete: Restrict)
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Restrict)
+
+  facturaDetalles FacturaDetalle[]
 
   @@unique([entregaId, ordenDespachoDetalleId])
+  @@index([pedidoDetalleId])
+  @@index([productoId])
+  @@index([ordenDespachoDetalleId])
 }
 
 model EntregaEvidencia {
-  id        Int                  @id @default(autoincrement())
+  id        Int @id @default(autoincrement())
   entregaId Int
-  tipo      TipoEvidenciaEntrega
-  url       String
-  key       String?
-  mimeType  String?
-  size      Int?
-  creadoEn  DateTime             @default(now())
+
+  tipo TipoEvidenciaEntrega
+
+  url      String
+  key      String?
+  mimeType String?
+  size     Int?
+
+  descripcion String?
+
+  // Evita duplicar evidencia por reintentos de subida.
+  claveIdempotencia String? @unique
+
+  creadoEn DateTime @default(now())
 
   entrega Entrega @relation(fields: [entregaId], references: [id], onDelete: Cascade)
 
   @@index([entregaId, tipo])
+  @@index([entregaId, creadoEn])
+}
+
+model EntregaEvento {
+  id        Int  @id @default(autoincrement())
+  entregaId Int
+  usuarioId Int?
+
+  tipo   TipoEventoEntrega
+  estado EstadoEntrega
+
+  detalle String?
+
+  // Referencia lógica a otro bounded context.
+  //
+  // Ejemplos:
+  //
+  // ENVIO_DESPACHO / 41
+  // PEDIDO         / 82
+  // FACTURA        / 19
+  //
+  // No se utiliza FK deliberadamente.
+  referenciaTipo String?
+  referenciaId   Int?
+
+  // Protege eventos derivados de comandos reintentados.
+  claveIdempotencia String? @unique
+
+  // Snapshot adicional del evento.
+  //
+  // Ejemplo:
+  // {
+  //   cantidadEntregada: 8,
+  //   cantidadRechazada: 2
+  // }
+  metadata Json?
+
+  creadoEn DateTime @default(now())
+
+  entrega Entrega @relation(fields: [entregaId], references: [id], onDelete: Cascade)
+
+  usuario Usuario? @relation("EntregaEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([entregaId, creadoEn])
+  @@index([tipo, creadoEn])
+  @@index([estado, creadoEn])
+  @@index([usuarioId, creadoEn])
+  @@index([referenciaTipo, referenciaId])
 }
 
 // ============================================================================
@@ -2197,22 +2858,30 @@ model EntregaEvidencia {
 // ============================================================================
 
 model Transportista {
-  id            Int               @id @default(autoincrement())
-  empresaId     Int
-  tipo          TipoTransportista
-  nombre        String
-  telefono      String?
-  correo        String?
-  activo        Boolean           @default(true)
-  creadoEn      DateTime          @default(now())
-  actualizadoEn DateTime          @updatedAt
+  id        Int               @id @default(autoincrement())
+  empresaId Int
+  codigo    String?
+  tipo      TipoTransportista
+  nombre    String
+  telefono  String?
+  correo    String?
+
+  activo             Boolean   @default(true)
+  motivoInactivacion String?
+  inactivadaEn       DateTime?
+  version            Int       @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   empresa     Empresa     @relation(fields: [empresaId], references: [id], onDelete: Restrict)
   vehiculos   Vehiculo[]
   conductores Conductor[]
   envios      Envio[]
 
+  @@unique([empresaId, codigo])
   @@index([empresaId, tipo, activo])
+  @@index([empresaId, activo, nombre])
 }
 
 model Vehiculo {
@@ -2224,9 +2893,14 @@ model Vehiculo {
   modelo          String?
   capacidadKg     Decimal?       @db.Decimal(12, 2)
   estado          EstadoVehiculo @default(DISPONIBLE)
-  activo          Boolean        @default(true)
-  creadoEn        DateTime       @default(now())
-  actualizadoEn   DateTime       @updatedAt
+
+  activo             Boolean   @default(true)
+  motivoInactivacion String?
+  inactivadaEn       DateTime?
+  version            Int       @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   empresa       Empresa        @relation(fields: [empresaId], references: [id], onDelete: Restrict)
   transportista Transportista? @relation(fields: [transportistaId], references: [id], onDelete: SetNull)
@@ -2234,84 +2908,226 @@ model Vehiculo {
 
   @@unique([empresaId, placa])
   @@index([empresaId, estado, activo])
+  @@index([transportistaId, estado, activo])
 }
 
 model Conductor {
-  id              Int      @id @default(autoincrement())
+  id              Int             @id @default(autoincrement())
   empresaId       Int
   transportistaId Int?
   nombre          String
   telefono        String?
   licencia        String?
-  activo          Boolean  @default(true)
-  creadoEn        DateTime @default(now())
-  actualizadoEn   DateTime @updatedAt
+  estado          EstadoConductor @default(DISPONIBLE)
+
+  activo             Boolean   @default(true)
+  motivoInactivacion String?
+  inactivadaEn       DateTime?
+  version            Int       @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   empresa       Empresa        @relation(fields: [empresaId], references: [id], onDelete: Restrict)
   transportista Transportista? @relation(fields: [transportistaId], references: [id], onDelete: SetNull)
   envios        Envio[]
 
-  @@index([empresaId, activo])
+  @@index([empresaId, estado, activo])
+  @@index([transportistaId, estado, activo])
 }
 
 model Envio {
-  id                       Int         @id @default(autoincrement())
-  empresaId                Int
-  transportistaId          Int?
-  vehiculoId               Int?
-  conductorId              Int?
-  responsableId            Int?
-  estado                   EstadoEnvio @default(PROGRAMADO)
+  id        Int    @id @default(autoincrement())
+  numero    String @unique
+  empresaId Int
+  bodegaId  Int?
+
+  modalidad TipoTransportista @default(INTERNO)
+
+  transportistaId Int?
+  vehiculoId      Int?
+  conductorId     Int?
+  responsableId   Int?
+
+  creadoPorId          Int?
+  asignadoPorId        Int?
+  cargaConfirmadaPorId Int?
+  iniciadoPorId        Int?
+  completadoPorId      Int?
+  canceladoPorId       Int?
+
+  estado EstadoEnvio @default(PROGRAMADO)
+
+  salidaProgramadaEn DateTime?
+  entregaEstimadaEn  DateTime?
+  asignadoEn         DateTime?
+  cargaConfirmadaEn  DateTime?
+
   guia                     String?
-  costo                    Decimal?    @db.Decimal(12, 2)
+  costo                    Decimal?  @db.Decimal(12, 2)
   trackingUrl              String?
   comprobanteUrl           String?
   entregadoTransportistaEn DateTime?
   salidaEn                 DateTime?
   completadoEn             DateTime?
-  observaciones            String?
-  creadoEn                 DateTime    @default(now())
-  actualizadoEn            DateTime    @updatedAt
 
-  empresa       Empresa         @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  transportista Transportista?  @relation(fields: [transportistaId], references: [id], onDelete: SetNull)
-  vehiculo      Vehiculo?       @relation(fields: [vehiculoId], references: [id], onDelete: SetNull)
-  conductor     Conductor?      @relation(fields: [conductorId], references: [id], onDelete: SetNull)
-  responsable   Usuario?        @relation("EnvioResponsable", fields: [responsableId], references: [id], onDelete: SetNull)
-  despachos     EnvioDespacho[]
-  eventos       EnvioEvento[]
+  canceladoEn       DateTime?
+  motivoCancelacion String?
+  observaciones     String?
+
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  bodega  Bodega? @relation(fields: [bodegaId], references: [id], onDelete: Restrict)
+
+  transportista Transportista? @relation(fields: [transportistaId], references: [id], onDelete: SetNull)
+  vehiculo      Vehiculo?      @relation(fields: [vehiculoId], references: [id], onDelete: SetNull)
+  conductor     Conductor?     @relation(fields: [conductorId], references: [id], onDelete: SetNull)
+
+  responsable Usuario? @relation("EnvioResponsable", fields: [responsableId], references: [id], onDelete: SetNull)
+
+  creadoPor          Usuario? @relation("EnvioCreadoPor", fields: [creadoPorId], references: [id], onDelete: SetNull)
+  asignadoPor        Usuario? @relation("EnvioAsignadoPor", fields: [asignadoPorId], references: [id], onDelete: SetNull)
+  cargaConfirmadaPor Usuario? @relation("EnvioCargaConfirmadaPor", fields: [cargaConfirmadaPorId], references: [id], onDelete: SetNull)
+  iniciadoPor        Usuario? @relation("EnvioIniciadoPor", fields: [iniciadoPorId], references: [id], onDelete: SetNull)
+  completadoPor      Usuario? @relation("EnvioCompletadoPor", fields: [completadoPorId], references: [id], onDelete: SetNull)
+  canceladoPor       Usuario? @relation("EnvioCanceladoPor", fields: [canceladoPorId], references: [id], onDelete: SetNull)
+
+  despachos   EnvioDespacho[]
+  eventos     EnvioEvento[]
+  incidencias EnvioIncidencia[]
 
   @@index([empresaId, estado, creadoEn])
+  @@index([bodegaId, estado, creadoEn])
+  @@index([transportistaId, estado, creadoEn])
+  @@index([vehiculoId, estado])
+  @@index([conductorId, estado])
+  @@index([responsableId, estado])
+  @@index([salidaProgramadaEn, estado])
   @@index([guia])
 }
 
 model EnvioDespacho {
-  id              Int      @id @default(autoincrement())
+  id              Int @id @default(autoincrement())
   envioId         Int
   ordenDespachoId Int
-  creadoEn        DateTime @default(now())
+  clienteId       Int
+
+  secuencia Int
+
+  // Snapshot histórico del destino. Nunca se recalcula si Cliente cambia.
+  destinatario     String
+  telefonoDestino  String?
+  direccionDestino String
+  latitudDestino   Decimal? @db.Decimal(10, 7)
+  longitudDestino  Decimal? @db.Decimal(10, 7)
+
+  estado  EstadoParadaEnvio @default(PENDIENTE)
+  version Int               @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   envio         Envio         @relation(fields: [envioId], references: [id], onDelete: Cascade)
   ordenDespacho OrdenDespacho @relation(fields: [ordenDespachoId], references: [id], onDelete: Restrict)
+  cliente       Cliente       @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+
+  cargas  EnvioCargaDetalle[]
+  entrega Entrega?
 
   @@unique([envioId, ordenDespachoId])
+  @@unique([envioId, secuencia])
   @@index([ordenDespachoId])
+  @@index([clienteId, estado])
+  @@index([estado, actualizadoEn])
+}
+
+model EnvioCargaDetalle {
+  id                     Int @id @default(autoincrement())
+  envioDespachoId        Int
+  ordenDespachoDetalleId Int
+  productoId             Int
+
+  cantidadPlanificada Int
+  cantidadCargada     Int @default(0)
+
+  observaciones String?
+  version       Int     @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  envioDespacho        EnvioDespacho        @relation(fields: [envioDespachoId], references: [id], onDelete: Cascade)
+  ordenDespachoDetalle OrdenDespachoDetalle @relation(fields: [ordenDespachoDetalleId], references: [id], onDelete: Restrict)
+  producto             Producto             @relation(fields: [productoId], references: [id], onDelete: Restrict)
+
+  @@unique([envioDespachoId, ordenDespachoDetalleId])
+  @@index([ordenDespachoDetalleId])
+  @@index([productoId])
 }
 
 model EnvioEvento {
-  id          Int         @id @default(autoincrement())
-  envioId     Int
-  usuarioId   Int?
-  estado      EstadoEnvio
+  id        Int  @id @default(autoincrement())
+  envioId   Int
+  usuarioId Int?
+
+  tipo   TipoEventoEnvio
+  estado EstadoEnvio
+
   descripcion String?
-  latitud     Decimal?    @db.Decimal(10, 7)
-  longitud    Decimal?    @db.Decimal(10, 7)
-  creadoEn    DateTime    @default(now())
+
+  latitud  Decimal? @db.Decimal(10, 7)
+  longitud Decimal? @db.Decimal(10, 7)
+
+  claveIdempotencia String? @unique
+  metadata          Json?
+
+  creadoEn DateTime @default(now())
 
   envio   Envio    @relation(fields: [envioId], references: [id], onDelete: Cascade)
   usuario Usuario? @relation("EnvioEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
 
   @@index([envioId, creadoEn])
+  @@index([tipo, creadoEn])
+  @@index([usuarioId, creadoEn])
+}
+
+model EnvioIncidencia {
+  id      Int @id @default(autoincrement())
+  envioId Int
+
+  tipo      TipoIncidenciaEnvio
+  severidad SeveridadIncidenciaEnvio @default(MEDIA)
+  estado    EstadoIncidenciaEnvio    @default(ABIERTA)
+
+  descripcion String
+
+  reportadaPorId Int?
+  reportadaEn    DateTime @default(now())
+
+  latitud  Decimal? @db.Decimal(10, 7)
+  longitud Decimal? @db.Decimal(10, 7)
+
+  resueltaPorId Int?
+  resueltaEn    DateTime?
+  resolucion    String?
+
+  claveIdempotencia String? @unique
+  version           Int     @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  envio Envio @relation(fields: [envioId], references: [id], onDelete: Cascade)
+
+  reportadaPor Usuario? @relation("EnvioIncidenciaReportadaPor", fields: [reportadaPorId], references: [id], onDelete: SetNull)
+  resueltaPor  Usuario? @relation("EnvioIncidenciaResueltaPor", fields: [resueltaPorId], references: [id], onDelete: SetNull)
+
+  @@index([envioId, estado, reportadaEn])
+  @@index([tipo, severidad, reportadaEn])
 }
 
 // ============================================================================
@@ -2335,136 +3151,853 @@ model Banco {
 }
 
 model Pago {
-  id              Int                   @id @default(autoincrement())
-  empresaId       Int
-  clienteId       Int
-  pedidoId        Int?
-  bancoId         Int?
-  registradoPorId Int?
-  metodo          MetodoPagoOperacion
-  estado          EstadoPagoTransaccion @default(PENDIENTE)
-  monto           Decimal               @db.Decimal(12, 2)
-  referencia      String?
-  fechaPago       DateTime              @default(now())
-  verificadoEn    DateTime?
-  observaciones   String?
-  creadoEn        DateTime              @default(now())
-  actualizadoEn   DateTime              @updatedAt
+  id        Int @id @default(autoincrement())
+  empresaId Int
+  clienteId Int
+  pedidoId  Int?
+  bancoId   Int?
 
-  empresa       Empresa           @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  cliente       Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  pedido        Pedido?           @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
-  banco         Banco?            @relation(fields: [bancoId], references: [id], onDelete: SetNull)
-  registradoPor Usuario?          @relation("PagoRegistradoPor", fields: [registradoPorId], references: [id], onDelete: SetNull)
-  comprobantes  PagoComprobante[]
-  aplicaciones  PagoAplicacion[]
+  // --------------------------------------------------------------------------
+  // AUDITORÍA DE ACTORES
+  // --------------------------------------------------------------------------
+
+  registradoPorId Int?
+  verificadoPorId Int?
+  rechazadoPorId  Int?
+  anuladoPorId    Int?
+
+  // --------------------------------------------------------------------------
+  // TRANSACCIÓN
+  // --------------------------------------------------------------------------
+
+  metodo MetodoPagoOperacion
+
+  estado EstadoPagoTransaccion @default(PENDIENTE)
+
+  moneda String @default("GTQ")
+
+  monto Decimal @db.Decimal(12, 2)
+
+  // Número de transferencia, depósito, cheque, autorización, etc.
+  // No debe ser @unique global porque distintas cuentas/bancos podrían
+  // utilizar referencias coincidentes.
+  referencia String?
+
+  fechaPago DateTime @default(now())
+
+  // --------------------------------------------------------------------------
+  // VERIFICACIÓN
+  // --------------------------------------------------------------------------
+
+  verificadoEn DateTime?
+
+  rechazadoEn   DateTime?
+  motivoRechazo String?
+
+  anuladoEn       DateTime?
+  motivoAnulacion String?
+
+  observaciones String?
+
+  // --------------------------------------------------------------------------
+  // IDEMPOTENCIA / CONCURRENCIA
+  // --------------------------------------------------------------------------
+
+  // Nullable para compatibilidad con registros históricos.
+  // Los casos de uso nuevos exigirán una clave.
+  claveIdempotencia String? @unique
+
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  // --------------------------------------------------------------------------
+  // RELACIONES
+  // --------------------------------------------------------------------------
+
+  empresa Empresa @relation(fields: [empresaId],references: [id],onDelete: Restrict)
+
+  cliente Cliente @relation(fields: [clienteId],references: [id],onDelete: Restrict)
+
+  pedido Pedido? @relation(fields: [pedidoId],references: [id],onDelete: SetNull)
+
+  banco Banco? @relation(fields: [bancoId],references: [id],onDelete: SetNull)
+
+  registradoPor Usuario? @relation("PagoRegistradoPor",fields: [registradoPorId],references: [id],onDelete: SetNull)
+
+  verificadoPor Usuario? @relation("PagoVerificadoPor",fields: [verificadoPorId],    references: [id],onDelete: SetNull)
+
+  rechazadoPor Usuario? @relation("PagoRechazadoPor",fields: [rechazadoPorId],references: [id],onDelete: SetNull)
+
+  anuladoPor Usuario? @relation("PagoAnuladoPor",fields: [anuladoPorId],references: [id],onDelete: SetNull)
+
+  comprobantes PagoComprobante[]
+  aplicaciones PagoAplicacion[]
+  eventos      PagoEvento[]
+
+  // --------------------------------------------------------------------------
+  // ÍNDICES
+  // --------------------------------------------------------------------------
 
   @@index([empresaId, estado, fechaPago])
   @@index([clienteId, fechaPago])
+  @@index([pedidoId, fechaPago])
+  @@index([bancoId, fechaPago])
+  @@index([empresaId, referencia])
+  @@index([registradoPorId, fechaPago])
+  @@index([verificadoPorId, verificadoEn])
 }
 
 model PagoComprobante {
-  id       Int      @id @default(autoincrement())
-  pagoId   Int
-  url      String
-  key      String?
+  id     Int @id @default(autoincrement())
+  pagoId Int
+
+  subidoPorId Int?
+
+  url String
+  key String?
+
   mimeType String?
   size     Int?
+
+  descripcion String?
+
+  claveIdempotencia String? @unique
+
+  eliminadoEn DateTime?
+  eliminadoPorId Int?
+
   creadoEn DateTime @default(now())
 
-  pago Pago @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  pago Pago @relation(fields: [pagoId],references: [id],onDelete: Cascade)
 
-  @@index([pagoId])
+  subidoPor Usuario? @relation("PagoComprobanteSubidoPor",fields: [subidoPorId],references: [id],onDelete: SetNull)
+
+  @@index([pagoId, creadoEn])
+  @@index([subidoPorId, creadoEn])
 }
 
+model PagoEvento {
+  id        Int @id @default(autoincrement())
+  pagoId    Int
+  usuarioId Int?
+
+  tipo   TipoEventoPago
+  estado EstadoPagoTransaccion
+
+  detalle String?
+
+  referenciaTipo String?
+  referenciaId   Int?
+
+  claveIdempotencia String? @unique
+
+  metadata Json?
+
+  creadoEn DateTime @default(now())
+
+  pago Pago @relation(fields: [pagoId],references: [id],onDelete: Cascade)
+
+  usuario Usuario? @relation("PagoEventoUsuario",fields: [usuarioId],references: [id],onDelete: SetNull)
+
+  @@index([pagoId, creadoEn])
+  @@index([tipo, creadoEn])
+  @@index([estado, creadoEn])
+  @@index([usuarioId, creadoEn])
+  @@index([referenciaTipo, referenciaId])
+}
+
+
 model Factura {
-  id               Int           @id @default(autoincrement())
-  empresaId        Int
-  clienteId        Int
-  pedidoId         Int?
-  entregaId        Int?          @unique
-  ventaId          Int?
-  numero           String?
-  serie            String?
-  estado           EstadoFactura @default(BORRADOR)
-  moneda           String        @default("GTQ")
-  subtotal         Decimal       @db.Decimal(12, 2)
-  impuesto         Decimal       @default(0) @db.Decimal(12, 2)
-  total            Decimal       @db.Decimal(12, 2)
+  id          Int @id @default(autoincrement())
+  empresaId   Int
+  clienteId   Int
+  pedidoId    Int?
+  ventaId     Int?
+  creadoPorId Int?
+
+  numero String?
+  serie  String?
+
+  estado        EstadoFactura @default(BORRADOR)
+  condicionPago CondicionPago?
+  moneda        String @default("GTQ")
+
+  subtotal       Decimal @db.Decimal(12, 2)
+  descuentoTotal Decimal @default(0) @db.Decimal(12, 2)
+  impuestoTotal  Decimal @default(0) @db.Decimal(12, 2)
+  total          Decimal @db.Decimal(12, 2)
+
   emitidaEn        DateTime?
   fechaVencimiento DateTime?
-  creadoEn         DateTime      @default(now())
-  actualizadoEn    DateTime      @updatedAt
 
-  empresa         Empresa          @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  cliente         Cliente          @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  pedido          Pedido?          @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
-  entrega         Entrega?         @relation(fields: [entregaId], references: [id], onDelete: SetNull)
-  venta           Venta?           @relation(fields: [ventaId], references: [id], onDelete: SetNull)
+  anuladaEn       DateTime?
+  motivoAnulacion String?
+
+  claveIdempotencia String? @unique
+  version           Int @default(0)
+
+  descartadaEn     DateTime?
+  motivoDescarte   String?
+
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  cliente   Cliente  @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  pedido    Pedido?  @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
+  venta     Venta?   @relation(fields: [ventaId], references: [id], onDelete: SetNull)
+  creadoPor Usuario? @relation("FacturaCreadaPor", fields: [creadoPorId], references: [id], onDelete: SetNull)
+
+  entregas        FacturaEntrega[]
   detalles        FacturaDetalle[]
+  documentoFiscal DocumentoFiscal?
   cuentaPorCobrar CuentaPorCobrar?
+  eventos FacturaEvento[]
 
   @@unique([empresaId, serie, numero])
   @@index([empresaId, estado, creadoEn])
   @@index([clienteId, creadoEn])
+  @@index([pedidoId, creadoEn])
+  @@index([creadoPorId, creadoEn])
 }
 
+
+
+
+
+model FacturaEntrega {
+  facturaId Int
+  entregaId Int
+
+  creadoEn DateTime @default(now())
+
+  factura Factura @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  entrega Entrega @relation(fields: [entregaId], references: [id], onDelete: Restrict)
+
+  @@id([facturaId, entregaId])
+  @@index([entregaId])
+}
+
+
+
+
+
 model FacturaDetalle {
-  id               Int     @id @default(autoincrement())
+  id               Int @id @default(autoincrement())
   facturaId        Int
   productoId       Int
   pedidoDetalleId  Int?
   entregaDetalleId Int?
-  cantidad         Int
-  precioUnitario   Decimal @db.Decimal(12, 2)
-  descuento        Decimal @default(0) @db.Decimal(12, 2)
-  subtotal         Decimal @db.Decimal(12, 2)
+
+  descripcion   String
+  bienOServicio TipoBienServicioFiscal
+  unidadMedida  String @db.VarChar(16)
+
+  cantidad       Int
+  precioUnitario Decimal @db.Decimal(12, 2)
+  precioBruto    Decimal @db.Decimal(12, 2)
+  descuento      Decimal @default(0) @db.Decimal(12, 2)
+  impuestoTotal  Decimal @default(0) @db.Decimal(12, 2)
+  totalLinea     Decimal @db.Decimal(12, 2)
+
+  creadoEn DateTime @default(now())
 
   factura        Factura         @relation(fields: [facturaId], references: [id], onDelete: Cascade)
   producto       Producto        @relation(fields: [productoId], references: [id], onDelete: Restrict)
   pedidoDetalle  PedidoDetalle?  @relation(fields: [pedidoDetalleId], references: [id], onDelete: SetNull)
   entregaDetalle EntregaDetalle? @relation(fields: [entregaDetalleId], references: [id], onDelete: SetNull)
 
+  impuestos FacturaDetalleImpuesto[]
+
   @@index([facturaId])
+  @@index([productoId])
+  @@index([pedidoDetalleId])
+  @@index([entregaDetalleId])
+}
+
+
+model FacturaDetalleImpuesto {
+  id               Int @id @default(autoincrement())
+  facturaDetalleId Int
+
+  nombreCorto          String
+  codigoUnidadGravable Int?
+  montoGravable        Decimal @db.Decimal(18, 8)
+  montoImpuesto        Decimal @db.Decimal(18, 8)
+
+  tasa Decimal? @db.Decimal(7, 4)
+
+  creadoEn DateTime @default(now())
+
+  facturaDetalle FacturaDetalle @relation(fields: [facturaDetalleId], references: [id], onDelete: Cascade)
+
+  @@index([facturaDetalleId])
+  @@index([nombreCorto])
+}
+
+
+
+// ============================================================================
+// DOCUMENTO FISCAL FEL
+// ============================================================================
+
+
+
+
+
+
+
+// ============================================================================
+// PLAN DE PAGOS DE CREDITO — FLUJO MODERNO
+// ============================================================================
+
+model CreditoPlanPago {
+  id        Int @id @default(autoincrement())
+  empresaId Int
+  creditoId Int @unique
+
+  estado     EstadoPlanPagoCredito     @default(BORRADOR)
+  frecuencia FrecuenciaPlanPagoCredito
+
+  montoProgramado         Decimal  @db.Decimal(12, 2)
+  numeroCuotas            Int
+  primeraFechaVencimiento DateTime
+
+  creadoPorId    Int?
+  activadoPorId  Int?
+  canceladoPorId Int?
+
+  activadoEn  DateTime?
+  canceladoEn DateTime?
+
+  motivoCancelacion String?
+
+  claveIdempotenciaCreacion   String? @unique
+  claveIdempotenciaActivacion String? @unique
+
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  credito Credito @relation(fields: [creditoId], references: [id], onDelete: Restrict)
+
+  creadoPor    Usuario? @relation("CreditoPlanPagoCreadoPor", fields: [creadoPorId], references: [id], onDelete: SetNull)
+  activadoPor  Usuario? @relation("CreditoPlanPagoActivadoPor", fields: [activadoPorId], references: [id], onDelete: SetNull)
+  canceladoPor Usuario? @relation("CreditoPlanPagoCanceladoPor", fields: [canceladoPorId], references: [id], onDelete: SetNull)
+
+  cuotas  CreditoCuota[]
+  eventos CreditoPlanPagoEvento[]
+
+  @@index([empresaId, estado, creadoEn])
+  @@index([creadoPorId])
+  @@index([activadoPorId])
+  @@index([canceladoPorId])
+}
+
+model CreditoCuota {
+  id       Int @id @default(autoincrement())
+  planPagoId Int
+  numero     Int
+
+  montoProgramado Decimal  @db.Decimal(12, 2)
+  fechaVencimiento DateTime
+
+  cuentaPorCobrarId Int? @unique
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  planPago CreditoPlanPago @relation(fields: [planPagoId], references: [id], onDelete: Cascade)
+  cuentaPorCobrar CuentaPorCobrar? @relation(fields: [cuentaPorCobrarId], references: [id], onDelete: SetNull)
+
+  @@unique([planPagoId, numero])
+  @@index([planPagoId, fechaVencimiento])
+}
+
+model CreditoPlanPagoEvento {
+  id        Int @id @default(autoincrement())
+  planPagoId Int
+  usuarioId  Int?
+
+  tipo   TipoEventoPlanPagoCredito
+  estado EstadoPlanPagoCredito
+
+  detalle String?
+  metadata Json?
+
+  claveIdempotencia String? @unique
+
+  creadoEn DateTime @default(now())
+
+  planPago CreditoPlanPago @relation(fields: [planPagoId], references: [id], onDelete: Cascade)
+  usuario  Usuario? @relation("CreditoPlanPagoEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([planPagoId, creadoEn])
+  @@index([tipo, creadoEn])
+  @@index([usuarioId, creadoEn])
 }
 
 model CuentaPorCobrar {
-  id               Int                   @id @default(autoincrement())
-  empresaId        Int
-  clienteId        Int
-  pedidoId         Int?
-  facturaId        Int?                  @unique
-  creditoId        Int?
-  numeroDocumento  String?
-  montoOriginal    Decimal               @db.Decimal(12, 2)
-  saldoPendiente   Decimal               @db.Decimal(12, 2)
-  fechaEmision     DateTime              @default(now())
-  fechaVencimiento DateTime
-  estado           EstadoCuentaPorCobrar @default(PENDIENTE)
-  creadoEn         DateTime              @default(now())
-  actualizadoEn    DateTime              @updatedAt
+  id        Int @id @default(autoincrement())
+  empresaId Int
+  clienteId Int
+  pedidoId  Int?
+  facturaId Int? @unique
+  creditoId Int?
 
-  empresa      Empresa          @relation(fields: [empresaId], references: [id], onDelete: Restrict)
-  cliente      Cliente          @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  pedido       Pedido?          @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
-  factura      Factura?         @relation(fields: [facturaId], references: [id], onDelete: SetNull)
-  credito      Credito?         @relation(fields: [creditoId], references: [id], onDelete: SetNull)
+  numeroDocumento String?
+  moneda          String @default("GTQ")
+
+  montoOriginal  Decimal @db.Decimal(12, 2)
+  saldoPendiente Decimal @db.Decimal(12, 2)
+
+  fechaEmision     DateTime @default(now())
+  fechaVencimiento DateTime
+
+  estado EstadoCuentaPorCobrar @default(PENDIENTE)
+
+  anuladaEn       DateTime?
+  motivoAnulacion String?
+
+  claveIdempotencia String? @unique
+  version           Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  pedido  Pedido? @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
+  factura Factura? @relation(fields: [facturaId], references: [id], onDelete: SetNull)
+  credito Credito? @relation(fields: [creditoId], references: [id], onDelete: SetNull)
+
   aplicaciones PagoAplicacion[]
+  cuotaCredito CreditoCuota?
 
   @@index([empresaId, estado, fechaVencimiento])
   @@index([clienteId, estado])
+  @@index([pedidoId, estado])
 }
 
+
+
+
+
+
+
+
+
+
 model PagoAplicacion {
-  id                Int      @id @default(autoincrement())
+  id                Int @id @default(autoincrement())
   pagoId            Int
   cuentaPorCobrarId Int
-  monto             Decimal  @db.Decimal(12, 2)
-  creadoEn          DateTime @default(now())
 
-  pago            Pago            @relation(fields: [pagoId], references: [id], onDelete: Cascade)
-  cuentaPorCobrar CuentaPorCobrar @relation(fields: [cuentaPorCobrarId], references: [id], onDelete: Cascade)
+  monto Decimal @db.Decimal(12, 2)
 
-  @@unique([pagoId, cuentaPorCobrarId])
-  @@index([cuentaPorCobrarId])
+  estado EstadoPagoAplicacion @default(ACTIVA)
+
+  // --------------------------------------------------------------------------
+  // AUDITORÍA
+  // --------------------------------------------------------------------------
+
+  aplicadoPorId Int?
+
+  revertidaEn     DateTime?
+  revertidaPorId  Int?
+  motivoReversion String?
+
+  // Nullable por compatibilidad con posibles registros históricos.
+  // Las nuevas operaciones sí deben enviarla.
+  claveIdempotencia String? @unique
+
+  version Int @default(0)
+
+  creadoEn DateTime @default(now())
+
+  // --------------------------------------------------------------------------
+  // RELACIONES
+  // --------------------------------------------------------------------------
+
+  pago Pago @relation(fields: [pagoId],references: [id],onDelete: Restrict)
+
+  cuentaPorCobrar CuentaPorCobrar @relation(fields: [cuentaPorCobrarId],references: [id],onDelete: Restrict)
+
+  aplicadoPor Usuario? @relation("PagoAplicadoPor",fields: [aplicadoPorId],references: [id],onDelete: SetNull)
+
+  revertidaPor Usuario? @relation("PagoAplicacionRevertidaPor",fields: [revertidaPorId],references: [id],onDelete: SetNull)
+
+  // Ya NO usamos @@unique([pagoId, cuentaPorCobrarId])
+
+  @@index([pagoId, estado])
+  @@index([cuentaPorCobrarId, estado])
+  @@index([aplicadoPorId, creadoEn])
+  @@index([revertidaPorId, revertidaEn])
+}
+
+
+
+
+// ============================================================================
+// DOCUMENTO FISCAL FEL
+// ============================================================================
+
+model DocumentoFiscal {
+  id                      Int @id @default(autoincrement())
+  facturaId               Int @unique
+  empresaId               Int
+  establecimientoFiscalId Int
+  proveedorFelConfigId    Int?
+  contingenciaId          Int?
+
+  tipoDte String @db.VarChar(8)
+
+  estado  EstadoDocumentoFiscal @default(BORRADOR)
+  entorno EntornoFel
+
+  codigoMoneda     String   @default("GTQ") @db.VarChar(8)
+  fechaHoraEmision DateTime
+  granTotal         Decimal @db.Decimal(12, 2)
+
+  serieInterna  String
+  numeroInterno Int
+
+  uuid               String?   @unique @db.VarChar(64)
+  serieFel           String?
+  numeroFel          String?
+  fechaCertificacion DateTime?
+
+  refIdProveedor String?
+
+  certificadorNit    String?
+  certificadorNombre String?
+
+  numeroAcceso String?
+
+  emisorNit             String
+  emisorNombre          String
+  emisorNombreComercial String
+  emisorAfiliacionIva   String
+  emisorCorreo          String?
+  emisorDireccion       Json
+
+  receptorTipoIdentificacion TipoIdentificacionFiscal
+  receptorIdentificacion     String
+  receptorNombre             String
+  receptorCorreo             String?
+  receptorDireccion          Json?
+
+  frases       Json?
+  adendas      Json?
+  complementos Json?
+
+  payloadHash    String @db.VarChar(64)
+  versionEsquema String?
+
+  anuladoEn       DateTime?
+  motivoAnulacion String?
+
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  factura         Factura               @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  empresa         Empresa               @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  establecimiento EstablecimientoFiscal @relation(fields: [establecimientoFiscalId], references: [id], onDelete: Restrict)
+  proveedorConfig EmpresaProveedorFel?  @relation(fields: [proveedorFelConfigId], references: [id], onDelete: SetNull)
+  contingencia    FelContingencia?      @relation(fields: [contingenciaId], references: [id], onDelete: SetNull)
+
+  artefactos DocumentoFiscalArtefacto[]
+  operaciones FelOperacion[]
+  eventos     DocumentoFiscalEvento[]
+
+  @@unique([empresaId, establecimientoFiscalId, entorno, serieInterna, numeroInterno])
+  @@unique([proveedorFelConfigId, refIdProveedor])
+  @@index([empresaId, estado, fechaHoraEmision])
+  @@index([establecimientoFiscalId, estado, fechaHoraEmision])
+  @@index([contingenciaId])
+}
+
+model DocumentoFiscalArtefacto {
+  id                Int @id @default(autoincrement())
+  documentoFiscalId Int
+
+  tipo    TipoArtefactoFiscal
+  version Int @default(1)
+
+  contenido  String? @db.Text
+  storageKey String?
+  url        String?
+  mimeType   String?
+  size       Int?
+  sha256     String? @db.VarChar(64)
+
+  creadoEn DateTime @default(now())
+
+  documentoFiscal DocumentoFiscal @relation(fields: [documentoFiscalId], references: [id], onDelete: Cascade)
+
+  @@unique([documentoFiscalId, tipo, version])
+  @@index([documentoFiscalId, creadoEn])
+}
+
+
+model DocumentoFiscalEvento {
+  id                Int @id @default(autoincrement())
+  documentoFiscalId Int
+  usuarioId         Int?
+
+  tipo   TipoEventoDocumentoFiscal
+  estado EstadoDocumentoFiscal
+
+  detalle String?
+
+  referenciaTipo String?
+  referenciaId   Int?
+
+  claveIdempotencia String? @unique
+  metadata          Json?
+
+  creadoEn DateTime @default(now())
+
+  documentoFiscal DocumentoFiscal @relation(fields: [documentoFiscalId], references: [id], onDelete: Cascade)
+  usuario          Usuario?        @relation("DocumentoFiscalEventoUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([documentoFiscalId, creadoEn])
+  @@index([tipo, creadoEn])
+  @@index([estado, creadoEn])
+  @@index([usuarioId, creadoEn])
+  @@index([referenciaTipo, referenciaId])
+}
+
+
+// ============================================================================
+// OPERACIONES DURABLES FEL
+// ============================================================================
+
+
+model FelOperacion {
+  id                   Int @id @default(autoincrement())
+  documentoFiscalId    Int
+  proveedorFelConfigId Int
+
+  tipo   TipoOperacionFel
+  estado EstadoOperacionFel @default(PENDIENTE)
+
+  claveIdempotencia String @unique
+
+  intentos    Int @default(0)
+  maxIntentos Int @default(5)
+
+  disponibleEn   DateTime?
+  bloqueadaHasta DateTime?
+  workerId       String?
+
+  refIdProveedor String?
+
+  ultimoCodigoError  String?
+  ultimoMensajeError String?
+
+  iniciadaEn   DateTime?
+  finalizadaEn DateTime?
+
+  version Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  documentoFiscal DocumentoFiscal     @relation(fields: [documentoFiscalId], references: [id], onDelete: Cascade)
+  proveedorConfig EmpresaProveedorFel @relation(fields: [proveedorFelConfigId], references: [id], onDelete: Restrict)
+
+  intentosHttp FelIntento[]
+
+  @@index([estado, disponibleEn])
+  @@index([documentoFiscalId, tipo, estado])
+  @@index([proveedorFelConfigId, estado])
+}
+
+model FelIntento {
+  id          Int @id @default(autoincrement())
+  operacionId Int
+
+  numeroIntento Int
+
+  iniciadoEn   DateTime @default(now())
+  finalizadoEn DateTime?
+
+  httpStatus Int?
+  duracionMs Int?
+
+  requestHash String? @db.VarChar(64)
+
+  codigoProveedor  String?
+  mensajeProveedor String?
+  refIdProveedor   String?
+
+  respuestaResumen Json?
+  errorTipo        String?
+
+  operacion FelOperacion @relation(fields: [operacionId], references: [id], onDelete: Cascade)
+
+  @@unique([operacionId, numeroIntento])
+  @@index([operacionId, iniciadoEn])
+}
+
+// ============================================================================
+// CONTINGENCIA FEL
+// ============================================================================
+
+model FelContingencia {
+  id                      Int @id @default(autoincrement())
+  empresaId               Int
+  establecimientoFiscalId Int
+
+  estado EstadoContingenciaFel @default(ABIERTA)
+
+  inicioEn DateTime
+  finEn    DateTime?
+
+  motivo String
+
+  abiertaPorId Int?
+  cerradaPorId Int?
+
+  notificadaSatEn DateTime?
+
+  claveIdempotencia String? @unique
+  version           Int @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  empresa         Empresa               @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  establecimiento EstablecimientoFiscal @relation(fields: [establecimientoFiscalId], references: [id], onDelete: Restrict)
+  abiertaPor       Usuario?              @relation("FelContingenciaAbiertaPor", fields: [abiertaPorId], references: [id], onDelete: SetNull)
+  cerradaPor       Usuario?              @relation("FelContingenciaCerradaPor", fields: [cerradaPorId], references: [id], onDelete: SetNull)
+
+  documentos DocumentoFiscal[]
+
+  @@index([empresaId, estado, inicioEn])
+  @@index([establecimientoFiscalId, estado, inicioEn])
+}
+
+
+
+
+
+
+
+
+
+
+
+enum TipoOperacionDespacho {
+  RESERVA_PREPARACION
+  SALIDA_DESPACHO
+  LIBERACION_RESERVA
+}
+
+enum EstadoOperacionDespacho {
+  PENDIENTE
+  APLICANDO
+  APLICADA
+  FALLIDA
+}
+
+enum EstadoDetalleOperacionDespacho {
+  PENDIENTE
+  APLICADA
+  FALLIDA
+}
+
+enum MotivoNoEntrega {
+  CLIENTE_AUSENTE
+  DIRECCION_INCORRECTA
+  LOCAL_CERRADO
+  REPROGRAMADA
+  RECHAZO_CLIENTE
+  PROBLEMA_ACCESO
+  DOCUMENTACION
+  MERCADERIA_DANADA
+  OTRO
+}
+
+
+// ============================================================================
+// PAGOS
+// ============================================================================
+
+enum EstadoPagoAplicacion {
+  ACTIVA
+  REVERSADA
+}
+
+enum TipoEventoPago {
+  CREADO
+  COMPROBANTE_AGREGADO
+  VERIFICADO
+  RECHAZADO
+  APLICADO
+  APLICACION_REVERTIDA
+  ANULADO
+  OBSERVACION
+}
+
+
+// ============================================================================
+// COMPROBANTES OPERATIVOS — NO SON FACTURAS NI DTE
+// ============================================================================
+
+enum TipoComprobanteOperativo {
+  SALIDA_DESPACHO
+  ENTREGA
+}
+
+enum AccionComprobanteOperativo {
+  EMITIDO
+  IMPRESION_SOLICITADA
+  DESCARGA_SOLICITADA
+  COMPARTICION_PREPARADA
+}
+
+model ComprobanteOperativo {
+  id            Int                      @id @default(autoincrement())
+  empresaId     Int
+  tipo          TipoComprobanteOperativo
+  referenciaId  Int
+  numero        String                   @unique
+  version       Int                      @default(1)
+  snapshot      Json
+  huellaSha256  String                   @db.VarChar(64)
+  emitidoPorId  Int
+  emitidoEn     DateTime                 @default(now())
+
+  empresa       Empresa                  @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  emitidoPor    Usuario                  @relation("ComprobanteEmitidoPor", fields: [emitidoPorId], references: [id], onDelete: Restrict)
+  eventos       ComprobanteOperativoEvento[]
+
+  @@unique([empresaId, tipo, referenciaId])
+  @@index([empresaId, emitidoEn])
+  @@index([emitidoPorId, emitidoEn])
+}
+
+model ComprobanteOperativoEvento {
+  id              Int                      @id @default(autoincrement())
+  comprobanteId   Int
+  usuarioId       Int
+  accion          AccionComprobanteOperativo
+  canal           String?                  @db.VarChar(32)
+  claveIdempotencia String                 @unique @db.VarChar(128)
+  creadoEn        DateTime                 @default(now())
+
+  comprobante     ComprobanteOperativo      @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
+  usuario         Usuario                  @relation("ComprobanteEventoUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([comprobanteId, creadoEn])
+  @@index([usuarioId, creadoEn])
 }

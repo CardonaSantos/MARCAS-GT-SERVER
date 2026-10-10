@@ -8,13 +8,11 @@ import { ProductModule } from './product/product.module';
 import { LocationModule } from './location/location.module';
 import { DateModule } from './date/date.module';
 import { SaleModule } from './sale/sale.module';
-import { AttendanceModule } from './attendance/attendance.module';
 import { StockModule } from './stock/stock.module';
 import { ProviderModule } from './provider/provider.module';
 import { CategoriesModule } from './categories/categories.module';
 import { DeliveryStockModule } from './delivery-stock/delivery-stock.module';
 import { DiscountModule } from './discount/discount.module';
-import { LocationGateway } from './location/location.gateway';
 import { ProspectoModule } from './prospecto/prospecto.module';
 import { CustomerLocationModule } from './customer-location/customer-location.module';
 import { AnalitycsModule } from './analitycs/analitycs.module';
@@ -32,6 +30,15 @@ import { RequisicionesModule } from './modules/requisiciones';
 import { TransferenciasModule } from './modules/transferencias';
 import { PedidosModule } from './modules/pedidos';
 import { CreditosModule } from './modules/creditos';
+import { DespachosModule } from './modules/despachos';
+import { TransporteModule } from './modules/transporte';
+import { EntregasModule } from './modules/entregas';
+import { FacturacionModule } from './modules/facturacion';
+import { PagosModule } from './modules/pagos';
+import { TrackingModule } from './modules/tracking';
+import { ComprobantesModule } from './modules/comprobantes';
+import { ArchivosModule } from './modules/archivos';
+import { DashboardModule } from './modules/dashboard';
 
 @Module({
   imports: [
@@ -39,14 +46,13 @@ import { CreditosModule } from './modules/creditos';
     NotificationsModule,
     AuthModule,
     ConfigModule.forRoot({
-      isGlobal: true, // Hace que ConfigService esté disponible en toda la aplicación
+      isGlobal: true,
     }),
     CustomersModule,
     ProductModule,
     LocationModule,
     DateModule,
     SaleModule,
-    AttendanceModule,
     StockModule,
     ProviderModule,
     CategoriesModule,
@@ -62,15 +68,24 @@ import { CreditosModule } from './modules/creditos';
     CreditoModule,
     SaldosModule,
     CloudinaryModule,
-    // nuevos
     BodegaModule,
     InventarioModule,
     RequisicionesModule,
     TransferenciasModule,
     PedidosModule,
     CreditosModule,
+    DespachosModule,
+    TransporteModule,
+    EntregasModule,
+    FacturacionModule,
+    PagosModule,
+    TrackingModule,
+    ComprobantesModule,
+    ArchivosModule,
+    DashboardModule,
   ],
   controllers: [],
-  providers: [LocationGateway, CloudinaryProvider], //PONER EL CLOUDINARY PROVIDER PORQUE LLEVA LAS CONFIG
+  providers: [CloudinaryProvider],
 })
 export class AppModule {}
+// comentario comiteable

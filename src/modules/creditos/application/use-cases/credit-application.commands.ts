@@ -1,4 +1,5 @@
 import { OrderDirectoryPort } from '../../../pedidos';
+import { RequestOrderValidationUseCase } from '../../../pedidos/application/use-cases/request-order-validation.use-case';
 import { CreditApplication } from '../../domain/entities/credit-application.entity';
 import {
   CreditActiveApplicationExistsError,
@@ -34,6 +35,7 @@ export class CreditApplicationCommands {
     private readonly users: CreditActorDirectoryPort,
     private readonly orders: OrderDirectoryPort,
     private readonly integration: CreditOrderIntegrationService,
+    private readonly validateOrder?: RequestOrderValidationUseCase,
   ) {}
 
   async create(command: {
@@ -108,6 +110,95 @@ export class CreditApplicationCommands {
       tipo: 'CREADA',
       detalle: 'Solicitud de crédito creada desde pedido.',
     });
+  }
+
+  /**
+   * Una sola acción del operador: validar el pedido y presentar el expediente.
+   * El pedido puede persistir PENDIENTE_VALIDACION ante un fallo posterior.
+   * Repetir la llamada recupera la solicitud en lugar de duplicarla.
+   */
+  async requestFromOrder(command: {
+    pedidoId: number;
+    plazoDias: number;
+    politicaId?: number | null;
+    motivo?: string | null;
+    anticipoPropuesto?: string;
+    actorId: number;
+  }): Promise<CreditApplication> {
+    const actor = await requireCreditActor(this.users, command.actorId);
+    assertDraftWriter(actor);
+    let order = await this.orders.findById(command.pedidoId);
+    if (!order || order.empresaId !== actor.empresaId) {
+      throw new CreditOrderInvalidError('El pedido no pertenece a la empresa activa.');
+    }
+    if (!['CREDITO', 'MIXTO'].includes(order.condicionPago)) {
+      throw new CreditOrderInvalidError('La solicitud automática requiere un pedido CREDITO o MIXTO.');
+    }
+    const advance = command.anticipoPropuesto ?? '0.00';
+    // No bloquear el pedido en PENDIENTE_VALIDACION si el anticipo es inválido.
+    validateAgainstOrder(order, order.total);
+    validateAdvanceForOrder(order, advance);
+    if (actor.rol === 'VENDEDOR' && order.vendedorId !== actor.id) {
+      throw new CreditOrderInvalidError('Un vendedor solo puede solicitar crédito de sus pedidos.');
+    }
+    if (order.estado === 'BORRADOR') {
+      if (!this.validateOrder) {
+        throw new Error('El módulo Pedidos no permite validar automáticamente.');
+      }
+      await this.validateOrder.execute({ id: order.id, actorId: actor.id });
+      order = await this.orders.findById(order.id);
+    }
+    if (!order || order.estado !== 'PENDIENTE_VALIDACION') {
+      throw new CreditOrderInvalidError('El pedido no está disponible para solicitar crédito.');
+    }
+    const existing = await this.repo.findActiveByOrderId(order.id);
+    if (existing) {
+      if (existing.estado === 'PENDIENTE') {
+        await this.submit(existing.id!, actor.id);
+        return (await this.repo.findById(existing.id!))!;
+      }
+      return existing;
+    }
+    const policy = command.politicaId
+      ? await this.policies.findPolicyById(command.politicaId)
+      : null;
+    if (command.politicaId && !policy) {
+      throw new CreditPolicyNotFoundError(command.politicaId);
+    }
+    if (policy && policy.empresaId !== actor.empresaId) {
+      throw new CreditPolicyNotFoundError(command.politicaId!);
+    }
+    validateAgainstOrder(order, order.total);
+    validateAdvanceForOrder(order, advance);
+    validatePolicy(policy, {
+      monto: order.total,
+      plazoDias: command.plazoDias,
+      anticipo: advance,
+    });
+    const entity = CreditApplication.create({
+      empresaId: actor.empresaId,
+      pedidoId: order.id,
+      clienteId: order.clienteId,
+      solicitanteId: actor.id,
+      politicaId: command.politicaId ?? null,
+      montoSolicitado: order.total,
+      plazoDias: command.plazoDias,
+      anticipoPropuesto: advance,
+      motivo: command.motivo ?? null,
+    });
+    entity.submitForReview();
+    try {
+      return await this.repo.create(entity, snapshots(policy), {
+        actorId: actor.id,
+        tipo: 'ENVIADA_REVISION',
+        detalle: 'Solicitud creada y presentada a revisión desde el pedido.',
+      });
+    } catch (error) {
+      // Recuperación de reintentos concurrentes sin ocultar errores reales.
+      const repeated = await this.repo.findActiveByOrderId(order.id);
+      if (repeated) return repeated;
+      throw error;
+    }
   }
 
   async update(command: {

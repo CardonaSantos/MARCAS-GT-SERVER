@@ -1,0 +1,31 @@
+name: Product catalog contract
+
+on:
+  push:
+    branches: [update-requerimientos]
+    paths:
+      - "src/product/**"
+      - ".github/workflows/product-catalog.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  catalog-tests-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate Prisma client
+        run: npx prisma generate
+      - name: Catalog query DTO, access and pagination tests
+        run: npm test -- --runInBand src/product/catalog
+      - name: TypeScript and NestJS build
+        run: npm run build

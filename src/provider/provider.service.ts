@@ -13,13 +13,8 @@ export class ProviderService {
 
   async create(createProviderDto: CreateProviderDto) {
     try {
-      // Filtra el campo `id` si existe en el objeto
-      const { id, ...data } = createProviderDto;
-
-      console.log('Data enviada a Prisma (sin id):', data);
-
       const newProvider = await this.prisma.proveedor.create({
-        data,
+        data: createProviderDto,
       });
 
       return newProvider;

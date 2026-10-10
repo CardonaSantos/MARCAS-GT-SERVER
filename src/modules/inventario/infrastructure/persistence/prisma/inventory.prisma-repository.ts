@@ -5,7 +5,11 @@ import { MovimientoInventario } from '../../../domain/entities/movimiento-invent
 import { ReservaInventario } from '../../../domain/entities/reserva-inventario.entity';
 import { StockBodega } from '../../../domain/entities/stock-bodega.entity';
 import { InventoryConcurrentModificationError } from '../../../domain/errors/inventory.errors';
-import { OrderDetailInventoryContext } from '../../../domain/inventory.types';
+import {
+  InventoryOrderEventDraft,
+  InventoryOrderState,
+  OrderDetailInventoryContext,
+} from '../../../domain/inventory.types';
 import {
   InventoryRepositoryPort,
   InventoryTransactionPort,
@@ -255,7 +259,7 @@ class PrismaInventoryTransaction implements InventoryTransactionPort {
   async findOrderDetailContext(
     pedidoDetalleId: number,
   ): Promise<OrderDetailInventoryContext | null> {
-    return this.prisma.pedidoDetalle.findUnique({
+    const detail = await this.prisma.pedidoDetalle.findUnique({
       where: { id: pedidoDetalleId },
       select: {
         id: true,
@@ -264,8 +268,25 @@ class PrismaInventoryTransaction implements InventoryTransactionPort {
         cantidadSolicitada: true,
         cantidadReservada: true,
         cantidadDespachada: true,
+        pedido: {
+          select: {
+            estado: true,
+          },
+        },
       },
     });
+
+    return detail
+      ? {
+          id: detail.id,
+          pedidoId: detail.pedidoId,
+          pedidoEstado: String(detail.pedido.estado) as InventoryOrderState,
+          productoId: detail.productoId,
+          cantidadSolicitada: detail.cantidadSolicitada,
+          cantidadReservada: detail.cantidadReservada,
+          cantidadDespachada: detail.cantidadDespachada,
+        }
+      : null;
   }
 
   async setOrderDetailReserved(
@@ -289,6 +310,19 @@ class PrismaInventoryTransaction implements InventoryTransactionPort {
         expectedReserved,
       });
     }
+  }
+
+  async createOrderEvent(event: InventoryOrderEventDraft): Promise<void> {
+    await this.prisma.pedidoEvento.create({
+      data: {
+        pedidoId: event.pedidoId,
+        usuarioId: event.actorId,
+        tipo: event.tipo,
+        detalle: event.detalle,
+        referenciaTipo: event.referencia?.type ?? null,
+        referenciaId: event.referencia?.id ?? null,
+      },
+    });
   }
 }
 

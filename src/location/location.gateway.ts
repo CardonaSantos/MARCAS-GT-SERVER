@@ -236,7 +236,16 @@ export class LocationGateway {
     // this.updateAdmins(); // Notificar después de la desconexión
   }
 
-  @SubscribeMessage('sendLocation')
+  /**
+   * LEGACY TRACKING DESHABILITADO.
+   *
+   * Se conserva temporalmente el método porque LocationGateway todavía
+   * contiene notificaciones/solicitudes comerciales heredadas, pero ya no
+   * existe un SubscribeMessage para "sendLocation".
+   *
+   * El tracking oficial se recibe exclusivamente por
+   * POST /real-time-location/tracking/location.
+   */
   async handleSendLocationToAdmin(client: Socket, locationData: location) {
     // console.log('Ubicación recibida: ', locationData);
 

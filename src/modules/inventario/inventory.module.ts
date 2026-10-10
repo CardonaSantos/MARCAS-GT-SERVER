@@ -10,6 +10,7 @@ import {
   INVENTORY_PRODUCT_CATALOG,
   INVENTORY_QUERY,
   INVENTORY_REPOSITORY,
+  INVENTORY_RESERVATION_DIRECTORY,
   INVENTORY_USER_DIRECTORY,
 } from './inventory.tokens';
 
@@ -41,6 +42,7 @@ import { ProductCatalogPrismaAdapter } from './infrastructure/adapters/product-c
 import { InventoryUserDirectoryPrismaAdapter } from './infrastructure/adapters/inventory-user-directory.prisma-adapter';
 import { InventoryAvailabilityAdapter } from './infrastructure/adapters/inventory-availability.adapter';
 import { InventoryOperationsAdapter } from './infrastructure/adapters/inventory-operations.adapter';
+import { InventoryReservationDirectoryAdapter } from './infrastructure/adapters/inventory-reservation-directory.adapter';
 
 import { InventoryController } from './presentation/http/inventory.controller';
 import { InventoryRolesGuard } from './presentation/http/security/inventory-roles.guard';
@@ -55,6 +57,7 @@ import { InventoryRolesGuard } from './presentation/http/security/inventory-role
     InventoryPrismaQueryAdapter,
     ProductCatalogPrismaAdapter,
     InventoryUserDirectoryPrismaAdapter,
+    InventoryReservationDirectoryAdapter,
 
     { provide: INVENTORY_REPOSITORY, useExisting: InventoryPrismaRepository },
     { provide: INVENTORY_QUERY, useExisting: InventoryPrismaQueryAdapter },
@@ -66,6 +69,10 @@ import { InventoryRolesGuard } from './presentation/http/security/inventory-role
       provide: INVENTORY_USER_DIRECTORY,
       useExisting: InventoryUserDirectoryPrismaAdapter,
     },
+    {
+      provide: INVENTORY_RESERVATION_DIRECTORY,
+      useExisting: InventoryReservationDirectoryAdapter,
+    },
 
     {
       provide: InventoryMutationCoordinator,
@@ -73,7 +80,12 @@ import { InventoryRolesGuard } from './presentation/http/security/inventory-role
         repository: InventoryRepositoryPort,
         bodegas: BodegaDirectoryPort,
         products: ProductCatalogPort,
-      ) => new InventoryMutationCoordinator(repository, bodegas, products),
+      ) =>
+        new InventoryMutationCoordinator(
+          repository,
+          bodegas,
+          products,
+        ),
       inject: [
         INVENTORY_REPOSITORY,
         BODEGA_DIRECTORY,
@@ -180,24 +192,45 @@ import { InventoryRolesGuard } from './presentation/http/security/inventory-role
       useFactory: (
         repository: InventoryRepositoryPort,
         coordinator: InventoryMutationCoordinator,
-      ) => new ApplyInventoryReservationUseCase(repository, coordinator),
-      inject: [INVENTORY_REPOSITORY, InventoryMutationCoordinator],
+      ) =>
+        new ApplyInventoryReservationUseCase(
+          repository,
+          coordinator,
+        ),
+      inject: [
+        INVENTORY_REPOSITORY,
+        InventoryMutationCoordinator,
+      ],
     },
     {
       provide: ReleaseInventoryReservationUseCase,
       useFactory: (
         repository: InventoryRepositoryPort,
         coordinator: InventoryMutationCoordinator,
-      ) => new ReleaseInventoryReservationUseCase(repository, coordinator),
-      inject: [INVENTORY_REPOSITORY, InventoryMutationCoordinator],
+      ) =>
+        new ReleaseInventoryReservationUseCase(
+          repository,
+          coordinator,
+        ),
+      inject: [
+        INVENTORY_REPOSITORY,
+        InventoryMutationCoordinator,
+      ],
     },
     {
       provide: CancelInventoryReservationUseCase,
       useFactory: (
         repository: InventoryRepositoryPort,
         coordinator: InventoryMutationCoordinator,
-      ) => new CancelInventoryReservationUseCase(repository, coordinator),
-      inject: [INVENTORY_REPOSITORY, InventoryMutationCoordinator],
+      ) =>
+        new CancelInventoryReservationUseCase(
+          repository,
+          coordinator,
+        ),
+      inject: [
+        INVENTORY_REPOSITORY,
+        InventoryMutationCoordinator,
+      ],
     },
 
     InventoryAvailabilityAdapter,
@@ -213,6 +246,10 @@ import { InventoryRolesGuard } from './presentation/http/security/inventory-role
 
     InventoryRolesGuard,
   ],
-  exports: [INVENTORY_AVAILABILITY, INVENTORY_OPERATIONS],
+  exports: [
+    INVENTORY_AVAILABILITY,
+    INVENTORY_OPERATIONS,
+    INVENTORY_RESERVATION_DIRECTORY,
+  ],
 })
 export class InventarioModule {}

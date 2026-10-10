@@ -1,0 +1,23 @@
+name: Entregas Spaces Backend Build
+on:
+  push:
+    branches: [refactor-entregas-atencion-spaces-20261009]
+  pull_request:
+    branches: [update-requerimientos]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://validation:validation@localhost:5432/validation?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build

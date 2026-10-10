@@ -8,6 +8,7 @@ import {
   CreditPolicyView,
   CreditPortfolioFilters,
   CreditPortfolioPage,
+  CreditPortfolioDetailView,
   CreditScope,
   CreditSummaryFilters,
   CreditSummaryView,
@@ -18,6 +19,7 @@ export interface CreditQueryPort {
   listEvents(id: number, filters: CreditEventFilters): Promise<CreditEventPage>;
   getSummary(filters: CreditSummaryFilters): Promise<CreditSummaryView>;
   listPortfolio(filters: CreditPortfolioFilters): Promise<CreditPortfolioPage>;
+  getPortfolioById(id: number, scope: CreditScope): Promise<CreditPortfolioDetailView | null>;
   listPolicies(filters: {
     page: number;
     limit: number;

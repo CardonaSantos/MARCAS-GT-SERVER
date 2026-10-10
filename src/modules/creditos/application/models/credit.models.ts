@@ -7,6 +7,9 @@ import {
   CreditDecisionType,
   CreditEventType,
   CreditIntegrationState,
+  CreditPaymentPlanEventType,
+  CreditPaymentPlanFrequency,
+  CreditPaymentPlanState,
 } from '../../credit.types';
 export type CreditSortField =
   | 'solicitadaEn'
@@ -373,7 +376,7 @@ export type CreditPortfolioItemView = Readonly<{
     anticipoRequerido: string;
     financiado: string;
     cuentaOriginal: string;
-    saldoPendiente: string;
+    saldoPendiente: string | null;
     pagadoAplicado: string;
   };
   plazoAutorizadoDias: number;
@@ -389,3 +392,108 @@ export type CreditPortfolioItemView = Readonly<{
 }>;
 
 export type CreditPortfolioPage = PageResult<CreditPortfolioItemView>;
+
+export type CreditPortfolioDetailView = Readonly<{
+  id: number;
+  numero: string;
+  estado: string;
+  cliente: CustomerView;
+  vendedor: UserView;
+  aprobadoPor: UserView | null;
+  solicitud: {
+    id: number;
+    numero: string;
+    estado: CreditApplicationState;
+  };
+  pedido: {
+    id: number;
+    numero: string;
+    estado: string;
+    condicionPago: string;
+    estadoPago: string;
+    moneda: string;
+    total: string;
+  };
+  montos: {
+    autorizado: string;
+    anticipoRequerido: string;
+    financiado: string;
+    pagadoVerificado: string;
+    pagadoAplicado: string;
+    anticipoAplicado: string;
+    saldoPendiente: string | null;
+  };
+  anticipo: null | {
+    estado: string;
+    montoOriginal: string;
+    saldoPendiente: string;
+    pagoPendienteId: number | null;
+  };
+  plazoAutorizadoDias: number;
+  aprobadoEn: Date | null;
+  cerradoEn: Date | null;
+  creadoEn: Date;
+  actualizadoEn: Date;
+  planPago: null | {
+    id: number;
+    estado: CreditPaymentPlanState;
+    frecuencia: CreditPaymentPlanFrequency;
+    montoProgramado: string;
+    numeroCuotas: number;
+    primeraFechaVencimiento: Date;
+    activadoEn: Date | null;
+    version: number;
+    cuotas: ReadonlyArray<{
+      id: number;
+      numero: number;
+      montoProgramado: string;
+      fechaVencimiento: Date;
+      estado: string;
+      cuentaPorCobrarId: number | null;
+      montoPagado: string;
+      saldoPendiente: string;
+    }>;
+    eventos: ReadonlyArray<{
+      id: number;
+      tipo: CreditPaymentPlanEventType;
+      estado: CreditPaymentPlanState;
+      detalle: string | null;
+      actor: UserView | null;
+      creadoEn: Date;
+    }>;
+  };
+  cuentasPorCobrar: ReadonlyArray<{
+    id: number;
+    numeroDocumento: string | null;
+    estado: string;
+    montoOriginal: string;
+    saldoPendiente: string;
+    fechaEmision: Date;
+    fechaVencimiento: Date;
+    cuotaNumero: number | null;
+  }>;
+  pagos: ReadonlyArray<{
+    id: number;
+    metodo: string;
+    estado: string;
+    monto: string;
+    montoAplicado: string;
+    montoDisponible: string;
+    referencia: string | null;
+    fechaPago: Date;
+    verificadoEn: Date | null;
+  }>;
+  facturas: ReadonlyArray<{
+    id: number;
+    estado: string;
+    serie: string | null;
+    numero: string | null;
+    total: string;
+    emitidaEn: Date | null;
+    fechaVencimiento: Date | null;
+  }>;
+  acciones: {
+    puedeGestionarPlan: boolean;
+    puedeActivarPlan: boolean;
+  };
+}>;

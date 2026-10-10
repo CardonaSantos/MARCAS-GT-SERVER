@@ -99,6 +99,17 @@ export class CancelInventoryReservationUseCase {
           }),
         );
 
+        await tx.createOrderEvent({
+          pedidoId: detail.pedidoId,
+          actorId: command.actorId,
+          tipo: 'RESERVA_LIBERADA',
+          detalle: `Reserva de inventario cancelada; se liberaron ${released} unidades pendientes.`,
+          referencia: {
+            type: 'RESERVA_INVENTARIO',
+            id: reservation.id!,
+          },
+        });
+
         return this.coordinator.result(
           persistedStock,
           movement.id!,

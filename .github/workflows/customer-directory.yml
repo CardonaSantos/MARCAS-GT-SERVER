@@ -1,0 +1,30 @@
+name: Customer directory contract
+on:
+  push:
+    branches: [update-requerimientos]
+    paths:
+      - "src/customers/**"
+      - ".github/workflows/customer-directory.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  customer-directory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate Prisma client
+        run: npx prisma generate
+      - name: Directory query tests
+        run: npm test -- --runInBand src/customers/directory
+      - name: TypeScript and NestJS build
+        run: npm run build

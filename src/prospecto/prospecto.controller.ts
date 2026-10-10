@@ -7,14 +7,89 @@ import {
   Param,
   Delete,
   ParseIntPipe,
+  Req,
+  UseGuards,
+  UsePipes,
+  ValidationPipe,
+  Query,
 } from '@nestjs/common';
 import { ProspectoService } from './prospecto.service';
+import { AuthGuard } from '@nestjs/passport';
+import { ProspectWorkflowService } from './workflow/prospect-workflow.service';
+import { ProspectHistoryService } from './history/prospect-history.service';
+import { ProspectHistoryQueryDto } from './history/prospect-history-query.dto';
+import {
+  ProspectWorkflowStartDto, ProspectWorkflowFinishDto, ProspectWorkflowCancelDto,
+} from './workflow/prospect-workflow.dto';
+
 import { CreateProspectoDto } from './dto/create-prospecto.dto';
 import { UpdateProspectoDto } from './dto/update-prospecto.dto';
 
 @Controller('prospecto')
 export class ProspectoController {
-  constructor(private readonly prospectoService: ProspectoService) {}
+  constructor(
+    private readonly prospectoService: ProspectoService,
+    private readonly workflow: ProspectWorkflowService,
+    private readonly history: ProspectHistoryService,
+  ) {}
+  /** Historial paginado con alcance de seguridad por sesión. */
+  @Get('historial')
+  @UseGuards(AuthGuard('jwt'))
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
+  listHistory(
+    @Req() req: { user: { userId: number } },
+    @Query() query: ProspectHistoryQueryDto,
+  ) {
+    return this.history.list(Number(req.user.userId), query);
+  }
+
+  @Get('historial/:id')
+  @UseGuards(AuthGuard('jwt'))
+  detailHistory(
+    @Req() req: { user: { userId: number } },
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.history.detail(Number(req.user.userId), id);
+  }
+
+  @Post('historial/:id/convertir-cliente')
+  @UseGuards(AuthGuard('jwt'))
+  convertHistoryCustomer(
+    @Req() req: { user: { userId: number } },
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.history.convertToCustomer(Number(req.user.userId), id);
+  }
+
+  @Get('jornada/abierto')
+  @UseGuards(AuthGuard('jwt'))
+  getOwnActive(@Req() req: { user: { userId: number } }) {
+    return this.workflow.open(Number(req.user.userId));
+  }
+
+  @Post('jornada')
+  @UseGuards(AuthGuard('jwt'))
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  startOwn(@Req() req: { user: { userId: number } }, @Body() dto: ProspectWorkflowStartDto) {
+    return this.workflow.start(Number(req.user.userId), dto);
+  }
+
+  @Patch('jornada/:id/finalizar')
+  @UseGuards(AuthGuard('jwt'))
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  finishOwn(@Req() req: { user: { userId: number } },
+    @Param('id', ParseIntPipe) id: number, @Body() dto: ProspectWorkflowFinishDto) {
+    return this.workflow.finish(Number(req.user.userId), id, dto);
+  }
+
+  @Patch('jornada/:id/cancelar')
+  @UseGuards(AuthGuard('jwt'))
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  cancelOwn(@Req() req: { user: { userId: number } },
+    @Param('id', ParseIntPipe) id: number, @Body() dto: ProspectWorkflowCancelDto) {
+    return this.workflow.cancel(Number(req.user.userId), id, dto);
+  }
+
 
   @Post()
   async create(@Body() createProspectoDto: CreateProspectoDto) {
