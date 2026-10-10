@@ -168,7 +168,7 @@ export class DashboardPrismaQueryAdapter implements DashboardQueryPort {
         return { total, items: items.map(x => ({ ...x, actualizadoEn: date(x.actualizadoEn) })) };
       }
       case 'incidenciasTransporte': {
-        const where = { envio: { empresaId: id }, estado: { in: ['ABIERTA','EN_ATENCION'] as const } };
+        const where: Prisma.EnvioIncidenciaWhereInput = { envio: { empresaId: id }, estado: { in: ['ABIERTA','EN_ATENCION'] } };
         const [total, items] = await Promise.all([
           this.db.envioIncidencia.count({ where }),
           this.db.envioIncidencia.findMany({ where, orderBy: { reportadaEn: 'desc' }, take: s.limit,
@@ -197,7 +197,7 @@ export class DashboardPrismaQueryAdapter implements DashboardQueryPort {
           items: items.map(x => ({ ...x, saldoPendiente: money(x.saldoPendiente), fechaVencimiento: date(x.fechaVencimiento) })) };
       }
       case 'pedidosPendientes': {
-        const where = { empresaId: id, estado: { in: ['PENDIENTE_VALIDACION','CONFIRMADO','EN_PREPARACION','PARCIALMENTE_DESPACHADO'] as const } };
+        const where: Prisma.PedidoWhereInput = { empresaId: id, estado: { in: ['PENDIENTE_VALIDACION','CONFIRMADO','EN_PREPARACION','PARCIALMENTE_DESPACHADO'] } };
         const [total, items] = await Promise.all([
           this.db.pedido.count({ where }),
           this.db.pedido.findMany({ where, orderBy: { creadoEn: 'asc' }, take: s.limit,
@@ -206,7 +206,7 @@ export class DashboardPrismaQueryAdapter implements DashboardQueryPort {
         return { total, items: items.map(x => ({ ...x, total: money(x.total), creadoEn: date(x.creadoEn) })) };
       }
       case 'salidasProgramadas': {
-        const where = { empresaId: id, estado: { in: ['PROGRAMADO','ASIGNADO','CARGADO'] as const },
+        const where: Prisma.EnvioWhereInput = { empresaId: id, estado: { in: ['PROGRAMADO','ASIGNADO','CARGADO'] },
           salidaProgramadaEn: { gte: s.now, lt: new Date(s.now.getTime() + 7 * 86400000) } };
         const [total, items] = await Promise.all([
           this.db.envio.count({ where }),
@@ -216,7 +216,7 @@ export class DashboardPrismaQueryAdapter implements DashboardQueryPort {
         return { total, items: items.map(x => ({ ...x, salidaProgramadaEn: date(x.salidaProgramadaEn) })) };
       }
       case 'transferenciasPorRecibir': {
-        const where = { bodegaOrigen: { empresaId: id }, estado: { in: ['EN_TRANSITO','RECIBIDA_PARCIAL'] as const } };
+        const where: Prisma.TransferenciaBodegaWhereInput = { bodegaOrigen: { empresaId: id }, estado: { in: ['EN_TRANSITO','RECIBIDA_PARCIAL'] } };
         const [total, items] = await Promise.all([
           this.db.transferenciaBodega.count({ where }),
           this.db.transferenciaBodega.findMany({ where, orderBy: { enviadaEn: 'asc' }, take: s.limit,
@@ -290,7 +290,7 @@ export class DashboardPrismaQueryAdapter implements DashboardQueryPort {
         return rows.map(x => ({ ...x, actualizadoEn: date(x.actualizadoEn) }));
       }
       case 'enviosEnRuta': {
-        const where = { empresaId: id, estado: { in: ['EN_RUTA','INCIDENCIA'] as const } };
+        const where: Prisma.EnvioWhereInput = { empresaId: id, estado: { in: ['EN_RUTA','INCIDENCIA'] } };
         const [total, items] = await Promise.all([
           this.db.envio.count({ where }),
           this.db.envio.findMany({ where, take: s.limit, orderBy: { salidaEn: 'desc' },
