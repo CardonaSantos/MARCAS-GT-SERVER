@@ -266,9 +266,7 @@ async function loadVerifiedSales(db: Tx | PrismaClient, plan: Plan) {
 async function assertReadyRowsUnchanged(tx: Tx, rows: SourceRow[]) {
   if (!rows.length) return rows;
   const ids = rows.map(r => r.stockId);
-  await tx.$queryRawUnsafe(
-    'SELECT "id" FROM "Stock" WHERE "id" = ANY($1::int[]) ORDER BY "id" FOR UPDATE', ids,
-  );
+  await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Stock" WHERE "id" IN (${Prisma.join(ids)}) ORDER BY "id" FOR UPDATE`);
   const sources = await tx.stock.findMany({
     where: { id: { in: ids } }, include: { producto: true },
   });
