@@ -43,10 +43,12 @@ type Plan = {
 let prisma: PrismaClient;
 const planVersion = 1;
 const fixedBatchId = "LEGACY_STOCK_V1";
+const maxBatchSize = 50;
+const defaultBatchSize = 25;
 const txOptions = {
   isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-  timeout: 120_000,
-  maxWait: 10_000,
+  timeout: 60_000,
+  maxWait: 15_000,
 };
 type Tx = Prisma.TransactionClient;
 const serializableLock = async (tx: Tx) => {
@@ -54,11 +56,11 @@ const serializableLock = async (tx: Tx) => {
   await tx.$queryRawUnsafe('SELECT 1 AS "locked" FROM pg_advisory_xact_lock(472641, 1)');
 };
 
-function parseArgs(): { mode: Mode; warehouseId: number; file: string; confirm?: string } {
+export function parseArgs(args: string[] = process.argv.slice(2)): { mode: Mode; warehouseId: number; file: string; confirm?: string; batchSize: number } {
   const values: Record<string, string> = {};
-  for (const raw of process.argv.slice(2)) {
+  for (const raw of args) {
     const match = /^--([a-z-]+)=(.+)$/.exec(raw);
-    if (!match || !["mode", "warehouse-id", "file", "confirm"].includes(match[1]) || values[match[1]]) {
+    if (!match || !["mode", "warehouse-id", "file", "confirm", "batch-size"].includes(match[1]) || values[match[1]]) {
       throw new Error("Argumento inválido o repetido: " + raw);
     }
     values[match[1]] = match[2];
@@ -75,7 +77,11 @@ function parseArgs(): { mode: Mode; warehouseId: number; file: string; confirm?:
   if ((mode === "apply" || mode === "rollback") && values.confirm !== fixedBatchId) {
     throw new Error("Operación bloqueada. Se requiere --confirm=" + fixedBatchId);
   }
-  return { mode: mode as Mode, warehouseId, file: resolve(values.file), confirm: values.confirm };
+  const batchSize = Number(values["batch-size"] ?? defaultBatchSize);
+  if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > maxBatchSize) {
+    throw new Error("--batch-size debe estar entre 1 y " + maxBatchSize);
+  }
+  return { mode: mode as Mode, warehouseId, file: resolve(values.file), confirm: values.confirm, batchSize };
 }
 
 function sha(data: unknown): string {
@@ -238,56 +244,143 @@ async function generatePlan(warehouseId: number, filename: string) {
   console.log("Revisa las filas omitidas antes de aplicar.");
 }
 
+/** Tamaño acotado de los lotes: cada lote confirma su propia transacción. */
+export function splitReadyBatches<T extends { stockId: number; status: Status }>(
+  rows: T[], size: number,
+): T[][] {
+  if (!Number.isSafeInteger(size) || size < 1 || size > maxBatchSize) {
+    throw new Error("Tamaño de lote fuera del rango 1.." + maxBatchSize);
+  }
+  const ready = rows.filter(r => r.status === "READY").sort((a,b) => a.stockId - b.stockId);
+  const batches: T[][] = [];
+  for (let i=0;i<ready.length;i+=size) batches.push(ready.slice(i,i+size));
+  return batches;
+}
+
 async function loadVerifiedSales(db: Tx | PrismaClient, plan: Plan) {
   const sales = await salesSnapshot(db);
   if (sha(sales) !== sha(plan.sales)) throw new Error(
     "El historial de ventas legacy cambió desde el plan. Operación bloqueada.");
 }
 
-async function assertReadyRowsUnchanged(tx: Tx, plan: Plan) {
-  const items = plan.rows.filter(r => r.status === "READY");
-  for (const row of items) {
-    // Bloqueo exclusivo del origen; obliga a coordinar con escrituras legacy.
-    await tx.$queryRawUnsafe('SELECT "id" FROM "Stock" WHERE "id" = $1 FOR UPDATE', row.stockId);
-    const source = await tx.stock.findUnique({ where: { id: row.stockId }, include: { producto: true } });
-    assertCandidateCurrent(row, source);
-  }
-  return items;
+async function assertReadyRowsUnchanged(tx: Tx, rows: SourceRow[]) {
+  if (!rows.length) return rows;
+  const ids = rows.map(r => r.stockId);
+  await tx.$queryRawUnsafe(
+    'SELECT "id" FROM "Stock" WHERE "id" = ANY($1::int[]) ORDER BY "id" FOR UPDATE', ids,
+  );
+  const sources = await tx.stock.findMany({
+    where: { id: { in: ids } }, include: { producto: true },
+  });
+  const byId = new Map(sources.map(row => [row.id, row]));
+  for (const row of rows) assertCandidateCurrent(row, byId.get(row.stockId) ?? null);
+  return rows;
 }
 
-async function applyPlan(plan: Plan) {
-  const result = await prisma.$transaction(async tx => {
+function validateImport(row: SourceRow, current: {
+  tipo: string; productoId: number; bodegaId: number; cantidad: number;
+  referenciaTipo: string | null; referenciaId: number | null;
+}, warehouseId: number) {
+  if (current.tipo !== "MIGRACION_INICIAL" || current.productoId !== row.productoId ||
+      current.bodegaId !== warehouseId || current.cantidad !== row.cantidad ||
+      current.referenciaTipo !== "STOCK_LEGACY" || current.referenciaId !== row.stockId) {
+    throw new Error("Movimiento existente incompatible con el plan: " + row.sku);
+  }
+}
+
+async function existingKeys(db: Tx | PrismaClient, rows: SourceRow[], warehouseId: number) {
+  if (!rows.length) return [];
+  return db.movimientoInventario.findMany({
+    where: { claveIdempotencia: { in: rows.flatMap(row => [
+      movementKey(warehouseId, row.stockId), undoKey(warehouseId, row.stockId),
+    ]) } },
+  });
+}
+
+async function assertNoNewInventory(db: Tx | PrismaClient, rows: SourceRow[]) {
+  if (!rows.length) return;
+  const ids = rows.map(r => r.productoId);
+  const [stocks, movements] = await Promise.all([
+    db.stockBodega.findMany({
+      where: { productoId: { in: ids } }, select: { productoId: true },
+    }),
+    db.movimientoInventario.findMany({
+      where: { productoId: { in: ids } }, select: { productoId: true },
+      distinct: ["productoId"],
+    }),
+  ]);
+  const conflicts = new Set([...stocks, ...movements].map(item => item.productoId));
+  const conflict = rows.find(row => conflicts.has(row.productoId));
+  if (conflict) throw new Error("Inventario nuevo ya contiene " + conflict.sku +
+    " y no fue importado por este plan. Conciliar antes de continuar.");
+}
+
+/** Preflight global antes de confirmar cualquier lote. */
+async function preflightApply(plan: Plan, batches: SourceRow[][]) {
+  const warehouse = await assertTarget(prisma, plan.warehouse.id);
+  if (warehouse.empresaId !== plan.warehouse.empresaId) throw new Error("La empresa destino cambió.");
+  await loadVerifiedSales(prisma, plan);
+  const rows = batches.flat();
+  const sources = await prisma.stock.findMany({
+    where: { id: { in: rows.map(r => r.stockId) } }, include: { producto: true },
+  });
+  const byId = new Map(sources.map(row => [row.id, row]));
+  for (const row of rows) assertCandidateCurrent(row, byId.get(row.stockId) ?? null);
+  const keyed = new Map((await existingKeys(prisma, rows, plan.warehouse.id))
+    .map(item => [item.claveIdempotencia, item]));
+  const pending: SourceRow[] = [];
+  for (const row of rows) {
+    const original = keyed.get(movementKey(plan.warehouse.id, row.stockId));
+    const undone = keyed.get(undoKey(plan.warehouse.id, row.stockId));
+    if (undone) throw new Error("Ya se revirtió este producto: " + row.sku);
+    if (original) validateImport(row, original, plan.warehouse.id);
+    else pending.push(row);
+  }
+  await assertNoNewInventory(prisma, pending);
+  const imported = rows.filter(row =>
+    keyed.has(movementKey(plan.warehouse.id, row.stockId)));
+  if (imported.length) {
+    const stocks = await prisma.stockBodega.findMany({
+      where: {
+        bodegaId: plan.warehouse.id,
+        productoId: { in: imported.map(row => row.productoId) },
+      },
+      select: { productoId: true },
+    });
+    const stockIds = new Set(stocks.map(item => item.productoId));
+    const missing = imported.find(row => !stockIds.has(row.productoId));
+    if (missing) throw new Error("Movimiento importado sin StockBodega: " + missing.sku);
+  }
+  console.log("PRECHECK OK: ventas, origen y duplicados revisados; pendientes " +
+    pending.length + ", previamente importados " + (rows.length - pending.length) + ".");
+}
+
+async function applyBatch(plan: Plan, rows: SourceRow[]) {
+  return prisma.$transaction(async tx => {
     await serializableLock(tx);
     const warehouse = await assertTarget(tx, plan.warehouse.id);
     if (warehouse.empresaId !== plan.warehouse.empresaId) throw new Error("La empresa destino cambió.");
+    await assertReadyRowsUnchanged(tx, rows);
     await loadVerifiedSales(tx, plan);
-    const rows = await assertReadyRowsUnchanged(tx, plan);
-    // No aceptar cambios en los omitidos: requieren conciliarse aparte si se alteraron.
-    let inserted = 0, repeated = 0;
+    const keyed = new Map((await existingKeys(tx, rows, plan.warehouse.id))
+      .map(item => [item.claveIdempotencia, item]));
+    const pending: SourceRow[] = [];
+    let repeated = 0;
     for (const row of rows) {
-      const key = movementKey(plan.warehouse.id, row.stockId);
-      const [existing, rollback] = await Promise.all([
-        tx.movimientoInventario.findUnique({ where: { claveIdempotencia: key } }),
-        tx.movimientoInventario.findUnique({ where: { claveIdempotencia: undoKey(plan.warehouse.id, row.stockId) } }),
-      ]);
-      if (rollback) throw new Error("Ya se revirtió este producto; no se puede reimportar: " + row.sku);
-      if (existing) {
-        if (existing.productoId !== row.productoId || existing.bodegaId !== plan.warehouse.id ||
-            existing.cantidad !== row.cantidad || existing.tipo !== "MIGRACION_INICIAL") {
-          throw new Error("Clave idempotente vinculada a otro movimiento: " + row.sku);
-        }
-        repeated++;
-        continue;
+      const original = keyed.get(movementKey(plan.warehouse.id, row.stockId));
+      if (keyed.has(undoKey(plan.warehouse.id, row.stockId))) {
+        throw new Error("Producto revertido; no se permite reimportar: " + row.sku);
       }
-      const existingInventory = await tx.stockBodega.findFirst({ where: { productoId: row.productoId } });
-      if (existingInventory) throw new Error(
-        "El producto ya tiene un StockBodega; requiere conciliación: " + row.sku);
-      const movementOfProduct = await tx.movimientoInventario.count({ where: { productoId: row.productoId } });
-      if (movementOfProduct > 0) throw new Error("El producto tiene movimientos previos: " + row.sku);
+      if (original) { validateImport(row, original, plan.warehouse.id); repeated++; }
+      else pending.push(row);
+    }
+    await assertNoNewInventory(tx, pending);
+    for (const row of pending) {
       const stock = await tx.stockBodega.create({
         data: {
           bodegaId: plan.warehouse.id, productoId: row.productoId,
-          cantidadReal: row.cantidad, cantidadReservada: 0, cantidadDisponible: row.cantidad,
+          cantidadReal: row.cantidad, cantidadReservada: 0,
+          cantidadDisponible: row.cantidad,
           costoPromedio: row.costoUnitario!, version: 1,
         },
       });
@@ -301,108 +394,222 @@ async function applyPlan(plan: Plan) {
           cantidadRealAntes: 0, cantidadRealDespues: row.cantidad,
           reservadaAntes: 0, reservadaDespues: 0,
           referenciaTipo: "STOCK_LEGACY", referenciaId: row.stockId,
-          claveIdempotencia: key,
+          claveIdempotencia: movementKey(plan.warehouse.id, row.stockId),
           observaciones: "Importación inicial legacy; lote " + fixedBatchId +
             "; registro Stock #" + row.stockId + ". Origen no modificado.",
         },
       });
-      inserted++;
     }
-    return { inserted, repeated, total: rows.length };
+    return { inserted: pending.length, repeated, total: rows.length };
   }, txOptions);
-  console.log("APLICACIÓN ATÓMICA: " + JSON.stringify(result) +
-    ". Si se produjo una excepción, PostgreSQL revirtió todo este intento.");
+}
+
+async function applyPlan(plan: Plan, batchSize: number) {
+  const batches = splitReadyBatches(plan.rows, batchSize);
+  await preflightApply(plan, batches);
+  let inserted = 0, repeated = 0;
+  console.log("INICIO: " + batches.length + " lotes de hasta " + batchSize +
+    " productos. Cada lote se confirma de forma independiente.");
+  for (const [index, rows] of batches.entries()) {
+    try {
+      const result = await applyBatch(plan, rows);
+      inserted += result.inserted;
+      repeated += result.repeated;
+      console.log("Lote " + (index + 1) + "/" + batches.length +
+        " CONFIRMADO: nuevos " + result.inserted + ", repetidos " + result.repeated +
+        "; " + (inserted + repeated) + "/" + batches.reduce((sum, part) => sum + part.length, 0));
+    } catch (error) {
+      console.error("FALLO en lote " + (index + 1) + "/" + batches.length +
+        ". Los lotes anteriores permanecen confirmados.");
+      console.error("Ejecuta --mode=verify y reanuda con el MISMO plan y comando.");
+      throw error;
+    }
+  }
+  await loadVerifiedSales(prisma, plan);
+  console.log("APLICACIÓN COMPLETADA: " + JSON.stringify({
+    inserted, repeated, total: inserted + repeated,
+  }));
+  console.log("Ejecuta --mode=verify antes de habilitar operaciones nuevas.");
 }
 
 async function verifyPlan(plan: Plan) {
   const warehouse = await assertTarget(prisma, plan.warehouse.id);
-  if (warehouse.empresaId !== plan.warehouse.empresaId) throw new Error("Empresa de destino distinta");
+  if (warehouse.empresaId !== plan.warehouse.empresaId) throw new Error("Empresa de destino distinta.");
   const sales = await salesSnapshot(prisma);
   const salesMatch = sha(sales) === sha(plan.sales);
   const rows = plan.rows.filter(r => r.status === "READY");
   const results: Record<string, number> = {};
   const problems: string[] = [];
-  for (const row of rows) {
-    const migrated = await prisma.movimientoInventario.findUnique({
-      where: { claveIdempotencia: movementKey(plan.warehouse.id, row.stockId) },
-    });
-    const undone = await prisma.movimientoInventario.findUnique({
-      where: { claveIdempotencia: undoKey(plan.warehouse.id, row.stockId) },
-    });
-    const stock = await prisma.stockBodega.findUnique({
-      where: { bodegaId_productoId: { bodegaId: plan.warehouse.id, productoId: row.productoId } },
-    });
-    const state = undone ? "ROLLED_BACK" : migrated ? "APPLIED" : "NOT_APPLIED";
-    results[state] = (results[state] ?? 0) + 1;
-    if (migrated && (migrated.productoId !== row.productoId || migrated.cantidad !== row.cantidad)) {
-      problems.push("Movimiento inconsistente: " + row.sku);
+  const size = 100;
+  for (let start = 0; start < rows.length; start += size) {
+    const part = rows.slice(start, start + size);
+    const [movementRows, stocks] = await Promise.all([
+      existingKeys(prisma, part, plan.warehouse.id),
+      prisma.stockBodega.findMany({
+        where: { bodegaId: plan.warehouse.id, productoId: { in: part.map(r => r.productoId) } },
+      }),
+    ]);
+    const movements = new Map(movementRows.map(r => [r.claveIdempotencia, r]));
+    const byProduct = new Map(stocks.map(r => [r.productoId, r]));
+    for (const row of part) {
+      const original = movements.get(movementKey(plan.warehouse.id, row.stockId));
+      const undo = movements.get(undoKey(plan.warehouse.id, row.stockId));
+      const stock = byProduct.get(row.productoId);
+      const state = undo ? "ROLLED_BACK" : original ? "APPLIED" : "NOT_APPLIED";
+      results[state] = (results[state] ?? 0) + 1;
+      if (undo && !original) problems.push("Reversión sin importación: " + row.sku);
+      if (original) {
+        try { validateImport(row, original, plan.warehouse.id); }
+        catch (error) { problems.push((error as Error).message); }
+      }
+      if (state === "NOT_APPLIED" && stock) {
+        problems.push("Producto sin importación que ya tiene existencias nuevas: " + row.sku);
+      }
+      if (state === "APPLIED" && !stock) problems.push("StockBodega desapareció: " + row.sku);
+      if (state === "APPLIED" && stock) {
+        if (stock.cantidadReal < 0 || stock.cantidadReservada < 0 ||
+            stock.cantidadDisponible !== stock.cantidadReal - stock.cantidadReservada) {
+          problems.push("Invariante real/reservado/disponible inconsistente: " + row.sku);
+        }
+        if (stock.version === 1 &&
+            (stock.cantidadReal !== row.cantidad || stock.cantidadReservada !== 0 ||
+             stock.costoPromedio.toFixed(4) !== row.costoUnitario)) {
+          problems.push("Stock importado no coincide con el plan: " + row.sku);
+        }
+      }
+      if (state === "ROLLED_BACK" && (!stock || stock.cantidadReal < 0)) {
+        problems.push("Stock revertido inválido: " + row.sku);
+      }
     }
-    if (state === "APPLIED" && !stock) problems.push("StockBodega desaparecido: " + row.sku);
-    if (state === "ROLLED_BACK" && stock && stock.cantidadReal < 0) problems.push("Cantidad inválida: " + row.sku);
   }
   console.log(JSON.stringify({
     warehouse, candidates: rows.length, results, legacySalesUnchanged: salesMatch,
     salesAtPlan: plan.sales, salesNow: sales, problems,
   }, null, 2));
-  if (!salesMatch) throw new Error("DIFERENCIA en el historial de ventas legacy (no modificada por el script)");
-  if (problems.length) throw new Error("Hay inconsistencias en la verificación");
+  if (!salesMatch) throw new Error("DIFERENCIA en el historial de ventas legacy.");
+  if (problems.length) throw new Error("Hay inconsistencias en la verificación.");
 }
 
-async function rollbackPlan(plan: Plan) {
-  const result = await prisma.$transaction(async tx => {
+type RollbackCandidate = { row: SourceRow; movementId: number };
+async function inspectRollbackCandidates(
+  db: Tx | PrismaClient, plan: Plan, rows: SourceRow[],
+): Promise<{ pending: RollbackCandidate[]; repeated: number; absent: number }> {
+  const keyed = new Map((await existingKeys(db, rows, plan.warehouse.id))
+    .map(item => [item.claveIdempotencia, item]));
+  const productIds = rows.map(row => row.productoId);
+  const [stocks, movementCounts] = await Promise.all([
+    db.stockBodega.findMany({
+      where: { bodegaId: plan.warehouse.id, productoId: { in: productIds } },
+    }),
+    db.movimientoInventario.groupBy({
+      by: ["productoId"], where: { productoId: { in: productIds } },
+      _count: { _all: true },
+    }),
+  ]);
+  const byProduct = new Map(stocks.map(stock => [stock.productoId, stock]));
+  const counts = new Map(movementCounts.map(item => [item.productoId, item._count._all]));
+  const pending: RollbackCandidate[] = [];
+  let repeated = 0, absent = 0;
+  for (const row of rows) {
+    const original = keyed.get(movementKey(plan.warehouse.id, row.stockId));
+    const undo = keyed.get(undoKey(plan.warehouse.id, row.stockId));
+    if (!original && undo) throw new Error("Reversión sin movimiento inicial: " + row.sku);
+    if (!original) { absent++; continue; }
+    validateImport(row, original, plan.warehouse.id);
+    if (undo) {
+      if (undo.tipo !== "AJUSTE_SALIDA" || undo.productoId !== row.productoId ||
+          undo.bodegaId !== plan.warehouse.id || undo.cantidad !== row.cantidad) {
+        throw new Error("Reversión previa incompatible: " + row.sku);
+      }
+      repeated++; continue;
+    }
+    const stock = byProduct.get(row.productoId);
+    if (!stock || stock.version !== 1 || stock.cantidadReal !== row.cantidad ||
+        stock.cantidadReservada !== 0 || stock.cantidadDisponible !== row.cantidad ||
+        stock.costoPromedio.toFixed(4) !== row.costoUnitario) {
+      throw new Error("NO REVERSIBLE: stock modificado después de importar " + row.sku);
+    }
+    if (counts.get(row.productoId) !== 1) {
+      throw new Error("NO REVERSIBLE: movimientos posteriores a la migración: " + row.sku);
+    }
+    pending.push({ row, movementId: original.id });
+  }
+  return { pending, repeated, absent };
+}
+
+async function rollbackBatch(plan: Plan, rows: SourceRow[]) {
+  return prisma.$transaction(async tx => {
     await serializableLock(tx);
     const warehouse = await assertTarget(tx, plan.warehouse.id);
-    if (warehouse.empresaId !== plan.warehouse.empresaId) throw new Error("Empresa de destino distinta.");
-    const rows = await assertReadyRowsUnchanged(tx, plan);
-    let reversed = 0, repeated = 0;
-    for (const row of rows) {
-      const originalKey = movementKey(plan.warehouse.id, row.stockId);
-      const rollbackKey = undoKey(plan.warehouse.id, row.stockId);
-      const migration = await tx.movimientoInventario.findUnique({ where: { claveIdempotencia: originalKey } });
-      const existingUndo = await tx.movimientoInventario.findUnique({ where: { claveIdempotencia: rollbackKey } });
-      if (existingUndo) { repeated++; continue; }
-      if (!migration) continue; // lote no aplicado a este producto
-      if (migration.tipo !== "MIGRACION_INICIAL" || migration.productoId !== row.productoId ||
-          migration.cantidad !== row.cantidad) throw new Error("Movimiento original no coincide: " + row.sku);
-      const stock = await tx.stockBodega.findUnique({
-        where: { bodegaId_productoId: { bodegaId: plan.warehouse.id, productoId: row.productoId } },
-      });
-      if (!stock || stock.version !== 1 || stock.cantidadReal !== row.cantidad ||
-          stock.cantidadReservada !== 0 || stock.cantidadDisponible !== row.cantidad) {
-        throw new Error("NO REVERSIBLE: stock modificado tras migración: " + row.sku);
-      }
-      const laterMovements = await tx.movimientoInventario.count({
-        where: { productoId: row.productoId, id: { not: migration.id } },
-      });
-      if (laterMovements) throw new Error("NO REVERSIBLE: movimientos posteriores en: " + row.sku);
+    if (warehouse.empresaId !== plan.warehouse.empresaId) throw new Error("La empresa destino cambió.");
+    await assertReadyRowsUnchanged(tx, rows);
+    const state = await inspectRollbackCandidates(tx, plan, rows);
+    for (const { row, movementId } of state.pending) {
       const updated = await tx.stockBodega.updateMany({
-        where: { id: stock.id, version: 1, cantidadReal: row.cantidad, cantidadReservada: 0 },
+        where: {
+          bodegaId: plan.warehouse.id, productoId: row.productoId,
+          version: 1, cantidadReal: row.cantidad, cantidadReservada: 0,
+          cantidadDisponible: row.cantidad,
+        },
         data: {
           cantidadReal: 0, cantidadReservada: 0, cantidadDisponible: 0,
           costoPromedio: new Prisma.Decimal(0), version: { increment: 1 },
         },
       });
-      if (updated.count !== 1) throw new Error("Stock cambió concurrentemente: " + row.sku);
+      if (updated.count !== 1) throw new Error("Stock modificado durante rollback: " + row.sku);
       await tx.movimientoInventario.create({
         data: {
           bodegaId: plan.warehouse.id, productoId: row.productoId,
           proveedorId: null, creadoPorId: null, reservaInventarioId: null,
           tipo: "AJUSTE_SALIDA", cantidad: row.cantidad,
           costoUnitario: row.costoUnitario,
-          costoPromedioAntes: stock.costoPromedio, costoPromedioDespues: new Prisma.Decimal(0),
+          costoPromedioAntes: new Prisma.Decimal(row.costoUnitario!),
+          costoPromedioDespues: new Prisma.Decimal(0),
           cantidadRealAntes: row.cantidad, cantidadRealDespues: 0,
           reservadaAntes: 0, reservadaDespues: 0,
           referenciaTipo: "STOCK_LEGACY_ROLLBACK", referenciaId: row.stockId,
-          claveIdempotencia: rollbackKey,
-          observaciones: "Reversión auditada del lote " + fixedBatchId + "; movimiento #" + migration.id,
+          claveIdempotencia: undoKey(plan.warehouse.id, row.stockId),
+          observaciones: "Reversión auditada del lote " + fixedBatchId +
+            "; movimiento #" + movementId,
         },
       });
-      reversed++;
     }
-    return { reversed, repeated };
+    return { reversed: state.pending.length, repeated: state.repeated, absent: state.absent };
   }, txOptions);
-  console.log("REVERSIÓN ATÓMICA Y AUDITADA: " + JSON.stringify(result));
-  console.log("Los movimientos del kardex permanecen como evidencia. No se alteró Stock legacy.");
+}
+
+async function rollbackPlan(plan: Plan, batchSize: number) {
+  const batches = splitReadyBatches(plan.rows, batchSize);
+  const warehouse = await assertTarget(prisma, plan.warehouse.id);
+  if (warehouse.empresaId !== plan.warehouse.empresaId) throw new Error("La empresa destino cambió.");
+  // No se permite una reversión parcial previsible: primero se evalúa TODO el lote.
+  await loadVerifiedSales(prisma, plan);
+  const sourceRows = batches.flat();
+  const sources = await prisma.stock.findMany({
+    where: { id: { in: sourceRows.map(row => row.stockId) } }, include: { producto: true },
+  });
+  const sourcesById = new Map(sources.map(row => [row.id, row]));
+  for (const row of sourceRows) assertCandidateCurrent(row, sourcesById.get(row.stockId) ?? null);
+  await inspectRollbackCandidates(prisma, plan, sourceRows);
+  console.log("PRECHECK DE ROLLBACK OK: sin reservas, despachos ni cambios en registros aplicados.");
+  let reversed = 0, repeated = 0, absent = 0;
+  for (const [index, rows] of batches.entries()) {
+    try {
+      const result = await rollbackBatch(plan, rows);
+      reversed += result.reversed;
+      repeated += result.repeated;
+      absent += result.absent;
+      console.log("Reversión lote " + (index + 1) + "/" + batches.length +
+        " CONFIRMADA: -" + result.reversed + ", ya revertidos " + result.repeated +
+        ", no importados " + result.absent);
+    } catch (error) {
+      console.error("FALLO al revertir lote " + (index + 1) +
+        ". Los lotes anteriores quedaron compensados; ejecuta --mode=verify.");
+      throw error;
+    }
+  }
+  console.log("REVERSIÓN COMPLETADA: " + JSON.stringify({ reversed, repeated, absent }));
+  console.log("Stock legacy y ventas no fueron modificados. Los movimientos permanecen auditados.");
 }
 
 async function main() {
@@ -412,8 +619,8 @@ async function main() {
   console.log("Modo: " + options.mode + "; bodega esperada: " + options.warehouseId);
   if (options.mode === "plan") return generatePlan(options.warehouseId, options.file);
   const plan = loadPlan(options.file, options.warehouseId);
-  if (options.mode === "apply") return applyPlan(plan);
-  if (options.mode === "rollback") return rollbackPlan(plan);
+  if (options.mode === "apply") return applyPlan(plan, options.batchSize);
+  if (options.mode === "rollback") return rollbackPlan(plan, options.batchSize);
   return verifyPlan(plan);
 }
 

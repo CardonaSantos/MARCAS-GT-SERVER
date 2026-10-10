@@ -24,4 +24,5 @@ jobs:
       - run: npx tsc --noEmit --project tsconfig.json
       - run: npm run build
       - run: npm test -- --runInBand legacy-stock-backfill.spec
+      - run: npm test -- --runInBand legacy-stock-batches.spec
       - run: npm test -- --runInBand legacy-stock-fixture.spec

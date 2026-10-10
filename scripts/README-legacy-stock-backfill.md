@@ -66,27 +66,53 @@ El archivo del plan no se sobrescribe: utiliza una ruta nueva para otro ensayo.
 
     npm run stock:legacy -- --mode=apply --warehouse-id=1 --file=migration-reports/legacy-stock-ensayo.json --confirm=LEGACY_STOCK_V1
 
-La aplicación usa una transacción PostgreSQL SERIALIZABLE para **todos los candidatos**.
-Si un producto falla, se revierte toda esa ejecución (no deja mitad del lote).
-Durante la transacción verifica nuevamente las ventas legacy y la fotografía del
-Stock origen. Nunca toca la tabla Stock original.
+Para 840 productos se procesan **34 lotes de hasta 25**. En caso de latencia
+elevada hacia Railway, añadir `--batch-size=5` como último argumento.
+El mismo plan original sigue siendo válido.
+
+La aplicación divide los candidatos READY en **lotes de 25 productos** (tamaño
+ajustable entre 1 y 50 con `--batch-size=N`). Cada lote usa su propia transacción
+PostgreSQL SERIALIZABLE con timeout de 60 segundos. **Ya no existe una sola
+transacción para todos los candidatos**: si el lote 14 falla, los lotes 1-13
+permanecen aplicados y el lote 14 se revierte. Por eso una importación
+interrumpida puede quedar PARCIAL y debe verificarse.
+
+Antes del primer lote el script compara las ventas legacy, las fuentes Stock
+y los movimientos existentes con el plan. Repite las comprobaciones del origen
+y del historial de ventas dentro de cada lote, valida claves idempotentes y
+bloquea productos con existencias nuevas no asociadas a esta migración.
+Nunca modifica la tabla Stock original.
 
 Cada candidato genera una fila StockBodega (real=disponible, reservada=0,
 costoPromedio=Producto.costo) y un MovimientoInventario MIGRACION_INICIAL con:
 clave única determinista por bodega y Stock.id, cantidad y costos antes/después,
 referencia al Stock legacy y motivo del lote.
 
-Si la misma aplicación se repite con el mismo plan, reconoce las claves existentes
-y **no incrementa otra vez** los saldos. Una operación revertida no se puede
-reimportar con el mismo identificador: requiere una conciliación y una versión
-nueva de migración.
+**Reanudación:** si hay un error o se corta la conexión con Railway:
+1. Ejecutar **verify con el mismo archivo de plan**. Puede mostrar una mezcla
+   de `APPLIED` y `NOT_APPLIED`: es normal si varios lotes ya terminaron.
+2. No generar otro plan, no editar el JSON y no usar la venta legacy.
+3. Volver a ejecutar exactamente el comando `--mode=apply` con el **mismo plan**.
+   El proceso reconoce los movimientos ya confirmados y no duplica existencias.
 
-El límite actual de espera de la transacción es 120 s; para catálogos muy grandes
-se debe preparar una estrategia por lotes y no aumentar el timeout a ciegas.
+Si una transacción de 25 productos sigue agotando tiempo desde tu PC, vuelve a
+intentar después de `verify` agregando `--batch-size=5`; no se necesita
+cambiar el plan original. Una transacción solo conserva o revierte el contenido
+de su lote. Una operación revertida no puede reimportarse con el mismo
+identificador y requiere conciliación explícita.
+
+Los logs muestran `Lote 1/34 CONFIRMADO`, cantidad nueva y repetida.
+**No hacer operaciones de inventario nuevo hasta completar verify con 840
+APPLIED y 0 problemas.**
 
 ### 3. Verificación
 
     npm run stock:legacy -- --mode=verify --warehouse-id=1 --file=migration-reports/legacy-stock-ensayo.json
+
+`verify` reporta por separado `APPLIED`, `NOT_APPLIED` y `ROLLED_BACK`,
+incluyendo migraciones interrumpidas a mitad. Su consulta del kardex y StockBodega
+se efectúa en grupos, sin 3 consultas por producto. Si el resultado es parcial,
+**no utilizar el inventario nuevo**: completar o revertir primero.
 
 Compara los movimientos registrados, la existencia de StockBodega y las
 huellas SHA-256 del historial de ventas y sus productos contra el plan.
@@ -105,10 +131,16 @@ el resultado sea consistente.
 
     npm run stock:legacy -- --mode=rollback --warehouse-id=1 --file=migration-reports/legacy-stock-ensayo.json --confirm=LEGACY_STOCK_V1
 
-Reversión transaccional de todo el lote: sólo si cada StockBodega sigue exactamente
-con cantidad inicial, reservado 0, versión 1, y sin otros movimientos de inventario.
-Si existieron reservas, despachos, transferencias o ajustes, **se rechaza por completo**
-y se debe conciliar manualmente.
+La reversión realiza una **validación global antes de escribir**: cada
+StockBodega importado debe conservar cantidad original, reservado 0, versión 1,
+costo original y no tener otros movimientos. Si se detectan reservas, despachos
+o ajustes, la reversión se rechaza **antes de comenzar**.
+
+Después aplica compensaciones por lotes transaccionales, igual que `apply`.
+Si se interrumpe una reversión, puede quedar parcialmente compensada:
+ejecuta `--mode=verify` y vuelve a ejecutar el mismo `rollback`; los
+movimientos de reversión ya existentes no se duplican. No usar inventario nuevo
+mientras se revierte.
 
 La reversión deja StockBodega en cero y genera un MovimientoInventario
 AJUSTE_SALIDA compensatorio con clave única, sin borrar el ledger ni la información
