@@ -138,6 +138,10 @@ async function readContext(db: PrismaClient | Transaction, opts: FixtureArgs) {
   });
   if (!product) throw new Error('Producto #' + opts.productoId + ' no existe. Crea un producto primero.');
   const original = await db.stock.findUnique({ where: { productoId: opts.productoId } });
+  if (original && (!Number.isSafeInteger(original.cantidad) || original.cantidad < 0 ||
+      !Number.isFinite(original.costoTotal) || original.costoTotal < 0)) {
+    throw new Error('Stock legacy tiene saldo/costo irregular. Concilia antes de ingresar nuevas unidades.');
+  }
   const [newStock, newMoves] = await Promise.all([
     db.stockBodega.count({ where: { productoId: opts.productoId } }),
     db.movimientoInventario.count({ where: { productoId: opts.productoId } }),
