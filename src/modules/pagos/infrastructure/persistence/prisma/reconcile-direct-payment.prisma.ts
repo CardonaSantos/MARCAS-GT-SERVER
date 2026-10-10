@@ -3,10 +3,10 @@ import { PaymentConcurrentModificationError } from '../../../domain/errors/payme
 import { PaymentMoney } from '../../../domain/value-objects/payment-money.vo';
 
 /**
- * Conciliación de un pago de pedido NO financiado con una CxC real existente.
+ * Conciliación de pagos directos y de anticipos MIXTO con su CxC real.
  *
  * Se ejecuta dentro de la misma transacción SERIALIZABLE que VERIFICAR.
- * Nunca crea cuentas por cobrar, no toca las cuotas de crédito y no atribuye
+ * Nunca crea cuentas por cobrar, no toca las cuotas financiadas y no atribuye
  * nuevos ingresos: la aplicación solo distribuye un pago ya verificado.
  */
 export async function reconcileVerifiedDirectPayment(
@@ -22,7 +22,7 @@ export async function reconcileVerifiedDirectPayment(
     !payment ||
     payment.estado !== 'VERIFICADO' ||
     !payment.pedidoId ||
-    !['PREPAGO', 'CONTRAENTREGA'].includes(payment.pedido?.condicionPago ?? '')
+    !['PREPAGO', 'CONTRAENTREGA', 'MIXTO'].includes(payment.pedido?.condicionPago ?? '')
   ) {
     return 0;
   }
@@ -34,6 +34,9 @@ export async function reconcileVerifiedDirectPayment(
       pedidoId: payment.pedidoId,
       creditoId: null,
       moneda: payment.moneda,
+      ...(payment.pedido?.condicionPago === 'MIXTO'
+        ? { claveIdempotencia: 'credit-advance:order:' + payment.pedidoId }
+        : {}),
       estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDA'] },
       saldoPendiente: { gt: 0 },
     },
@@ -111,7 +114,9 @@ export async function reconcileVerifiedDirectPayment(
         referenciaId: receivable.id,
         claveIdempotencia: key + ':EVENT',
         metadata: {
-          origen: 'CONCILIACION_AUTOMATICA_PEDIDO',
+          origen: payment.pedido?.condicionPago === 'MIXTO'
+            ? 'ANTICIPO_CREDITO_MIXTO'
+            : 'CONCILIACION_AUTOMATICA_PEDIDO',
           aplicacionId: application.id,
           monto: amount.toString(),
         },

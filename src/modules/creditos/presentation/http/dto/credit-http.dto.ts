@@ -54,6 +54,7 @@ export class CreateCreditApplicationDto {
 export class RequestCreditFromOrderDto {
   @Type(() => Number) @IsInt() @Min(1) @Max(3650) plazoDias: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) politicaId?: number | null;
+  @IsOptional() @Transform(money) @Matches(/^\d{1,10}(?:\.\d{1,2})?$/) anticipoPropuesto?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) motivo?: string | null;
 }
 

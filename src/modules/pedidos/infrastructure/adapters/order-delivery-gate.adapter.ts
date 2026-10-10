@@ -30,13 +30,29 @@ export class OrderDeliveryGateAdapter implements OrderDeliveryGatePort {
 
         const order = await tx.pedido.findUnique({
           where: { id: command.pedidoId },
-          select: { id: true, empresaId: true, estado: true, version: true },
+          select: { id: true, empresaId: true, estado: true, condicionPago: true, version: true },
         });
         if (!order) throw new OrderNotFoundError(command.pedidoId);
         if (order.empresaId !== command.empresaId) throw new OrderForbiddenError();
 
         if (previous) {
           return { repeated: true, pedidoId: order.id, estado: order.estado };
+        }
+
+        // El anticipo MIXTO debe estar efectivamente aplicado antes de entregar mercadería.
+        if (order.condicionPago === 'MIXTO' &&
+            command.detalles.some((item) => item.cantidadEntregada > 0)) {
+          const advance = await tx.cuentaPorCobrar.findUnique({
+            where: { claveIdempotencia: 'credit-advance:order:' + order.id },
+            select: { empresaId: true, estado: true, saldoPendiente: true },
+          });
+          if (!advance || advance.empresaId !== order.empresaId ||
+              advance.estado !== 'PAGADA' || !advance.saldoPendiente.isZero()) {
+            throw new OrderValidationError(
+              'No se puede confirmar entrega de pedido MIXTO sin anticipo cobrado, verificado y aplicado.',
+              { pedidoId: order.id },
+            );
+          }
         }
 
         const inputByDetail = new Map(command.detalles.map((x) => [x.pedidoDetalleId, x]));

@@ -131,9 +131,13 @@ export class CreditApplicationCommands {
     if (!order || order.empresaId !== actor.empresaId) {
       throw new CreditOrderInvalidError('El pedido no pertenece a la empresa activa.');
     }
-    if (order.condicionPago !== 'CREDITO') {
-      throw new CreditOrderInvalidError('La solicitud automática solo admite pedidos de crédito puro.');
+    if (!['CREDITO', 'MIXTO'].includes(order.condicionPago)) {
+      throw new CreditOrderInvalidError('La solicitud automática requiere un pedido CREDITO o MIXTO.');
     }
+    const advance = command.anticipoPropuesto ?? '0.00';
+    // No bloquear el pedido en PENDIENTE_VALIDACION si el anticipo es inválido.
+    validateAgainstOrder(order, order.total);
+    validateAdvanceForOrder(order, advance);
     if (actor.rol === 'VENDEDOR' && order.vendedorId !== actor.id) {
       throw new CreditOrderInvalidError('Un vendedor solo puede solicitar crédito de sus pedidos.');
     }
@@ -164,7 +168,6 @@ export class CreditApplicationCommands {
     if (policy && policy.empresaId !== actor.empresaId) {
       throw new CreditPolicyNotFoundError(command.politicaId!);
     }
-    const advance = command.anticipoPropuesto ?? '0.00';
     validateAgainstOrder(order, order.total);
     validateAdvanceForOrder(order, advance);
     validatePolicy(policy, {

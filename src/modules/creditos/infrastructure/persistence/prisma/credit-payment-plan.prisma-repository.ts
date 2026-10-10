@@ -235,10 +235,11 @@ export class CreditPaymentPlanPrismaRepository
             numero: true,
             estado: true,
             montoFinanciado: true,
+            anticipoRequerido: true,
             solicitudOrigen: {
               select: {
                 pedidoId: true,
-                pedido: { select: { moneda: true, estado: true } },
+                pedido: { select: { moneda: true, estado: true, condicionPago: true } },
               },
             },
           },
@@ -263,6 +264,30 @@ export class CreditPaymentPlanPrismaRepository
               estadoPedido: credit.solicitudOrigen.pedido.estado,
             },
           );
+        }
+
+        if (credit.solicitudOrigen.pedido.condicionPago === 'MIXTO') {
+          const expectedAdvance = CreditMoney.from(
+            credit.anticipoRequerido?.toFixed(2) ?? '0.00',
+          );
+          const advanceAccount = await tx.cuentaPorCobrar.findUnique({
+            where: {
+              claveIdempotencia: 'credit-advance:order:' + credit.solicitudOrigen.pedidoId,
+            },
+          });
+          if (expectedAdvance.isZero() ||
+              !advanceAccount ||
+              advanceAccount.empresaId !== credit.empresaId ||
+              advanceAccount.clienteId !== credit.clienteId ||
+              advanceAccount.pedidoId !== credit.solicitudOrigen.pedidoId ||
+              !CreditMoney.from(advanceAccount.montoOriginal.toFixed(2)).equals(expectedAdvance) ||
+              advanceAccount.estado !== 'PAGADA' ||
+              !CreditMoney.from(advanceAccount.saldoPendiente.toFixed(2)).isZero()) {
+            throw new CreditValidationError(
+              'El anticipo del pedido MIXTO debe estar cobrado, verificado y aplicado antes de activar sus cuotas.',
+              { pedidoId: credit.solicitudOrigen.pedidoId, anticipoRequerido: expectedAdvance.toString() },
+            );
+          }
         }
 
         const plan = await tx.creditoPlanPago.findUnique({

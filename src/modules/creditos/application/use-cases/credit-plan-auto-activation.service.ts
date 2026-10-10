@@ -36,10 +36,20 @@ export class CreditPlanAutoActivationService {
         empresaId: true,
         version: true,
         creadoPorId: true,
-        credito: { select: { aprobadoPorId: true } },
+        credito: { select: { aprobadoPorId: true, anticipoRequerido: true } },
       },
     });
     if (!plan) return false;
+    if (plan.credito.anticipoRequerido?.greaterThan(0)) {
+      const advance = await this.prisma.cuentaPorCobrar.findUnique({
+        where: { claveIdempotencia: 'credit-advance:order:' + pedidoId },
+        select: { empresaId: true, estado: true, saldoPendiente: true },
+      });
+      if (!advance || advance.empresaId !== empresaId ||
+          advance.estado !== 'PAGADA' || !advance.saldoPendiente.isZero()) {
+        return false;
+      }
+    }
     const actorId = plan.credito.aprobadoPorId ?? plan.creadoPorId;
     if (!actorId) {
       this.logger.warn('Plan sin aprobador o creador: credito ' + plan.creditoId);
