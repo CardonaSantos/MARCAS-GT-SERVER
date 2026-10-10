@@ -231,26 +231,29 @@ export class DashboardPrismaQueryAdapter implements DashboardQueryPort {
         return states.map(x => ({ estado: x.estado, cantidad: x._count._all }));
       }
       case 'carteraAntiguedad': {
-        const balances = await this.db.cuentaPorCobrar.groupBy({
-          by: ['fechaVencimiento'], where: debt, _sum: { saldoPendiente: true },
-        });
-        const buckets = [
-          { rango: 'VIGENTE', monto: new Prisma.Decimal(0) },
-          { rango: '1-30', monto: new Prisma.Decimal(0) },
-          { rango: '31-60', monto: new Prisma.Decimal(0) },
-          { rango: '61-90', monto: new Prisma.Decimal(0) },
-          { rango: '90+', monto: new Prisma.Decimal(0) },
-        ];
-        for (const row of balances) {
-          const days = Math.floor((s.now.getTime() - row.fechaVencimiento.getTime()) / 86400000);
-          const index = days <= 0 ? 0 : days <= 30 ? 1 : days <= 60 ? 2 : days <= 90 ? 3 : 4;
-          buckets[index].monto = buckets[index].monto.add(row._sum.saldoPendiente ?? 0);
-        }
-        return buckets.map(x => ({ rango: x.rango, monto: money(x.monto) }));
+        // Una fila por tramo; jamás cargar todas las CxC al proceso de Node.
+        const rows = await this.db.$queryRaw<{ rango: string; monto: string }[]>`
+          SELECT CASE
+            WHEN "fechaVencimiento" >= ${s.now} THEN 'VIGENTE'
+            WHEN "fechaVencimiento" >= ${new Date(s.now.getTime() - 30 * 86400000)} THEN '1-30'
+            WHEN "fechaVencimiento" >= ${new Date(s.now.getTime() - 60 * 86400000)} THEN '31-60'
+            WHEN "fechaVencimiento" >= ${new Date(s.now.getTime() - 90 * 86400000)} THEN '61-90'
+            ELSE '90+'
+          END AS rango,
+          COALESCE(sum("saldoPendiente"), 0)::text AS monto
+          FROM "CuentaPorCobrar"
+          WHERE "empresaId" = ${id}
+            AND "estado" IN ('PENDIENTE','PARCIAL','VENCIDA')
+            AND "saldoPendiente" > 0
+          GROUP BY 1
+        `;
+        const byRange = new Map(rows.map(row => [row.rango, money(row.monto)]));
+        return ['VIGENTE','1-30','31-60','61-90','90+']
+          .map(rango => ({ rango, monto: byRange.get(rango) ?? '0.00' }));
       }
       case 'cobrosDiarios': {
         const rows = await this.db.$queryRaw<{ dia: string; monto: string; cantidad: bigint }[]>`
-          SELECT to_char("verificadoEn" AT TIME ZONE 'America/Guatemala','YYYY-MM-DD') AS dia,
+          SELECT to_char(("verificadoEn" AT TIME ZONE 'UTC') AT TIME ZONE 'America/Guatemala','YYYY-MM-DD') AS dia,
                  COALESCE(sum("monto"),0)::text AS monto,
                  count(*) AS cantidad
           FROM "Pago"
@@ -262,7 +265,7 @@ export class DashboardPrismaQueryAdapter implements DashboardQueryPort {
       }
       case 'pedidosDiarios': {
         const rows = await this.db.$queryRaw<{ dia: string; monto: string; cantidad: bigint }[]>`
-          SELECT to_char("creadoEn" AT TIME ZONE 'America/Guatemala','YYYY-MM-DD') AS dia,
+          SELECT to_char(("creadoEn" AT TIME ZONE 'UTC') AT TIME ZONE 'America/Guatemala','YYYY-MM-DD') AS dia,
                  COALESCE(sum("total"),0)::text AS monto, count(*) AS cantidad
           FROM "Pedido"
           WHERE "empresaId" = ${id} AND "estado" <> 'CANCELADO'
