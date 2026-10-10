@@ -13,7 +13,6 @@ import { RequestOrderValidationUseCase } from '../pedidos/application/use-cases/
 import { CreditAuthorizationPort } from './application/ports/credit-authorization.port';
 import { CreditDirectoryPort } from './application/ports/credit-directory.port';
 import { CreditQueryPort } from './application/ports/credit-query.port';
-import { CreditPlanAutoActivationService } from './application/use-cases/credit-plan-auto-activation.service';
 import { ApproveCreditWithScheduleUseCase } from './application/use-cases/approve-credit-with-schedule.use-case';
 import { CreditApplicationCommands } from './application/use-cases/credit-application.commands';
 import {
@@ -68,7 +67,6 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
     ActiveUserRolesGuard,
     CreditPrismaRepository,
     CreditPolicyPrismaRepository,
-    CreditPlanAutoActivationService,
     CreditPaymentPlanPrismaRepository,
     CreditPrismaQueryAdapter,
     CreditActorDirectoryPrismaAdapter,
@@ -231,6 +229,6 @@ import { CreditPortfolioController } from './presentation/http/credit-portfolio.
       inject: [CREDIT_QUERY, CREDIT_ACTOR_DIRECTORY],
     },
   ],
-  exports: [CREDIT_DIRECTORY, CREDIT_AUTHORIZATION, CreditPlanAutoActivationService],
+  exports: [CREDIT_DIRECTORY, CREDIT_AUTHORIZATION],
 })
 export class CreditosModule {}

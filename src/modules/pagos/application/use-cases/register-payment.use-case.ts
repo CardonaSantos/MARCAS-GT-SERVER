@@ -26,6 +26,7 @@ export class RegisterPaymentUseCase {
     clienteId: number;
     pedidoId?: number;
     bancoId?: number;
+    concepto?: 'ANTICIPO' | 'CUOTA';
     metodo: PaymentMethod;
     moneda?: string;
     monto: string;
@@ -152,6 +153,7 @@ export class RegisterPaymentUseCase {
       clienteId: payment.clienteId,
       pedidoId: payment.pedidoId,
       bancoId: payment.bancoId,
+      concepto: command.concepto,
       registradoPorId: actor.id,
       metodo: payment.metodo,
       moneda: payment.moneda,

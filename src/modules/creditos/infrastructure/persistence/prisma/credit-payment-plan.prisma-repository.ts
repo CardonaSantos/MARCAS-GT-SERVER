@@ -256,16 +256,6 @@ export class CreditPaymentPlanPrismaRepository
             'El crédito no tiene empresa, cliente o pedido de origen válidos.',
           );
         }
-        if (credit.solicitudOrigen.pedido.estado !== 'ENTREGADO') {
-          throw new CreditValidationError(
-            'El plan de pagos solo puede activarse cuando el pedido de origen está ENTREGADO.',
-            {
-              pedidoId: credit.solicitudOrigen.pedidoId,
-              estadoPedido: credit.solicitudOrigen.pedido.estado,
-            },
-          );
-        }
-
         if (credit.solicitudOrigen.pedido.condicionPago === 'MIXTO') {
           const expectedAdvance = CreditMoney.from(
             credit.anticipoRequerido?.toFixed(2) ?? '0.00',
@@ -290,6 +280,7 @@ export class CreditPaymentPlanPrismaRepository
           }
         }
 
+        // Activación financiera manual; no condicionada al despacho ni a la entrega.
         const plan = await tx.creditoPlanPago.findUnique({
           where: { creditoId: credit.id },
           include: { cuotas: { orderBy: { numero: 'asc' } } },

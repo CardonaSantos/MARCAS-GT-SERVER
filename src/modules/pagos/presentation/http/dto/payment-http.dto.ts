@@ -46,6 +46,10 @@ export class RegisterPaymentDto {
   @Min(1)
   bancoId?: number;
 
+  @IsOptional()
+  @IsIn(['ANTICIPO', 'CUOTA'])
+  concepto?: 'ANTICIPO' | 'CUOTA';
+
   @IsIn([
     'EFECTIVO',
     'TARJETA',

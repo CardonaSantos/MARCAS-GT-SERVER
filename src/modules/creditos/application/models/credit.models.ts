@@ -420,7 +420,14 @@ export type CreditPortfolioDetailView = Readonly<{
     financiado: string;
     pagadoVerificado: string;
     pagadoAplicado: string;
+    anticipoAplicado: string;
     saldoPendiente: string | null;
+  };
+  anticipo: null | {
+    estado: string;
+    montoOriginal: string;
+    saldoPendiente: string;
+    pagoPendienteId: number | null;
   };
   plazoAutorizadoDias: number;
   aprobadoEn: Date | null;

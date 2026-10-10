@@ -70,6 +70,78 @@ export class PaymentWorkflowPrismaAdapter implements PaymentWorkflowPort {
         return mapPayment(previous);
       }
 
+      if (input.pedidoId) {
+        // Bloqueo transaccional: dos solicitudes simultáneas nunca crean
+        // anticipos duplicados para el mismo pedido.
+        await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Pedido"
+          WHERE "id" = ${input.pedidoId} AND "empresaId" = ${input.empresaId}
+          FOR UPDATE`);
+        const order = await tx.pedido.findUnique({
+          where: { id: input.pedidoId },
+          select: { condicionPago: true },
+        });
+        if (input.concepto === 'ANTICIPO' && order?.condicionPago !== 'MIXTO') {
+          throw new PaymentValidationError('El concepto ANTICIPO solo aplica a pedidos MIXTO.');
+        }
+        if (order?.condicionPago === 'MIXTO') {
+          const plan = await tx.creditoPlanPago.findFirst({
+            where: {
+              empresaId: input.empresaId,
+              credito: { solicitudOrigen: { pedidoId: input.pedidoId } },
+            },
+            select: { estado: true },
+          });
+          if (plan?.estado !== 'ACTIVO') {
+            if (input.concepto === 'CUOTA') {
+              throw new PaymentValidationError(
+                'Primero activa el plan de pagos antes de registrar cobros de cuotas.',
+              );
+            }
+            const advance = await tx.cuentaPorCobrar.findUnique({
+              where: { claveIdempotencia: 'credit-advance:order:' + input.pedidoId },
+              select: {
+                estado: true, empresaId: true, clienteId: true, moneda: true,
+                montoOriginal: true, saldoPendiente: true,
+              },
+            });
+            if (!advance || advance.empresaId !== input.empresaId ||
+                advance.clienteId !== input.clienteId || advance.moneda !== input.moneda) {
+              throw new PaymentValidationError(
+                'El pedido MIXTO requiere aprobar el crédito antes de registrar el anticipo.',
+              );
+            }
+            if (advance.estado === 'PAGADA' || advance.saldoPendiente.isZero()) {
+              throw new PaymentValidationError(
+                'Este pedido ya tiene su anticipo vinculado y pagado. No registres otro.',
+              );
+            }
+            const linkedPayment = await tx.pago.findFirst({
+              where: {
+                pedidoId: input.pedidoId, empresaId: input.empresaId,
+                estado: { in: ['PENDIENTE', 'VERIFICADO'] },
+              },
+              select: { id: true },
+            });
+            if (linkedPayment) {
+              throw new PaymentValidationError(
+                'Ya existe un pago de anticipo vinculado a este pedido. Verifícalo o recházalo antes de volver a registrar.',
+                { pagoId: linkedPayment.id },
+              );
+            }
+            if (!new Prisma.Decimal(input.monto).equals(advance.montoOriginal)) {
+              throw new PaymentValidationError(
+                'El anticipo debe coincidir con el monto autorizado del crédito.',
+                { anticipoAutorizado: advance.montoOriginal.toFixed(2) },
+              );
+            }
+          } else if (input.concepto === 'ANTICIPO') {
+            throw new PaymentValidationError(
+              'El anticipo ya fue cerrado; registra los siguientes cobros como cuotas del crédito.',
+            );
+          }
+        }
+      }
+
       const row = await tx.pago.create({
         data: {
           empresaId: input.empresaId,

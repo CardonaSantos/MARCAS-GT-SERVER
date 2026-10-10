@@ -942,6 +942,16 @@ export class CreditPrismaQueryAdapter implements CreditQueryPort {
       },
     });
 
+    const advanceAccount = row.anticipoRequerido.gt(0)
+      ? await this.prisma.cuentaPorCobrar.findUnique({
+          where: { claveIdempotencia: 'credit-advance:order:' + order.id },
+          select: { estado: true, montoOriginal: true, saldoPendiente: true },
+        })
+      : null;
+    const pendingAdvance = row.planPago?.estado === 'BORRADOR'
+      ? payments.find((payment) => payment.estado === 'PENDIENTE')
+      : null;
+
     const verified = payments
       .filter((payment) => payment.estado === 'VERIFICADO')
       .reduce(
@@ -1013,8 +1023,19 @@ export class CreditPrismaQueryAdapter implements CreditQueryPort {
         financiado: money(row.montoFinanciado),
         pagadoVerificado: money(verified),
         pagadoAplicado: money(applied),
+        anticipoAplicado: advanceAccount
+          ? money(advanceAccount.montoOriginal.minus(advanceAccount.saldoPendiente))
+          : '0.00',
         saldoPendiente: pending ? money(pending) : null,
       },
+      anticipo: advanceAccount
+        ? {
+            estado: String(advanceAccount.estado),
+            montoOriginal: money(advanceAccount.montoOriginal),
+            saldoPendiente: money(advanceAccount.saldoPendiente),
+            pagoPendienteId: pendingAdvance?.id ?? null,
+          }
+        : null,
       plazoAutorizadoDias: row.plazoAutorizadoDias,
       aprobadoEn: row.aprobadoEn,
       cerradoEn: row.cerradoEn,

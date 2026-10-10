@@ -64,6 +64,7 @@ export interface PaymentWorkflowPort {
     clienteId: number;
     pedidoId: number | null;
     bancoId: number | null;
+    concepto?: 'ANTICIPO' | 'CUOTA';
     registradoPorId: number;
     metodo: PaymentMethod;
     moneda: string;

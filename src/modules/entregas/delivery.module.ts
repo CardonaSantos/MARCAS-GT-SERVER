@@ -1,7 +1,5 @@
 import { Module } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
-import { CreditosModule } from '../creditos';
-import { CreditPlanAutoActivationService } from '../creditos/application/use-cases/credit-plan-auto-activation.service';
 import { ArchivosModule, UploadFileUseCase, FILE_STORAGE_PORT, FileStoragePort } from '../archivos';
 import { ActiveUserRolesGuard } from 'src/shared/security/active-user-roles.guard';
 import {
@@ -65,7 +63,7 @@ import {
 } from './delivery.tokens';
 
 @Module({
-  imports: [PedidosModule, DespachosModule, TransporteModule, TrackingModule, ArchivosModule, CreditosModule],
+  imports: [PedidosModule, DespachosModule, TransporteModule, TrackingModule, ArchivosModule],
   controllers: [DeliveryController],
   providers: [
     PrismaService,
@@ -147,9 +145,8 @@ import {
         dispatches: DispatchDirectoryPort,
         orders: OrderDeliveryGatePort,
         transportGate: TransportDeliveryGatePort,
-        autoActivate: CreditPlanAutoActivationService,
-      ) => new FinalizeDeliveryUseCase(repository, actors, transport, dispatches, orders, transportGate, autoActivate),
-      inject: [DELIVERY_REPOSITORY, DELIVERY_ACTOR_DIRECTORY, TRANSPORT_DIRECTORY, DISPATCH_DIRECTORY, ORDER_DELIVERY_GATE, TRANSPORT_DELIVERY_GATE, CreditPlanAutoActivationService],
+      ) => new FinalizeDeliveryUseCase(repository, actors, transport, dispatches, orders, transportGate),
+      inject: [DELIVERY_REPOSITORY, DELIVERY_ACTOR_DIRECTORY, TRANSPORT_DIRECTORY, DISPATCH_DIRECTORY, ORDER_DELIVERY_GATE, TRANSPORT_DELIVERY_GATE],
     },
     {
       provide: AddDeliveryObservationUseCase,
