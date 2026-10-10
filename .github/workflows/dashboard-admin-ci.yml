@@ -1,0 +1,25 @@
+name: Dashboard ADMIN CI
+on:
+  pull_request:
+    branches: [update-requerimientos]
+  push:
+    branches: [update-requerimientos]
+permissions:
+  contents: read
+jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://validation:validation@localhost:5432/validation?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build
+      - run: npm test -- --runInBand admin-dashboard.use-cases.spec
+      - run: npm test -- --runInBand dashboard.prisma-query.adapter.spec
