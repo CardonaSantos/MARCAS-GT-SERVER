@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   InternalServerErrorException,
@@ -155,32 +156,80 @@ export class ProductService {
     }
   }
 
-  async findAllProductToInventary() {
-    try {
-      console.log('buscando todos los productos del inventario...');
+  /**
+   * Selector comercial compatible con el catálogo heredado.
+   * La disponibilidad proviene exclusivamente de StockBodega y solo de las
+   * bodegas activas de la empresa del usuario autenticado.
+   */
+  async findAllProductToInventary(actorId: number) {
+    const actor = await this.prisma.usuario.findUnique({
+      where: { id: actorId },
+      select: { empresaId: true },
+    });
+    if (!actor?.empresaId) {
+      throw new ForbiddenException('El usuario no tiene empresa asignada.');
+    }
 
-      const products = await this.prisma.producto.findMany({
-        include: {
-          stock: true,
-          ventas: true,
-          entregas: true,
-          imagenes: true,
-          categorias: {
-            select: {
-              categoria: true,
+    const products = await this.prisma.producto.findMany({
+      include: {
+        // Se conservan los campos anteriores para consumidores existentes.
+        stock: true,
+        ventas: true,
+        entregas: true,
+        imagenes: true,
+        categorias: { select: { categoria: true } },
+        stocksBodega: {
+          where: {
+            bodega: {
+              empresaId: actor.empresaId,
+              activo: true,
+            },
+          },
+          orderBy: [
+            { bodega: { esPrincipal: 'desc' } },
+            { bodega: { nombre: 'asc' } },
+          ],
+          select: {
+            cantidadReal: true,
+            cantidadReservada: true,
+            cantidadDisponible: true,
+            bodega: {
+              select: {
+                id: true,
+                codigo: true,
+                nombre: true,
+                esPrincipal: true,
+              },
             },
           },
         },
-        orderBy: {
-          actualizadoEn: 'desc',
-        },
-      });
+      },
+      orderBy: { actualizadoEn: 'desc' },
+    });
 
-      return products;
-    } catch (error) {
-      console.log(error);
-      throw new InternalServerErrorException('Error al crear producto');
-    }
+    return products.map(({ stocksBodega, ...product }) => ({
+      ...product,
+      inventario: {
+        fuente: 'STOCK_BODEGA' as const,
+        totales: stocksBodega.reduce(
+          (total, row) => ({
+            real: total.real + row.cantidadReal,
+            reservado: total.reservado + row.cantidadReservada,
+            disponible: total.disponible + row.cantidadDisponible,
+          }),
+          { real: 0, reservado: 0, disponible: 0 },
+        ),
+        bodegas: stocksBodega.map((row) => ({
+          id: row.bodega.id,
+          codigo: row.bodega.codigo,
+          nombre: row.bodega.nombre,
+          esPrincipal: row.bodega.esPrincipal,
+          real: row.cantidadReal,
+          reservado: row.cantidadReservada,
+          disponible: row.cantidadDisponible,
+        })),
+      },
+    }));
   }
 
   async findOneProduct(id: number) {
