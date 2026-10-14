@@ -18,6 +18,9 @@ import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { AuthGuard } from '@nestjs/passport';
+import { ActiveUserRolesGuard } from 'src/shared/security/active-user-roles.guard';
+import { CurrentActorId } from 'src/shared/security/current-actor.decorator';
+import { Roles } from 'src/shared/security/roles.decorator';
 import { ProductCatalogAccessGuard } from './catalog/catalog-access.guard';
 import { ProductCatalogListQueryDto } from './catalog/catalog-query.dto';
 import { ProductCatalogQueryService } from './catalog/product-catalog-query.service';
@@ -89,8 +92,10 @@ export class ProductController {
   }
 
   @Get('/get-product-to-inventary')
-  async findAllProductToInventary() {
-    return await this.productService.findAllProductToInventary();
+  @UseGuards(AuthGuard('jwt'), ActiveUserRolesGuard)
+  @Roles('ADMIN', 'VENDEDOR', 'BODEGA', 'CONTABILIDAD')
+  async findAllProductToInventary(@CurrentActorId() actorId: number) {
+    return this.productService.findAllProductToInventary(actorId);
   }
 
   @Get('/carga-masiva')
